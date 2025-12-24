@@ -104,6 +104,15 @@ proc mouseInsideClip*(sk: Silky, window: Window, r: Rect): bool =
   window.mousePos.vec2.overlaps(r) and
   window.mousePos.vec2.overlaps(sk.clipRect)
 
+template children*(body) =
+  ## Wrap children in a function call.
+  proc wrapper() {.gensym.} =
+
+    body
+
+    return
+  wrapper()
+
 proc subWindowStart*(
     sk: Silky,
     window: Window,
@@ -382,16 +391,7 @@ template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   finally:
     sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
 
-template button*(label: string, body: untyped) =
-  ## Create a button.
-  button(label, true, false, body)
-
-template button*(label: string, enabled: bool, body: untyped) =
-  ## Create a button.
-  button(label, enabled, false, body)
-
 template button*(label: string, enabled: bool, error: bool, body: untyped) =
-  ## Create a button.
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
@@ -422,6 +422,14 @@ template button*(label: string, enabled: bool, error: bool, body: untyped) =
 
   discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
   sk.advance(buttonSize + vec2(sk.theme.padding))
+
+template button*(label: string, body: untyped) =
+  ## Create a button.
+  button(label, true, false, body)
+
+template button*(label: string, enabled: bool, body: untyped) =
+  ## Create a button.
+  button(label, enabled, false, body)
 
 template icon*(image: string) =
   ## Draw an icon.
