@@ -382,21 +382,45 @@ template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   finally:
     sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
 
-template button*(label: string, body) =
+template button*(label: string, body: untyped) =
+  ## Create a button.
+  button(label, true, false, body)
+
+template button*(label: string, enabled: bool, body: untyped) =
+  ## Create a button.
+  button(label, enabled, false, body)
+
+template button*(label: string, enabled: bool, error: bool, body: untyped) =
   ## Create a button.
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
-  if sk.mouseInsideClip(window, rect(sk.at, buttonSize)):
-    if window.buttonReleased[MouseLeft]:
-      body
-    elif window.buttonDown[MouseLeft]:
-      sk.draw9Patch("button.down.9patch", 8, sk.at, buttonSize, sk.theme.buttonDownColor)
+  let hover = sk.mouseInsideClip(window, rect(sk.at, buttonSize))
+
+  let patch = if not enabled: "button.disabled.9patch"
+              elif error: "button.error.9patch"
+              else: "button.9patch"
+
+  let textColor = if not enabled: sk.theme.disabledTextColor
+                  elif error: sk.theme.errorTextColor
+                  else: sk.theme.defaultTextColor
+
+  if enabled:
+    if hover:
+      let hoverPatch = if error: "button.error.9patch" else: "button.hover.9patch"
+      if window.buttonReleased[MouseLeft]:
+        body
+      elif window.buttonDown[MouseLeft]:
+        let downPatch = if error: "button.error.9patch" else: "button.down.9patch"
+        sk.draw9Patch(downPatch, 8, sk.at, buttonSize)
+      else:
+        sk.draw9Patch(hoverPatch, 8, sk.at, buttonSize)
     else:
-      sk.draw9Patch("button.hover.9patch", 8, sk.at, buttonSize, sk.theme.buttonHoverColor)
+      sk.draw9Patch(patch, 8, sk.at, buttonSize)
   else:
-    sk.draw9Patch("button.9patch", 8, sk.at, buttonSize)
-  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), sk.theme.textColor)
+    sk.draw9Patch(patch, 8, sk.at, buttonSize)
+
+  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template icon*(image: string) =
@@ -724,7 +748,7 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
   sk.drawImage("scrubber.handle", handlePos2)
   sk.advance(vec2(width, height))
 
-template inputText*(id: int, t: var string) =
+template inputText*(id: int, t: var string, enabled: bool = true, error: bool = false) =
   ## Create an input text.
   let font = sk.atlas.fonts[sk.textStyle]
   let height = font.lineHeight + sk.theme.padding.float32 * 2
@@ -738,16 +762,20 @@ template inputText*(id: int, t: var string) =
   let textInputState = textInputStates[id]
 
   # Handle focus
-  if window.buttonPressed[MouseLeft]:
+  if enabled and window.buttonPressed[MouseLeft]:
     if sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
       textInputState.focused = true
       # TODO: Set cursor position based on click
     else:
       textInputState.focused = false
 
+  let patch = if not enabled: "input.disabled.9patch"
+              elif error: "input.error.9patch"
+              else: "input.9patch"
+
   # Handle input if focused
-  if textInputState.focused:
-    sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size, sk.theme.frameFocusColor)
+  if enabled and textInputState.focused:
+    sk.draw9Patch(patch, 6, sk.pos, sk.size, sk.theme.frameFocusColor)
 
     # Process runes
     for r in sk.inputRunes:
@@ -758,12 +786,16 @@ template inputText*(id: int, t: var string) =
     # Sync back
     t = textInputState.getText()
   else:
-    sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size)
+    textInputState.focused = false
+    sk.draw9Patch(patch, 6, sk.pos, sk.size)
 
   # Draw text
   # We should probably clip or scroll text
   let padding = vec2(sk.theme.padding)
-  discard sk.drawText(sk.textStyle, t, sk.at + padding, sk.theme.defaultTextColor)
+  let textColor = if not enabled: sk.theme.disabledTextColor
+                  elif error: sk.theme.errorTextColor
+                  else: sk.theme.defaultTextColor
+  discard sk.drawText(sk.textStyle, t, sk.at + padding, textColor)
 
   # Draw cursor
   if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
@@ -777,7 +809,7 @@ template inputText*(id: int, t: var string) =
     let cursorX = sk.at.x + padding.x + textSize.x
     let cursorY = sk.at.y + padding.y
 
-    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), sk.theme.defaultTextColor)
+    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), textColor)
 
   sk.popLayout()
   sk.advance(vec2(width, height))
