@@ -627,7 +627,7 @@ template listBox*[T](id: string, items: seq[T], selectedIndex: var int) =
       let rowHover = mouseInsideClip(rowRect)
 
       if rowHover or isSelected:
-        let tint = if rowHover: rgbx(80, 80, 100, 180) else: rgbx(60, 60, 80, 120)
+        let tint = if rowHover: theme.rowHoverColor else: theme.rowSelectedColor
         sk.drawRect(rowRect.xy, rowRect.wh, tint)
         if rowHover and window.buttonReleased[MouseLeft]:
           selectedIndex = i
