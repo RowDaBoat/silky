@@ -104,13 +104,13 @@ proc popLayer*(sk: Silky) =
   ## Pop the current layer from the stack.
   sk.currentLayer = sk.layerStack.pop()
 
-proc pushFrame*(
+proc pushLayout*(
   sk: Silky,
   pos: Vec2,
   size: Vec2,
   direction: StackDirection = TopToBottom
 ) =
-  ## Push a new frame onto the stack.
+  ## Push a new layout container onto the stack.
   sk.atStack.add(sk.at)
   sk.posStack.add(pos)
   sk.at = pos
@@ -127,23 +127,23 @@ proc pushFrame*(
     of RightToLeft:
       sk.at = pos + vec2(size.x, 0)
 
-proc popFrame*(sk: Silky) =
-  ## Pop the current frame from the stack.
+proc popLayout*(sk: Silky) =
+  ## Pop the current layout container from the stack.
   sk.at = sk.atStack.pop()
   discard sk.posStack.pop()
   discard sk.sizeStack.pop()
   discard sk.directionStack.pop()
 
 proc pos*(sk: Silky): Vec2 =
-  ## Get the current frame position.
+  ## Get the current layout position.
   sk.posStack[^1]
 
 proc size*(sk: Silky): Vec2 =
-  ## Get the current frame size.
+  ## Get the current layout size.
   sk.sizeStack[^1]
 
 proc rootSize*(sk: Silky): Vec2 =
-  ## Get the root frame size.
+  ## Get the root layout size.
   sk.sizeStack[0]
 
 proc stackDirection*(sk: Silky): StackDirection =
@@ -264,7 +264,7 @@ proc beginUi*(sk: Silky, window: Window, size: IVec2) =
   # Reset showTooltip at the start of each frame.
   sk.showTooltip = false
 
-  sk.pushFrame(vec2(0, 0), size.vec2)
+  sk.pushLayout(vec2(0, 0), size.vec2)
   sk.inFrame = true
   let currentTime = epochTime()
   let deltaTime = currentTime - sk.frameStartTime
@@ -609,7 +609,7 @@ proc endUi*(
   let instanceCount = sk.layers[NormalLayer].len
   if instanceCount == 0:
     sk.clear()
-    sk.popFrame()
+    sk.popLayout()
     sk.popClipRect()
     return
 
@@ -646,7 +646,7 @@ proc endUi*(
   # Reset the data for the next frame.
   sk.clear()
 
-  sk.popFrame()
+  sk.popLayout()
 
   # Disable blending.
   glDisable(GL_BLEND)

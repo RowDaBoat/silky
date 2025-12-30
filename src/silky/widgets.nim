@@ -121,11 +121,11 @@ template subWindowInternal(
         vec2(subWindowState.size.x, float32(sk.theme.headerHeight + sk.theme.border * 2))
       else:
         subWindowState.size
-    sk.pushFrame(subWindowState.pos, size)
+    sk.pushLayout(subWindowState.pos, size)
     sk.draw9Patch("window.9patch", 14, sk.pos, sk.size)
 
     # Draw the header.
-    sk.pushFrame(
+    sk.pushLayout(
       subWindowState.pos + vec2(sk.theme.border),
       vec2(subWindowState.size.x - sk.theme.border.float32 * 2, sk.theme.headerHeight)
     )
@@ -179,7 +179,7 @@ template subWindowInternal(
       if window.buttonReleased[MouseLeft]:
         show = false
     sk.drawImage("close", closeRect.xy)
-    sk.popFrame()
+    sk.popLayout()
 
     if not subWindowState.minimized:
 
@@ -210,7 +210,7 @@ template subWindowInternal(
             subWindowState.resizeOffset = window.mousePos.vec2 - subWindowState.size
       sk.drawImage("resize", resizeHandleRect.xy)
 
-    sk.popFrame()
+    sk.popLayout()
 
 template subWindow*(title: string, show: bool, body: untyped) =
   ## Create a window frame using default placement and sizing.
@@ -226,7 +226,7 @@ proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state:
     frameStates[id] = FrameState()
   let frameState = frameStates[id]
 
-  sk.pushFrame(framePos, frameSize)
+  sk.pushLayout(framePos, frameSize)
   sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size)
   sk.pushClipRect(rect(
     sk.pos.x + 1,
@@ -343,7 +343,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
 
     sk.draw9Patch("scrollbar.9patch", 4, scrollbarHandleRect.xy, scrollbarHandleRect.wh)
 
-  sk.popFrame()
+  sk.popLayout()
   sk.popClipRect()
 
 template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
@@ -496,7 +496,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
     state.open = not state.open
 
   # Draw control body.
-  sk.pushFrame(sk.at, vec2(width, height))
+  sk.pushLayout(sk.at, vec2(width, height))
   let bgColor = if state.open or hover: rgbx(220, 220, 240, 255) else: rgbx(255, 255, 255, 255)
   sk.draw9Patch("dropdown.9patch", 6, sk.pos, sk.size, bgColor)
   discard sk.drawText(sk.textStyle, displayText, sk.at + vec2(sk.theme.padding), sk.theme.defaultTextColor)
@@ -505,7 +505,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
     sk.pos.y + (height - arrowSize.y.float32) * 0.5
   )
   sk.drawImage("droparrow", arrowPos)
-  sk.popFrame()
+  sk.popLayout()
   sk.advance(vec2(width, height))
 
   if state.open and options.len > 0:
@@ -518,7 +518,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
       popupSize = vec2(width, rowHeight * options.len.float32)
       popupRect = rect(popupPos, popupSize)
 
-    sk.pushFrame(popupPos, popupSize)
+    sk.pushLayout(popupPos, popupSize)
     sk.draw9Patch("dropdown.9patch", 6, sk.pos, sk.size, rgbx(245, 245, 255, 255))
 
     for i, opt in options:
@@ -537,7 +537,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
           state.open = false
       discard sk.drawText(sk.textStyle, $opt, textPos, sk.theme.defaultTextColor)
 
-    sk.popFrame()
+    sk.popLayout()
 
     # Close when clicking outside.
     if window.buttonPressed[MouseLeft] and
@@ -571,12 +571,12 @@ template progressBar*(value: SomeNumber, minVal: SomeNumber, maxVal: SomeNumber)
 
 proc groupStart*(sk: Silky, p: Vec2, direction = TopToBottom) =
   ## Start a group.
-  sk.pushFrame(sk.at + p, sk.size - p, direction)
+  sk.pushLayout(sk.at + p, sk.size - p, direction)
 
 proc groupEnd*(sk: Silky) =
   ## End a group.
   let endAt = sk.stretchAt
-  sk.popFrame()
+  sk.popLayout()
   sk.advance(endAt - sk.at)
 
 template group*(p: Vec2, direction = TopToBottom, body) =
@@ -589,12 +589,12 @@ template group*(p: Vec2, direction = TopToBottom, body) =
 
 proc frameStart*(sk: Silky, p, s: Vec2) =
   ## Begin a simple frame.
-  sk.pushFrame(p, s)
+  sk.pushLayout(p, s)
   sk.draw9Patch("window.9patch", 14, sk.pos, sk.size)
 
 proc frameEnd*(sk: Silky) =
   ## Finish a simple frame.
-  sk.popFrame()
+  sk.popLayout()
 
 template frame*(p, s: Vec2, body: untyped) =
   ## Create a frame.
@@ -606,13 +606,13 @@ template frame*(p, s: Vec2, body: untyped) =
 
 proc ribbonStart*(sk: Silky, p, s: Vec2, tint: ColorRGBX) =
   ## Begin a ribbon.
-  sk.pushFrame(p, s)
+  sk.pushLayout(p, s)
   sk.drawRect(sk.pos, sk.size, tint)
   sk.at = sk.pos
 
 proc ribbonEnd*(sk: Silky) =
   ## Finish a ribbon.
-  sk.popFrame()
+  sk.popLayout()
 
 template ribbon*(p, s: Vec2, tint: ColorRGBX, body: untyped) =
   ## Create a ribbon.
@@ -697,7 +697,7 @@ template inputText*(id: int, t: var string) =
   let font = sk.atlas.fonts[sk.textStyle]
   let height = font.lineHeight + sk.theme.padding.float32 * 2
   let width = sk.size.x - sk.theme.padding.float32 * 3
-  sk.pushFrame(sk.at, vec2(width, height))
+  sk.pushLayout(sk.at, vec2(width, height))
 
   if id notin textInputStates:
     textInputStates[id] = InputTextState(focused: false)
@@ -747,7 +747,7 @@ template inputText*(id: int, t: var string) =
 
     sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), sk.theme.defaultTextColor)
 
-  sk.popFrame()
+  sk.popLayout()
   sk.advance(vec2(width, height))
 
 template menuPopup(path: seq[string], popupAt: Vec2, popupWidth = 200, body: untyped) =
@@ -777,12 +777,12 @@ template menuBar*(body: untyped) =
 
   let elevate = menuState.openPath.len > 0
   let barHeight = sk.theme.headerHeight.float32
-  sk.pushFrame(vec2(0, 0), vec2(sk.size.x, barHeight))
+  sk.pushLayout(vec2(0, 0), vec2(sk.size.x, barHeight))
   # Use a 9-patch so the bar has a visible background.
   sk.draw9Patch("header.9patch", 6, sk.pos, sk.size, rgbx(30, 30, 40, 255))
   sk.at = sk.pos + vec2(sk.theme.menuPadding)
   children(body)
-  sk.popFrame()
+  sk.popLayout()
 
   # Close menus if the user clicks outside of any active menu rect.
   if menuState.openPath.len > 0 and window.buttonPressed[MouseLeft]:
@@ -914,10 +914,10 @@ template tooltip*(text: string) =
   tooltipPos.x = max(tooltipPos.x, sk.theme.padding.float32)
   tooltipPos.y = max(tooltipPos.y, sk.theme.padding.float32)
 
-  sk.pushFrame(tooltipPos, tooltipSize)
+  sk.pushLayout(tooltipPos, tooltipSize)
   sk.draw9Patch("tooltip.9patch", 6, sk.pos, sk.size)
   discard sk.drawText(sk.textStyle, tooltipText, sk.pos + vec2(sk.theme.padding), sk.theme.defaultTextColor)
-  sk.popFrame()
+  sk.popLayout()
 
   sk.popClipRect()
   sk.popLayer()
