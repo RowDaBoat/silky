@@ -220,8 +220,8 @@ template subWindow*(title: string, show: bool, initialOrigin: Vec2, initialSize:
   ## Create a window frame with explicit initial position and size.
   subWindowInternal(title, show, some(initialOrigin), some(initialSize), body)
 
-template frame*(id: string, framePos, frameSize: Vec2, body) =
-  ## Frame with scrollbars similar to a window body.
+proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state: FrameState, originPos: Vec2] =
+  ## Begin a scrollable frame; returns state and origin for cleanup.
   if id notin frameStates:
     frameStates[id] = FrameState()
   let frameState = frameStates[id]
@@ -239,9 +239,10 @@ template frame*(id: string, framePos, frameSize: Vec2, body) =
   let originPos = sk.at
   sk.at -= frameState.scrollPos
 
-  children(body)
+  (frameState, originPos)
 
-  # Handle scrollbar drag release
+proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec2) =
+  ## Finish a scrollable frame and handle scrollbars.
   if frameState.scrollingY and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
     frameState.scrollingY = false
   if frameState.scrollingX and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
@@ -344,6 +345,14 @@ template frame*(id: string, framePos, frameSize: Vec2, body) =
 
   sk.popFrame()
   sk.popClipRect()
+
+template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
+  ## Frame with scrollbars similar to a window body.
+  let frameCtx = sk.frameStart(id, framePos, frameSize)
+  try:
+    body
+  finally:
+    sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
 
 template button*(label: string, body) =
   ## Create a button.
@@ -578,20 +587,40 @@ template group*(p: Vec2, direction = TopToBottom, body) =
   finally:
     sk.groupEnd()
 
-template frame*(p, s: Vec2, body) =
-  ## Create a frame.
+proc frameStart*(sk: Silky, p, s: Vec2) =
+  ## Begin a simple frame.
   sk.pushFrame(p, s)
   sk.draw9Patch("window.9patch", 14, sk.pos, sk.size)
-  children(body)
+
+proc frameEnd*(sk: Silky) =
+  ## Finish a simple frame.
   sk.popFrame()
 
-template ribbon*(p, s: Vec2, tint: ColorRGBX, body) =
-  ## Create a ribbon.
+template frame*(p, s: Vec2, body: untyped) =
+  ## Create a frame.
+  sk.frameStart(p, s)
+  try:
+    body
+  finally:
+    sk.frameEnd()
+
+proc ribbonStart*(sk: Silky, p, s: Vec2, tint: ColorRGBX) =
+  ## Begin a ribbon.
   sk.pushFrame(p, s)
   sk.drawRect(sk.pos, sk.size, tint)
   sk.at = sk.pos
-  children(body)
+
+proc ribbonEnd*(sk: Silky) =
+  ## Finish a ribbon.
   sk.popFrame()
+
+template ribbon*(p, s: Vec2, tint: ColorRGBX, body: untyped) =
+  ## Create a ribbon.
+  sk.ribbonStart(p, s, tint)
+  try:
+    body
+  finally:
+    sk.ribbonEnd()
 
 template image*(image: string, tint = rgbx(255, 255, 255, 255)) =
   ## Draw an image.
