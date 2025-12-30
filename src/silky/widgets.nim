@@ -18,6 +18,9 @@ type
     dragOffset*: Vec2
     resizing*: bool
     resizeOffset*: Vec2
+    bodyPos*: Vec2
+    bodySize*: Vec2
+    visible*: bool
 
   FrameState* = ref object
     scrollPos*: Vec2
@@ -39,6 +42,18 @@ type
     origin: Vec2
     width: float32
     cursorY: float32
+
+  MenuEntryContext* = object
+    path*: seq[string]
+    popupPos*: Vec2
+    popupWidth*: int
+    open*: bool
+    isRoot*: bool
+
+  MenuItemContext* = object
+    layout*: MenuLayout
+    rowH*: float32
+    clicked*: bool
 
 var
   subWindowStates*: Table[string, SubWindowState]
@@ -89,136 +104,149 @@ proc mouseInsideClip*(sk: Silky, window: Window, r: Rect): bool =
   window.mousePos.vec2.overlaps(r) and
   window.mousePos.vec2.overlaps(sk.clipRect)
 
-template children*(body) =
-  ## Wrap children in a function call.
-  proc wrapper() {.gensym.} =
-
-    body
-
-    return
-  wrapper()
-
-template subWindowInternal(
+proc subWindowStart*(
+    sk: Silky,
+    window: Window,
     title: string,
-    show: bool,
+    show: var bool,
     initialOrigin: Option[Vec2],
-    initialSize: Option[Vec2],
-    body: untyped
-  ) =
-  ## Shared implementation for subWindow with optional initial placement.
+    initialSize: Option[Vec2]
+  ): SubWindowState =
+  ## Begin a subwindow; stores body rect and visibility on the state.
   if title notin subWindowStates:
     let defaultPos = vec2(10 + subWindowStates.len * (300 + sk.theme.spacing), 10)
     let defaultSize = vec2(300, 400)
     subWindowStates[title] = SubWindowState(
       pos: if initialOrigin.isSome: initialOrigin.get else: defaultPos,
       size: if initialSize.isSome: initialSize.get else: defaultSize,
-      minimized: false
+      minimized: false,
+      bodyPos: vec2(0),
+      bodySize: vec2(0),
+      visible: false
     )
   let subWindowState = subWindowStates[title]
-  if show:
-    # Draw the main window frame.
-    let size = if subWindowState.minimized:
-        vec2(subWindowState.size.x, float32(sk.theme.headerHeight + sk.theme.border * 2))
-      else:
-        subWindowState.size
-    sk.pushLayout(subWindowState.pos, size)
-    sk.draw9Patch("window.9patch", 14, sk.pos, sk.size)
+  if not show:
+    subWindowState.visible = false
+    return subWindowState
 
-    # Draw the header.
-    sk.pushLayout(
-      subWindowState.pos + vec2(sk.theme.border),
-      vec2(subWindowState.size.x - sk.theme.border.float32 * 2, sk.theme.headerHeight)
-    )
-
-    # Handle dragging the window.
-    if subWindowState.dragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
-      subWindowState.dragging = false
-    if subWindowState.dragging:
-      subWindowState.pos = window.mousePos.vec2 - subWindowState.dragOffset
-    if subWindowState.dragging:
-      sk.draw9Patch("header.dragging.9patch", 6, sk.pos, sk.size)
-    elif sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
-      if window.buttonPressed[MouseLeft]:
-        subWindowState.dragging = true
-        subWindowState.dragOffset = window.mousePos.vec2 - subWindowState.pos
-      else:
-        sk.draw9Patch("header.hover.9patch", 6, sk.pos, sk.size)
+  let size = if subWindowState.minimized:
+      vec2(subWindowState.size.x, float32(sk.theme.headerHeight + sk.theme.border * 2))
     else:
-      sk.draw9Patch("header.9patch", 6, sk.pos, sk.size)
-    sk.at += vec2(sk.theme.textPadding)
+      subWindowState.size
+  sk.pushLayout(subWindowState.pos, size)
+  sk.draw9Patch("window.9patch", 14, sk.pos, sk.size)
 
-    # Handle minimizing/maximizing button for the window.
-    let minimizeSize = sk.getImageSize("maximized")
-    let minimizeRect = rect(
-      sk.at.x,
-      sk.at.y,
-      minimizeSize.x.float32,
-      minimizeSize.y.float32
-    )
-    if sk.mouseInsideClip(window, minimizeRect):
-      if window.buttonReleased[MouseLeft]:
-        subWindowState.minimized = not subWindowState.minimized
-    if subWindowState.minimized:
-      sk.drawImage("minimized", minimizeRect.xy)
+  # Draw the header.
+  sk.pushLayout(
+    subWindowState.pos + vec2(sk.theme.border),
+    vec2(subWindowState.size.x - sk.theme.border.float32 * 2, sk.theme.headerHeight)
+  )
+
+  # Handle dragging the window.
+  if subWindowState.dragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+    subWindowState.dragging = false
+  if subWindowState.dragging:
+    subWindowState.pos = window.mousePos.vec2 - subWindowState.dragOffset
+  if subWindowState.dragging:
+    sk.draw9Patch("header.dragging.9patch", 6, sk.pos, sk.size)
+  elif sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
+    if window.buttonPressed[MouseLeft]:
+      subWindowState.dragging = true
+      subWindowState.dragOffset = window.mousePos.vec2 - subWindowState.pos
     else:
-      sk.drawImage("maximized", minimizeRect.xy)
-    sk.at.x += sk.getImageSize("maximized").x.float32 + sk.theme.padding.float32
+      sk.draw9Patch("header.hover.9patch", 6, sk.pos, sk.size)
+  else:
+    sk.draw9Patch("header.9patch", 6, sk.pos, sk.size)
+  sk.at += vec2(sk.theme.textPadding)
 
-    # Draw the title.
-    discard sk.drawText(sk.textStyle, title, sk.at, sk.theme.defaultTextColor)
+  # Handle minimizing/maximizing button for the window.
+  let minimizeSize = sk.getImageSize("maximized")
+  let minimizeRect = rect(
+    sk.at.x,
+    sk.at.y,
+    minimizeSize.x.float32,
+    minimizeSize.y.float32
+  )
+  if sk.mouseInsideClip(window, minimizeRect):
+    if window.buttonReleased[MouseLeft]:
+      subWindowState.minimized = not subWindowState.minimized
+  if subWindowState.minimized:
+    sk.drawImage("minimized", minimizeRect.xy)
+  else:
+    sk.drawImage("maximized", minimizeRect.xy)
+  sk.at.x += sk.getImageSize("maximized").x.float32 + sk.theme.padding.float32
 
-    # Handle closing button for the window.
-    let closeSize = sk.getImageSize("close")
-    let closeRect = rect(
-      sk.at.x + sk.size.x - closeSize.x.float32 - sk.theme.padding.float32 * 5,
-      sk.at.y,
-      closeSize.x.float32,
-      closeSize.y.float32
+  # Draw the title.
+  discard sk.drawText(sk.textStyle, title, sk.at, sk.theme.defaultTextColor)
+
+  # Handle closing button for the window.
+  let closeSize = sk.getImageSize("close")
+  let closeRect = rect(
+    sk.at.x + sk.size.x - closeSize.x.float32 - sk.theme.padding.float32 * 5,
+    sk.at.y,
+    closeSize.x.float32,
+    closeSize.y.float32
+  )
+  if sk.mouseInsideClip(window, closeRect):
+    if window.buttonReleased[MouseLeft]:
+      show = false
+  sk.drawImage("close", closeRect.xy)
+  sk.popLayout()
+
+  let bodyPos = subWindowState.pos + vec2(sk.theme.border, sk.theme.border + sk.theme.headerHeight)
+  let bodySize = subWindowState.size - vec2(sk.theme.border * 2, sk.theme.border * 2 + sk.theme.headerHeight)
+
+  subWindowState.bodyPos = bodyPos
+  subWindowState.bodySize = bodySize
+  subWindowState.visible = true
+  return subWindowState
+
+proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
+  ## Finish a subwindow, handling resize and popping layout.
+  if not subWindowState.minimized:
+    let resizeHandleSize = sk.getImageSize("resize")
+    let resizeHandleRect = rect(
+      sk.at.x + sk.size.x - resizeHandleSize.x.float32 - sk.theme.border.float32,
+      sk.at.y + sk.size.y - resizeHandleSize.y.float32 - sk.theme.border.float32,
+      resizeHandleSize.x.float32,
+      resizeHandleSize.y.float32
     )
-    if sk.mouseInsideClip(window, closeRect):
-      if window.buttonReleased[MouseLeft]:
-        show = false
-    sk.drawImage("close", closeRect.xy)
-    sk.popLayout()
+    if subWindowState.resizing and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+      subWindowState.resizing = false
+    if subWindowState.resizing:
+      subWindowState.size = window.mousePos.vec2 - subWindowState.resizeOffset
+      subWindowState.size.x = max(subWindowState.size.x, 200f)
+      subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
+    else:
+      if sk.mouseInsideClip(window, resizeHandleRect):
+        if window.buttonPressed[MouseLeft]:
+          subWindowState.resizing = true
+          subWindowState.resizeOffset = window.mousePos.vec2 - subWindowState.size
+    sk.drawImage("resize", resizeHandleRect.xy)
 
-    if not subWindowState.minimized:
+  sk.popLayout()
 
-      let bodyPos = subWindowState.pos + vec2(sk.theme.border, sk.theme.border + sk.theme.headerHeight)
-      let bodySize = subWindowState.size - vec2(sk.theme.border * 2, sk.theme.border * 2 + sk.theme.headerHeight)
-
-      frame(title, bodyPos, bodySize):
-        children(body)
-
-      # Draw the resize handle.
-      let resizeHandleSize = sk.getImageSize("resize")
-      let resizeHandleRect = rect(
-        sk.at.x + sk.size.x - resizeHandleSize.x.float32 - sk.theme.border.float32,
-        sk.at.y + sk.size.y - resizeHandleSize.y.float32 - sk.theme.border.float32,
-        resizeHandleSize.x.float32,
-        resizeHandleSize.y.float32
-      )
-      if subWindowState.resizing and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
-        subWindowState.resizing = false
-      if subWindowState.resizing:
-        subWindowState.size = window.mousePos.vec2 - subWindowState.resizeOffset
-        subWindowState.size.x = max(subWindowState.size.x, 200f)
-        subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
-      else:
-        if sk.mouseInsideClip(window, resizeHandleRect):
-          if window.buttonPressed[MouseLeft]:
-            subWindowState.resizing = true
-            subWindowState.resizeOffset = window.mousePos.vec2 - subWindowState.size
-      sk.drawImage("resize", resizeHandleRect.xy)
-
-    sk.popLayout()
-
-template subWindow*(title: string, show: bool, body: untyped) =
+template subWindow*(title: string, show: var bool, body: untyped) =
   ## Create a window frame using default placement and sizing.
-  subWindowInternal(title, show, none(Vec2), none(Vec2), body)
+  let state = sk.subWindowStart(window, title, show, none(Vec2), none(Vec2))
+  if state.visible:
+    try:
+      if not state.minimized:
+        frame(title, state.bodyPos, state.bodySize):
+          body
+    finally:
+      sk.subWindowEnd(window, state)
 
-template subWindow*(title: string, show: bool, initialOrigin: Vec2, initialSize: Vec2, body: untyped) =
+template subWindow*(title: string, show: var bool, initialOrigin: Vec2, initialSize: Vec2, body: untyped) =
   ## Create a window frame with explicit initial position and size.
-  subWindowInternal(title, show, some(initialOrigin), some(initialSize), body)
+  let state = sk.subWindowStart(window, title, show, some(initialOrigin), some(initialSize))
+  if state.visible:
+    try:
+      if not state.minimized:
+        frame(title, state.bodyPos, state.bodySize):
+          body
+    finally:
+      sk.subWindowEnd(window, state)
 
 proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state: FrameState, originPos: Vec2] =
   ## Begin a scrollable frame; returns state and origin for cleanup.
@@ -750,44 +778,199 @@ template inputText*(id: int, t: var string) =
   sk.popLayout()
   sk.advance(vec2(width, height))
 
-template menuPopup(path: seq[string], popupAt: Vec2, popupWidth = 200, body: untyped) =
-  ## Render a popup in a single pass with caller-provided width.
+proc menuPopupStart*(sk: Silky, path: seq[string], popupAt: Vec2, popupWidth = 200) =
+  ## Begin a popup; caller must call menuPopupEnd.
   menuEnsureState()
   sk.pushLayer(PopupsLayer)
   sk.pushClipRect(rect(vec2(0, 0), sk.rootSize))
-  var layout = MenuLayout(
+  let layout = MenuLayout(
     origin: popupAt,
     width: popupWidth.float32,
     cursorY: sk.theme.menuPadding.float32
   )
   menuLayouts.add(layout)
-  children(body)
-  # Record the popup area for outside-click detection.
+
+proc menuPopupEnd*(sk: Silky) =
+  ## Finish a popup and record its active area.
+  let layout = menuLayouts[^1]
   let popupHeight = layout.cursorY + sk.theme.menuPadding.float32
-  menuAddActive(rect(popupAt, vec2(popupWidth, popupHeight)))
+  menuAddActive(rect(layout.origin, vec2(layout.width, popupHeight)))
   menuLayouts.setLen(menuLayouts.len - 1)
   sk.popClipRect()
   sk.popLayer()
 
-template menuBar*(body: untyped) =
-  ## Horizontal application menu bar (File, Edit, ...).
+template menuPopup(path: seq[string], popupAt: Vec2, popupWidth = 200, body: untyped) =
+  ## Render a popup in a single pass with caller-provided width.
+  sk.menuPopupStart(path, popupAt, popupWidth)
+  try:
+    body
+  finally:
+    sk.menuPopupEnd()
+
+proc menuBarStart*(sk: Silky, window: Window) =
+  ## Begin the horizontal application menu bar.
   menuEnsureState()
   menuState.activeRects.setLen(0)
   menuPathStack.setLen(0)
 
   let elevate = menuState.openPath.len > 0
+  discard elevate
+
   let barHeight = sk.theme.headerHeight.float32
   sk.pushLayout(vec2(0, 0), vec2(sk.size.x, barHeight))
-  # Use a 9-patch so the bar has a visible background.
   sk.draw9Patch("header.9patch", 6, sk.pos, sk.size, rgbx(30, 30, 40, 255))
   sk.at = sk.pos + vec2(sk.theme.menuPadding)
-  children(body)
-  sk.popLayout()
 
-  # Close menus if the user clicks outside of any active menu rect.
+proc menuBarEnd*(sk: Silky, window: Window) =
+  ## Finish the menu bar and handle outside-click closing.
+  sk.popLayout()
   if menuState.openPath.len > 0 and window.buttonPressed[MouseLeft]:
     if not menuPointInside(menuState.activeRects, window.mousePos.vec2):
       menuState.openPath.setLen(0)
+
+template menuBar*(body: untyped) =
+  ## Horizontal application menu bar (File, Edit, ...).
+  sk.menuBarStart(window)
+  try:
+    body
+  finally:
+    sk.menuBarEnd(window)
+
+proc subMenuStart*(sk: Silky, window: Window, label: string, menuWidth = 200): MenuEntryContext =
+  ## Begin a submenu entry; returns context describing whether it is open.
+  menuEnsureState()
+  let path = menuPathStack & @[label]
+  let isRoot = menuLayouts.len == 0
+  var ctx = MenuEntryContext(
+    path: path,
+    popupPos: vec2(0),
+    popupWidth: menuWidth,
+    open: false,
+    isRoot: isRoot
+  )
+
+  if isRoot:
+    let textSize = sk.getTextSize(sk.textStyle, label)
+    let size = textSize + vec2(sk.theme.menuPadding.float32 * 2, sk.theme.menuPadding.float32 * 2)
+    let menuRect = rect(sk.at, size)
+    menuAddActive(menuRect)
+
+    let hover = window.mousePos.vec2.overlaps(menuRect)
+    var open = menuPathOpen(path)
+
+    if hover and window.buttonReleased[MouseLeft]:
+      if open:
+        menuState.openPath.setLen(0)
+      else:
+        menuState.openPath = path
+    elif hover and menuState.openPath.len > 0 and not window.buttonDown[MouseLeft]:
+      menuState.openPath = path
+
+    open = menuPathOpen(path)
+    ctx.open = open
+
+    if hover or open:
+      sk.drawRect(menuRect.xy, menuRect.wh, rgbx(70, 70, 90, 200))
+    discard sk.drawText(sk.textStyle, label, menuRect.xy + vec2(sk.theme.menuPadding), sk.theme.defaultTextColor)
+    sk.at.x += size.x + sk.theme.spacing.float32
+
+    if ctx.open:
+      menuPathStack.add(label)
+      ctx.popupPos = vec2(menuRect.x, menuRect.y + menuRect.h)
+  else:
+    var layout = menuLayouts[^1]
+    let textSize = sk.getTextSize(sk.textStyle, label)
+    let rowH = textSize.y + sk.theme.menuPadding.float32 * 2
+    let rowPos = vec2(layout.origin.x + sk.theme.menuPadding.float32, layout.origin.y + layout.cursorY)
+    let rowSize = vec2(layout.width - sk.theme.menuPadding.float32 * 2, rowH)
+    let itemRect = rect(rowPos, rowSize)
+    menuAddActive(itemRect)
+
+    var open = menuPathOpen(path)
+    let hover = window.mousePos.vec2.overlaps(itemRect)
+
+    if hover and menuState.openPath.len >= path.len - 1:
+      menuState.openPath = path
+
+    open = menuPathOpen(path)
+    ctx.open = open
+
+    if hover or open:
+      sk.drawRect(itemRect.xy, itemRect.wh, rgbx(70, 70, 90, 180))
+    discard sk.drawText(
+      sk.textStyle,
+      label,
+      rowPos + vec2(sk.theme.textPadding),
+      sk.theme.defaultTextColor
+    )
+
+    let arrowPos = vec2(itemRect.x + itemRect.w - textSize.y, rowPos.y + sk.theme.textPadding.float32)
+    discard sk.drawText(sk.textStyle, ">", arrowPos, sk.theme.defaultTextColor)
+
+    layout.cursorY += rowH
+
+    if ctx.open:
+      menuPathStack.add(label)
+      ctx.popupPos = vec2(itemRect.x + itemRect.w, itemRect.y)
+
+  ctx
+
+proc subMenuEnd*(sk: Silky, ctx: MenuEntryContext) =
+  ## Finish a submenu entry and pop path if open.
+  if ctx.open:
+    menuPathStack.setLen(menuPathStack.len - 1)
+
+template subMenu*(label: string, menuWidth = 200, body: untyped) =
+  ## Menu entry that can contain other menu items.
+  let ctx = sk.subMenuStart(window, label, menuWidth)
+  if ctx.open:
+    menuPopup(ctx.path, ctx.popupPos, menuWidth):
+      body
+  sk.subMenuEnd(ctx)
+
+proc menuItemStart*(sk: Silky, window: Window, label: string): MenuItemContext =
+  ## Begin a menu item; returns context indicating click state.
+  menuEnsureState()
+  let layout = menuLayouts[^1]
+
+  let textSize = sk.getTextSize(sk.textStyle, label)
+  let rowH = textSize.y + sk.theme.menuPadding.float32 * 2
+  let rowPos = vec2(layout.origin.x + sk.theme.menuPadding.float32, layout.origin.y + layout.cursorY)
+  let rowSize = vec2(layout.width - sk.theme.menuPadding.float32 * 2, rowH)
+  let itemRect = rect(rowPos, rowSize)
+  menuAddActive(itemRect)
+
+  let hover = window.mousePos.vec2.overlaps(itemRect)
+  if hover:
+    sk.drawRect(itemRect.xy, itemRect.wh, rgbx(80, 80, 100, 180))
+  discard sk.drawText(
+    sk.textStyle,
+    label,
+    rowPos + vec2(sk.theme.textPadding),
+    sk.theme.defaultTextColor
+  )
+
+  var clicked = false
+  if hover and window.buttonReleased[MouseLeft]:
+    menuState.openPath.setLen(0)
+    clicked = true
+
+  MenuItemContext(
+    layout: layout,
+    rowH: rowH,
+    clicked: clicked
+  )
+
+proc menuItemEnd*(sk: Silky, ctx: MenuItemContext) =
+  ## Finish a menu item and advance layout cursor.
+  ctx.layout.cursorY += ctx.rowH
+
+template menuItem*(label: string, body: untyped) =
+  ## Leaf menu entry that runs `body` on click.
+  let ctx = sk.menuItemStart(window, label)
+  if ctx.clicked:
+    body
+  sk.menuItemEnd(ctx)
 
 template subMenu*(label: string, menuWidth = 200, body: untyped) =
   ## Menu entry that can contain other menu items.
@@ -822,7 +1005,7 @@ template subMenu*(label: string, menuWidth = 200, body: untyped) =
       menuPathStack.add(label)
       let popupPos = vec2(menuRect.x, menuRect.y + menuRect.h)
       menuPopup(path, popupPos, menuWidth):
-        children(body)
+        body
       menuPathStack.setLen(menuPathStack.len - 1)
   else:
     var layout = menuLayouts[^1]
@@ -858,7 +1041,7 @@ template subMenu*(label: string, menuWidth = 200, body: untyped) =
       menuPathStack.add(label)
       let popupPos = vec2(itemRect.x + itemRect.w, itemRect.y)
       menuPopup(path, popupPos, menuWidth):
-        children(body)
+        body
       menuPathStack.setLen(menuPathStack.len - 1)
 
 template menuItem*(label: string, body: untyped) =
@@ -885,7 +1068,7 @@ template menuItem*(label: string, body: untyped) =
 
   if hover and window.buttonReleased[MouseLeft]:
     menuState.openPath.setLen(0)
-    children(body)
+    body
 
   layout.cursorY += rowH
 
