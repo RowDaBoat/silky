@@ -152,7 +152,7 @@ window.onFrame = proc() =
       sk.at = vec2(x.float32 * 256, y.float32 * 256)
       image("testTexture", rgbx(30, 30, 30, 255))
 
-  subWindow("Calculator", showWindow):
+  subWindow("Calculator", showWindow, vec2(10, 10), vec2(340, 480)):
 
     # Display
     var formula = ""
