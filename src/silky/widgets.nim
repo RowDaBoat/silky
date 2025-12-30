@@ -1,5 +1,5 @@
 import
-  std/[tables, unicode, times, strutils],
+  std/[tables, unicode, times, strutils, options],
   vmath, bumpy, chroma, windy,
   silky/textinput
 
@@ -115,12 +115,20 @@ template children*(body) =
     return
   wrapper()
 
-template subWindow*(title: string, show: bool, body) =
-  ## Create a window frame.
+template subWindowInternal(
+    title: string,
+    show: bool,
+    initialOrigin: Option[Vec2],
+    initialSize: Option[Vec2],
+    body: untyped
+  ) =
+  ## Shared implementation for subWindow with optional initial placement.
   if title notin subWindowStates:
+    let defaultPos = vec2(10 + subWindowStates.len * (300 + theme.spacing), 10)
+    let defaultSize = vec2(300, 400)
     subWindowStates[title] = SubWindowState(
-      pos: vec2(10 + subWindowStates.len * (300 + theme.spacing), 10),
-      size: vec2(300, 400),
+      pos: if initialOrigin.isSome: initialOrigin.get else: defaultPos,
+      size: if initialSize.isSome: initialSize.get else: defaultSize,
       minimized: false
     )
   let subWindowState = subWindowStates[title]
@@ -220,6 +228,14 @@ template subWindow*(title: string, show: bool, body) =
       sk.drawImage("resize", resizeHandleRect.xy)
 
     sk.popFrame()
+
+template subWindow*(title: string, show: bool, body: untyped) =
+  ## Create a window frame using default placement and sizing.
+  subWindowInternal(title, show, none(Vec2), none(Vec2), body)
+
+template subWindow*(title: string, show: bool, initialOrigin: Vec2, initialSize: Vec2, body: untyped) =
+  ## Create a window frame with explicit initial position and size.
+  subWindowInternal(title, show, some(initialOrigin), some(initialSize), body)
 
 template frame*(id: string, framePos, frameSize: Vec2, body) =
   ## Frame with scrollbars similar to a window body.
