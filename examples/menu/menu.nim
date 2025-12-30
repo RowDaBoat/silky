@@ -19,7 +19,7 @@ makeContextCurrent(window)
 loadExtensions()
 
 const
-  BackgroundColor = parseHtmlColor("#1a1a2e").rgbx
+  BackgroundColor = parseHtmlColor("#808080").rgbx
 
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
