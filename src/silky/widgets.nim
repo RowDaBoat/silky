@@ -9,20 +9,6 @@ else:
   const ScrollSpeed* = -10.0
 
 type
-  StackDirection* = enum
-    TopToBottom
-    BottomToTop
-    LeftToRight
-    RightToLeft
-
-  Theme* = object
-    padding*: int = 8
-    menuPadding*: int = 2
-    spacing*: int = 8
-    border*: int = 10
-    textPadding*: int = 4
-    headerHeight*: int = 32
-    defaultTextColor*: ColorRGBX = rgbx(255, 255, 255, 255)
 
   SubWindowState* = ref object
     pos*: Vec2
@@ -55,7 +41,6 @@ type
     cursorY: float32
 
 var
-  theme*: Theme = Theme()
   subWindowStates*: Table[string, SubWindowState]
   frameStates*: Table[string, FrameState]
   scrubberStates*: Table[string, ScrubberState]
@@ -122,7 +107,7 @@ template subWindowInternal(
   ) =
   ## Shared implementation for subWindow with optional initial placement.
   if title notin subWindowStates:
-    let defaultPos = vec2(10 + subWindowStates.len * (300 + theme.spacing), 10)
+    let defaultPos = vec2(10 + subWindowStates.len * (300 + sk.theme.spacing), 10)
     let defaultSize = vec2(300, 400)
     subWindowStates[title] = SubWindowState(
       pos: if initialOrigin.isSome: initialOrigin.get else: defaultPos,
@@ -133,7 +118,7 @@ template subWindowInternal(
   if show:
     # Draw the main window frame.
     let size = if subWindowState.minimized:
-        vec2(subWindowState.size.x, float32(theme.headerHeight + theme.border * 2))
+        vec2(subWindowState.size.x, float32(sk.theme.headerHeight + sk.theme.border * 2))
       else:
         subWindowState.size
     sk.pushFrame(subWindowState.pos, size)
@@ -141,8 +126,8 @@ template subWindowInternal(
 
     # Draw the header.
     sk.pushFrame(
-      subWindowState.pos + vec2(theme.border),
-      vec2(subWindowState.size.x - theme.border.float32 * 2, theme.headerHeight)
+      subWindowState.pos + vec2(sk.theme.border),
+      vec2(subWindowState.size.x - sk.theme.border.float32 * 2, sk.theme.headerHeight)
     )
 
     # Handle dragging the window.
@@ -160,7 +145,7 @@ template subWindowInternal(
         sk.draw9Patch("header.hover.9patch", 6, sk.pos, sk.size)
     else:
       sk.draw9Patch("header.9patch", 6, sk.pos, sk.size)
-    sk.at += vec2(theme.textPadding)
+    sk.at += vec2(sk.theme.textPadding)
 
     # Handle minimizing/maximizing button for the window.
     let minimizeSize = sk.getImageSize("maximized")
@@ -177,15 +162,15 @@ template subWindowInternal(
       sk.drawImage("minimized", minimizeRect.xy)
     else:
       sk.drawImage("maximized", minimizeRect.xy)
-    sk.at.x += sk.getImageSize("maximized").x.float32 + theme.padding.float32
+    sk.at.x += sk.getImageSize("maximized").x.float32 + sk.theme.padding.float32
 
     # Draw the title.
-    discard sk.drawText(sk.textStyle, title, sk.at, theme.defaultTextColor)
+    discard sk.drawText(sk.textStyle, title, sk.at, sk.theme.defaultTextColor)
 
     # Handle closing button for the window.
     let closeSize = sk.getImageSize("close")
     let closeRect = rect(
-      sk.at.x + sk.size.x - closeSize.x.float32 - theme.padding.float32 * 5,
+      sk.at.x + sk.size.x - closeSize.x.float32 - sk.theme.padding.float32 * 5,
       sk.at.y,
       closeSize.x.float32,
       closeSize.y.float32
@@ -198,8 +183,8 @@ template subWindowInternal(
 
     if not subWindowState.minimized:
 
-      let bodyPos = subWindowState.pos + vec2(theme.border, theme.border + theme.headerHeight)
-      let bodySize = subWindowState.size - vec2(theme.border * 2, theme.border * 2 + theme.headerHeight)
+      let bodyPos = subWindowState.pos + vec2(sk.theme.border, sk.theme.border + sk.theme.headerHeight)
+      let bodySize = subWindowState.size - vec2(sk.theme.border * 2, sk.theme.border * 2 + sk.theme.headerHeight)
 
       frame(title, bodyPos, bodySize):
         children(body)
@@ -207,8 +192,8 @@ template subWindowInternal(
       # Draw the resize handle.
       let resizeHandleSize = sk.getImageSize("resize")
       let resizeHandleRect = rect(
-        sk.at.x + sk.size.x - resizeHandleSize.x.float32 - theme.border.float32,
-        sk.at.y + sk.size.y - resizeHandleSize.y.float32 - theme.border.float32,
+        sk.at.x + sk.size.x - resizeHandleSize.x.float32 - sk.theme.border.float32,
+        sk.at.y + sk.size.y - resizeHandleSize.y.float32 - sk.theme.border.float32,
         resizeHandleSize.x.float32,
         resizeHandleSize.y.float32
       )
@@ -217,7 +202,7 @@ template subWindowInternal(
       if subWindowState.resizing:
         subWindowState.size = window.mousePos.vec2 - subWindowState.resizeOffset
         subWindowState.size.x = max(subWindowState.size.x, 200f)
-        subWindowState.size.y = max(subWindowState.size.y, float32(theme.headerHeight * 2 + theme.border * 2))
+        subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
       else:
         if mouseInsideClip(resizeHandleRect):
           if window.buttonPressed[MouseLeft]:
@@ -250,7 +235,7 @@ template frame*(id: string, framePos, frameSize: Vec2, body) =
     sk.size.y - 2
   ))
 
-  sk.at = sk.pos + vec2(theme.padding)
+  sk.at = sk.pos + vec2(sk.theme.padding)
   let originPos = sk.at
   sk.at -= frameState.scrollPos
 
@@ -364,7 +349,7 @@ template button*(label: string, body) =
   ## Create a button.
   let
     textSize = sk.getTextSize(sk.textStyle, label)
-    buttonSize = textSize + vec2(theme.padding) * 2
+    buttonSize = textSize + vec2(sk.theme.padding) * 2
   if mouseInsideClip(rect(sk.at, buttonSize)):
     if window.buttonReleased[MouseLeft]:
       body
@@ -374,8 +359,8 @@ template button*(label: string, body) =
       sk.draw9Patch("button.hover.9patch", 8, sk.at, buttonSize, rgbx(255, 255, 255, 255))
   else:
     sk.draw9Patch("button.9patch", 8, sk.at, buttonSize)
-  discard sk.drawText(sk.textStyle, label, sk.at + vec2(theme.padding), rgbx(255, 255, 255, 255))
-  sk.advance(buttonSize + vec2(theme.padding))
+  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), rgbx(255, 255, 255, 255))
+  sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template icon*(image: string) =
   ## Draw an icon.
@@ -441,7 +426,7 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     iconSize = sk.getImageSize("radio.on")
     textSize = sk.getTextSize(sk.textStyle, label)
     height = max(iconSize.y.float32, textSize.y)
-    width = iconSize.x.float32 + theme.spacing.float32 + textSize.x
+    width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
 
   if mouseInsideClip(hitRect) and window.buttonReleased[MouseLeft]:
@@ -451,11 +436,11 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     on = variable == value
     iconPos = vec2(sk.at.x, sk.at.y + (height - iconSize.y.float32) * 0.5)
     textPos = vec2(
-      iconPos.x + iconSize.x.float32 + theme.spacing.float32,
+      iconPos.x + iconSize.x.float32 + sk.theme.spacing.float32,
       sk.at.y + (height - textSize.y) * 0.5
     )
   sk.drawImage(if on: "radio.on" else: "radio.off", iconPos)
-  discard sk.drawText(sk.textStyle, label, textPos, theme.defaultTextColor)
+  discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
   sk.advance(vec2(width, height))
 
 template checkBox*(label: string, value: var bool) =
@@ -464,7 +449,7 @@ template checkBox*(label: string, value: var bool) =
     iconSize = sk.getImageSize("check.on")
     textSize = sk.getTextSize(sk.textStyle, label)
     height = max(iconSize.y.float32, textSize.y)
-    width = iconSize.x.float32 + theme.spacing.float32 + textSize.x
+    width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
 
   if mouseInsideClip(hitRect) and window.buttonReleased[MouseLeft]:
@@ -473,11 +458,11 @@ template checkBox*(label: string, value: var bool) =
   let
     iconPos = vec2(sk.at.x, sk.at.y + (height - iconSize.y.float32) * 0.5)
     textPos = vec2(
-      iconPos.x + iconSize.x.float32 + theme.spacing.float32,
+      iconPos.x + iconSize.x.float32 + sk.theme.spacing.float32,
       sk.at.y + (height - textSize.y) * 0.5
     )
   sk.drawImage(if value: "check.on" else: "check.off", iconPos)
-  discard sk.drawText(sk.textStyle, label, textPos, theme.defaultTextColor)
+  discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
   sk.advance(vec2(width, height))
 
 template dropDown*[T](selected: var T, options: openArray[T]) =
@@ -489,8 +474,8 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
 
   let
     font = sk.atlas.fonts[sk.textStyle]
-    height = font.lineHeight + theme.padding.float32 * 2
-    width = sk.size.x - theme.padding.float32 * 3
+    height = font.lineHeight + sk.theme.padding.float32 * 2
+    width = sk.size.x - sk.theme.padding.float32 * 3
     arrowSize = sk.getImageSize("droparrow")
     dropRect = rect(sk.at, vec2(width, height))
 
@@ -505,9 +490,9 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
   sk.pushFrame(sk.at, vec2(width, height))
   let bgColor = if state.open or hover: rgbx(220, 220, 240, 255) else: rgbx(255, 255, 255, 255)
   sk.draw9Patch("dropdown.9patch", 6, sk.pos, sk.size, bgColor)
-  discard sk.drawText(sk.textStyle, displayText, sk.at + vec2(theme.padding), theme.defaultTextColor)
+  discard sk.drawText(sk.textStyle, displayText, sk.at + vec2(sk.theme.padding), sk.theme.defaultTextColor)
   let arrowPos = vec2(
-    sk.pos.x + sk.size.x - arrowSize.x.float32 - theme.padding.float32,
+    sk.pos.x + sk.size.x - arrowSize.x.float32 - sk.theme.padding.float32,
     sk.pos.y + (height - arrowSize.y.float32) * 0.5
   )
   sk.drawImage("droparrow", arrowPos)
@@ -531,7 +516,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
       let
         rowPos = vec2(sk.pos.x, sk.pos.y + i.float32 * rowHeight)
         rowRect = rect(rowPos, vec2(width, rowHeight))
-        textPos = rowPos + vec2(theme.padding)
+        textPos = rowPos + vec2(sk.theme.padding)
       let
         isSelected = selected == opt
         rowHover = mouseInsideClip(rowRect)
@@ -541,7 +526,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
         if rowHover and window.buttonReleased[MouseLeft]:
           selected = opt
           state.open = false
-      discard sk.drawText(sk.textStyle, $opt, textPos, theme.defaultTextColor)
+      discard sk.drawText(sk.textStyle, $opt, textPos, sk.theme.defaultTextColor)
 
     sk.popFrame()
 
@@ -564,7 +549,7 @@ template progressBar*(value: SomeNumber, minVal: SomeNumber, maxVal: SomeNumber)
     t = if range == 0: 0f else: clamp((v - minF) / range, 0f, 1f)
     bodySize = sk.getImageSize("progressBar.body.9patch")
     height = bodySize.y.float32
-    width = max(bodySize.x.float32, sk.size.x - theme.padding.float32 * 3)
+    width = max(bodySize.x.float32, sk.size.x - sk.theme.padding.float32 * 3)
     barRect = rect(sk.at, vec2(width, height))
 
   sk.draw9Patch("progressBar.body.9patch", 6, barRect.xy, barRect.wh)
@@ -575,14 +560,23 @@ template progressBar*(value: SomeNumber, minVal: SomeNumber, maxVal: SomeNumber)
 
   sk.advance(vec2(width, height))
 
-template group*(p: Vec2, direction = TopToBottom, body) =
-  ## Create a group.
+proc groupStart*(sk: Silky, p: Vec2, direction = TopToBottom) =
+  ## Start a group.
   sk.pushFrame(sk.at + p, sk.size - p, direction)
-  children(body)
+
+proc groupEnd*(sk: Silky) =
+  ## End a group.
   let endAt = sk.stretchAt
   sk.popFrame()
   sk.advance(endAt - sk.at)
 
+template group*(p: Vec2, direction = TopToBottom, body) =
+  ## Create a group.
+  sk.groupStart(p, direction)
+  try:
+    body
+  finally:
+    sk.groupEnd()
 
 template frame*(p, s: Vec2, body) =
   ## Create a frame.
@@ -631,7 +625,7 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
     handleSize = sk.getImageSize("scrubber.handle")
     bodySize = sk.getImageSize("scrubber.body.9patch")
     height = handleSize.y
-    width = sk.size.x - theme.padding.float32 * 3
+    width = sk.size.x - sk.theme.padding.float32 * 3
     controlRect = rect(sk.at, vec2(width, height))
     trackStart = controlRect.x + handleSize.x / 2
     trackEnd = controlRect.x + width - handleSize.x / 2
@@ -672,8 +666,8 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
 template inputText*(id: int, t: var string) =
   ## Create an input text.
   let font = sk.atlas.fonts[sk.textStyle]
-  let height = font.lineHeight + theme.padding.float32 * 2
-  let width = sk.size.x - theme.padding.float32 * 3
+  let height = font.lineHeight + sk.theme.padding.float32 * 2
+  let width = sk.size.x - sk.theme.padding.float32 * 3
   sk.pushFrame(sk.at, vec2(width, height))
 
   if id notin textInputStates:
@@ -707,8 +701,8 @@ template inputText*(id: int, t: var string) =
 
   # Draw text
   # We should probably clip or scroll text
-  let padding = vec2(theme.padding)
-  discard sk.drawText(sk.textStyle, t, sk.at + padding, theme.defaultTextColor)
+  let padding = vec2(sk.theme.padding)
+  discard sk.drawText(sk.textStyle, t, sk.at + padding, sk.theme.defaultTextColor)
 
   # Draw cursor
   if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
@@ -722,7 +716,7 @@ template inputText*(id: int, t: var string) =
     let cursorX = sk.at.x + padding.x + textSize.x
     let cursorY = sk.at.y + padding.y
 
-    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), theme.defaultTextColor)
+    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), sk.theme.defaultTextColor)
 
   sk.popFrame()
   sk.advance(vec2(width, height))
@@ -735,12 +729,12 @@ template menuPopup(path: seq[string], popupAt: Vec2, popupWidth = 200, body: unt
   var layout = MenuLayout(
     origin: popupAt,
     width: popupWidth.float32,
-    cursorY: theme.menuPadding.float32
+    cursorY: sk.theme.menuPadding.float32
   )
   menuLayouts.add(layout)
   children(body)
   # Record the popup area for outside-click detection.
-  let popupHeight = layout.cursorY + theme.menuPadding.float32
+  let popupHeight = layout.cursorY + sk.theme.menuPadding.float32
   menuAddActive(rect(popupAt, vec2(popupWidth, popupHeight)))
   menuLayouts.setLen(menuLayouts.len - 1)
   sk.popClipRect()
@@ -753,11 +747,11 @@ template menuBar*(body: untyped) =
   menuPathStack.setLen(0)
 
   let elevate = menuState.openPath.len > 0
-  let barHeight = theme.headerHeight.float32
+  let barHeight = sk.theme.headerHeight.float32
   sk.pushFrame(vec2(0, 0), vec2(sk.size.x, barHeight))
   # Use a 9-patch so the bar has a visible background.
   sk.draw9Patch("header.9patch", 6, sk.pos, sk.size, rgbx(30, 30, 40, 255))
-  sk.at = sk.pos + vec2(theme.menuPadding)
+  sk.at = sk.pos + vec2(sk.theme.menuPadding)
   children(body)
   sk.popFrame()
 
@@ -774,7 +768,7 @@ template subMenu*(label: string, menuWidth = 200, body: untyped) =
 
   if isRoot:
     let textSize = sk.getTextSize(sk.textStyle, label)
-    let size = textSize + vec2(theme.menuPadding.float32 * 2, theme.menuPadding.float32 * 2)
+    let size = textSize + vec2(sk.theme.menuPadding.float32 * 2, sk.theme.menuPadding.float32 * 2)
     let menuRect = rect(sk.at, size)
     menuAddActive(menuRect)
 
@@ -792,8 +786,8 @@ template subMenu*(label: string, menuWidth = 200, body: untyped) =
 
     if hover or open:
       sk.drawRect(menuRect.xy, menuRect.wh, rgbx(70, 70, 90, 200))
-    discard sk.drawText(sk.textStyle, label, menuRect.xy + vec2(theme.menuPadding), theme.defaultTextColor)
-    sk.at.x += size.x + theme.spacing.float32
+    discard sk.drawText(sk.textStyle, label, menuRect.xy + vec2(sk.theme.menuPadding), sk.theme.defaultTextColor)
+    sk.at.x += size.x + sk.theme.spacing.float32
 
     if open:
       menuPathStack.add(label)
@@ -804,9 +798,9 @@ template subMenu*(label: string, menuWidth = 200, body: untyped) =
   else:
     var layout = menuLayouts[^1]
     let textSize = sk.getTextSize(sk.textStyle, label)
-    let rowH = textSize.y + theme.menuPadding.float32 * 2
-    let rowPos = vec2(layout.origin.x + theme.menuPadding.float32, layout.origin.y + layout.cursorY)
-    let rowSize = vec2(layout.width - theme.menuPadding.float32 * 2, rowH)
+    let rowH = textSize.y + sk.theme.menuPadding.float32 * 2
+    let rowPos = vec2(layout.origin.x + sk.theme.menuPadding.float32, layout.origin.y + layout.cursorY)
+    let rowSize = vec2(layout.width - sk.theme.menuPadding.float32 * 2, rowH)
     let itemRect = rect(rowPos, rowSize)
     menuAddActive(itemRect)
 
@@ -821,13 +815,13 @@ template subMenu*(label: string, menuWidth = 200, body: untyped) =
     discard sk.drawText(
       sk.textStyle,
       label,
-      rowPos + vec2(theme.textPadding),
-      theme.defaultTextColor
+      rowPos + vec2(sk.theme.textPadding),
+      sk.theme.defaultTextColor
     )
 
     # Draw submenu arrow on the right.
-    let arrowPos = vec2(itemRect.x + itemRect.w - textSize.y, rowPos.y + theme.textPadding.float32)
-    discard sk.drawText(sk.textStyle, ">", arrowPos, theme.defaultTextColor)
+    let arrowPos = vec2(itemRect.x + itemRect.w - textSize.y, rowPos.y + sk.theme.textPadding.float32)
+    discard sk.drawText(sk.textStyle, ">", arrowPos, sk.theme.defaultTextColor)
 
     layout.cursorY += rowH
 
@@ -844,9 +838,9 @@ template menuItem*(label: string, body: untyped) =
   var layout = menuLayouts[^1]
 
   let textSize = sk.getTextSize(sk.textStyle, label)
-  let rowH = textSize.y + theme.menuPadding.float32 * 2
-  let rowPos = vec2(layout.origin.x + theme.menuPadding.float32, layout.origin.y + layout.cursorY)
-  let rowSize = vec2(layout.width - theme.menuPadding.float32 * 2, rowH)
+  let rowH = textSize.y + sk.theme.menuPadding.float32 * 2
+  let rowPos = vec2(layout.origin.x + sk.theme.menuPadding.float32, layout.origin.y + layout.cursorY)
+  let rowSize = vec2(layout.width - sk.theme.menuPadding.float32 * 2, rowH)
   let itemRect = rect(rowPos, rowSize)
   menuAddActive(itemRect)
 
@@ -856,8 +850,8 @@ template menuItem*(label: string, body: untyped) =
   discard sk.drawText(
     sk.textStyle,
     label,
-    rowPos + vec2(theme.textPadding),
-    theme.defaultTextColor
+    rowPos + vec2(sk.theme.textPadding),
+    sk.theme.defaultTextColor
   )
 
   if hover and window.buttonReleased[MouseLeft]:
@@ -874,7 +868,7 @@ template tooltip*(text: string) =
   sk.pushClipRect(rect(vec2(0, 0), sk.rootSize))
 
   let textSize = sk.getTextSize(sk.textStyle, tooltipText)
-  let tooltipSize = textSize + vec2(theme.padding.float32 * 2, theme.padding.float32 * 2)
+  let tooltipSize = textSize + vec2(sk.theme.padding.float32 * 2, sk.theme.padding.float32 * 2)
   let mousePos = window.mousePos.vec2
 
   # Position tooltip near mouse, offset slightly to avoid cursor.
@@ -883,17 +877,17 @@ template tooltip*(text: string) =
   # Keep tooltip on screen.
   let root = sk.rootSize
   if tooltipPos.x + tooltipSize.x > root.x:
-    tooltipPos.x = root.x - tooltipSize.x - theme.padding.float32
+    tooltipPos.x = root.x - tooltipSize.x - sk.theme.padding.float32
   if tooltipPos.y + tooltipSize.y > root.y:
     tooltipPos.y = mousePos.y - tooltipSize.y - 4
 
   # Ensure tooltip doesn't go off-screen left or top.
-  tooltipPos.x = max(tooltipPos.x, theme.padding.float32)
-  tooltipPos.y = max(tooltipPos.y, theme.padding.float32)
+  tooltipPos.x = max(tooltipPos.x, sk.theme.padding.float32)
+  tooltipPos.y = max(tooltipPos.y, sk.theme.padding.float32)
 
   sk.pushFrame(tooltipPos, tooltipSize)
   sk.draw9Patch("tooltip.9patch", 6, sk.pos, sk.size)
-  discard sk.drawText(sk.textStyle, tooltipText, sk.pos + vec2(theme.padding), theme.defaultTextColor)
+  discard sk.drawText(sk.textStyle, tooltipText, sk.pos + vec2(sk.theme.padding), sk.theme.defaultTextColor)
   sk.popFrame()
 
   sk.popClipRect()

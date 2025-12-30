@@ -1,7 +1,7 @@
 import
   std/[os, strutils, tables, unicode, times],
   pixie, opengl, jsony, shady, vmath, windy,
-  silky/[atlas, widgets, shaders]
+  silky/[atlas, shaders]
 
 when defined(profile):
   import fluffy/measure
@@ -18,6 +18,23 @@ const
   PopupsLayer* = 1
 
 type
+  StackDirection* = enum
+    ## Direction of the stack.
+    TopToBottom
+    BottomToTop
+    LeftToRight
+    RightToLeft
+
+  Theme* = object
+    ## Theme for the Silky UI.
+    padding*: int = 8
+    menuPadding*: int = 2
+    spacing*: int = 8
+    border*: int = 10
+    textPadding*: int = 4
+    headerHeight*: int = 32
+    defaultTextColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+
   SilkyVertex* {.packed.} = object
     pos*: Vec2
     size*: Vec2
@@ -38,6 +55,7 @@ type
     directionStack: seq[StackDirection]
     textStyle*: string = "Default"
     padding*: float32 = 12
+    theme*: Theme = Theme()
     cursor*: Cursor = Cursor(kind: ArrowCursor)
     inputRunes*: seq[Rune]
 
@@ -153,16 +171,16 @@ proc instanceCount*(sk: Silky): int =
 
 proc advance*(sk: Silky, amount: Vec2) =
   ## Advance the position.
-  sk.stretchAt = max(sk.stretchAt, sk.at + amount + vec2(theme.spacing.float32))
+  sk.stretchAt = max(sk.stretchAt, sk.at + amount + vec2(sk.theme.spacing.float32))
   case sk.stackDirection:
     of TopToBottom:
-      sk.at.y += amount.y + theme.spacing.float32
+      sk.at.y += amount.y + sk.theme.spacing.float32
     of BottomToTop:
-      sk.at.y -= amount.y + theme.spacing.float32
+      sk.at.y -= amount.y + sk.theme.spacing.float32
     of LeftToRight:
-      sk.at.x += amount.x + theme.spacing.float32
+      sk.at.x += amount.x + sk.theme.spacing.float32
     of RightToLeft:
-      sk.at.x -= amount.x + theme.spacing.float32
+      sk.at.x -= amount.x + sk.theme.spacing.float32
 
 proc getImageSize*(sk: Silky, image: string): Vec2 =
   ## Get the size of an image in the atlas.
