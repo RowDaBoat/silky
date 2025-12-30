@@ -84,7 +84,7 @@ proc vec2[A, B](x: A, y: B): Vec2 =
   ## Create a Vec2 from two numbers.
   vec2(x.float32, y.float32)
 
-template mouseInsideClip*(r: Rect): bool =
+proc mouseInsideClip*(sk: Silky, window: Window, r: Rect): bool =
   ## Check mouse inside rect and current clip.
   window.mousePos.vec2.overlaps(r) and
   window.mousePos.vec2.overlaps(sk.clipRect)
@@ -137,7 +137,7 @@ template subWindowInternal(
       subWindowState.pos = window.mousePos.vec2 - subWindowState.dragOffset
     if subWindowState.dragging:
       sk.draw9Patch("header.dragging.9patch", 6, sk.pos, sk.size)
-    elif mouseInsideClip(rect(sk.pos, sk.size)):
+    elif sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
       if window.buttonPressed[MouseLeft]:
         subWindowState.dragging = true
         subWindowState.dragOffset = window.mousePos.vec2 - subWindowState.pos
@@ -155,7 +155,7 @@ template subWindowInternal(
       minimizeSize.x.float32,
       minimizeSize.y.float32
     )
-    if mouseInsideClip(minimizeRect):
+    if sk.mouseInsideClip(window, minimizeRect):
       if window.buttonReleased[MouseLeft]:
         subWindowState.minimized = not subWindowState.minimized
     if subWindowState.minimized:
@@ -175,7 +175,7 @@ template subWindowInternal(
       closeSize.x.float32,
       closeSize.y.float32
     )
-    if mouseInsideClip(closeRect):
+    if sk.mouseInsideClip(window, closeRect):
       if window.buttonReleased[MouseLeft]:
         show = false
     sk.drawImage("close", closeRect.xy)
@@ -204,7 +204,7 @@ template subWindowInternal(
         subWindowState.size.x = max(subWindowState.size.x, 200f)
         subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
       else:
-        if mouseInsideClip(resizeHandleRect):
+        if sk.mouseInsideClip(window, resizeHandleRect):
           if window.buttonPressed[MouseLeft]:
             subWindowState.resizing = true
             subWindowState.resizeOffset = window.mousePos.vec2 - subWindowState.size
@@ -265,7 +265,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
     frameState.scrollPos.x = 0
 
   # Scroll wheel handling (only when mouse over frame).
-  if mouseInsideClip(rect(sk.pos, sk.size)):
+  if sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
     if not frameState.scrollingY and window.scrollDelta.y != 0:
       frameState.scrollPos.y += window.scrollDelta.y * ScrollSpeed
       frameState.scrollPos.y = clamp(frameState.scrollPos.y, 0.0, scrollMax.y)
@@ -301,7 +301,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
       if availableTrackHeight > 0:
         let newScrollPosPercent = clamp(relativeY / availableTrackHeight, 0.0, 1.0)
         frameState.scrollPos.y = newScrollPosPercent * scrollMax.y
-    elif mouseInsideClip(scrollbarHandleRect):
+    elif sk.mouseInsideClip(window, scrollbarHandleRect):
       if window.buttonPressed[MouseLeft]:
         frameState.scrollingY = true
         frameState.scrollDragOffset.y = window.mousePos.vec2.y - scrollbarHandleRect.y
@@ -336,7 +336,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
       if availableTrackWidth > 0:
         let newScrollPosPercent = clamp(relativeX / availableTrackWidth, 0.0, 1.0)
         frameState.scrollPos.x = newScrollPosPercent * scrollMax.x
-    elif mouseInsideClip(scrollbarHandleRect):
+    elif sk.mouseInsideClip(window, scrollbarHandleRect):
       if window.buttonPressed[MouseLeft]:
         frameState.scrollingX = true
         frameState.scrollDragOffset.x = window.mousePos.vec2.x - scrollbarHandleRect.x
@@ -359,7 +359,7 @@ template button*(label: string, body) =
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
-  if mouseInsideClip(rect(sk.at, buttonSize)):
+  if sk.mouseInsideClip(window, rect(sk.at, buttonSize)):
     if window.buttonReleased[MouseLeft]:
       body
     elif window.buttonDown[MouseLeft]:
@@ -382,8 +382,8 @@ template iconButton*(image: string, body) =
   let
     m2 = vec2(8, 8)
     s2 = sk.getImageSize(image) + vec2(8, 8) * 2
-    buttonRect = rect(sk.at, sk.getImageSize(image))
-  if mouseInsideClip(buttonRect):
+    buttonRect = rect(sk.at - m2, s2)
+  if sk.mouseInsideClip(window, buttonRect):
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
       body
@@ -408,7 +408,7 @@ template clickableIcon*(image: string, on: bool, body) =
     hoverColor = rgbx(255, 255, 255, 255)
     offColor = rgbx(110, 110, 110, 110)
   var color = upColor
-  if mouseInsideClip(rect(sk.at, s2)):
+  if sk.mouseInsideClip(window, rect(sk.at, s2)):
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
       body
@@ -438,7 +438,7 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
 
-  if mouseInsideClip(hitRect) and window.buttonReleased[MouseLeft]:
+  if sk.mouseInsideClip(window, hitRect) and window.buttonReleased[MouseLeft]:
     variable = value
 
   let
@@ -461,7 +461,7 @@ template checkBox*(label: string, value: var bool) =
     width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
 
-  if mouseInsideClip(hitRect) and window.buttonReleased[MouseLeft]:
+  if sk.mouseInsideClip(window, hitRect) and window.buttonReleased[MouseLeft]:
     value = not value
 
   let
@@ -491,7 +491,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
   let displayText = $selected
 
   # Toggle open/close on click.
-  let hover = mouseInsideClip(dropRect)
+  let hover = sk.mouseInsideClip(window, dropRect)
   if hover and window.buttonReleased[MouseLeft]:
     state.open = not state.open
 
@@ -528,7 +528,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
         textPos = rowPos + vec2(sk.theme.padding)
       let
         isSelected = selected == opt
-        rowHover = mouseInsideClip(rowRect)
+        rowHover = sk.mouseInsideClip(window, rowRect)
       if rowHover or isSelected:
         let tint = if rowHover: rgbx(80, 80, 100, 180) else: rgbx(60, 60, 80, 120)
         sk.drawRect(rowRect.xy, rowRect.wh, tint)
@@ -541,8 +541,8 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
 
     # Close when clicking outside.
     if window.buttonPressed[MouseLeft] and
-      not mouseInsideClip(dropRect) and
-      not mouseInsideClip(popupRect):
+      not sk.mouseInsideClip(window, dropRect) and
+      not sk.mouseInsideClip(window, popupRect):
       state.open = false
 
     sk.popClipRect()
@@ -679,7 +679,7 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
   if scrubState.dragging:
     let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
     value = (minF + t * range).T
-  elif mouseInsideClip(handleRect) or mouseInsideClip(controlRect):
+  elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
     if window.buttonPressed[MouseLeft]:
       scrubState.dragging = true
       let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
@@ -707,7 +707,7 @@ template inputText*(id: int, t: var string) =
 
   # Handle focus
   if window.buttonPressed[MouseLeft]:
-    if mouseInsideClip(rect(sk.pos, sk.size)):
+    if sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
       textInputState.focused = true
       # TODO: Set cursor position based on click
     else:

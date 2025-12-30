@@ -121,7 +121,7 @@ template calcButton(label: string, body: untyped) =
     btnSize = vec2(60, 50)
     startPos = sk.at
 
-  if mouseInsideClip(rect(startPos, btnSize)):
+  if sk.mouseInsideClip(window, rect(startPos, btnSize)):
     if window.buttonReleased[MouseLeft]:
       body
     elif window.buttonDown[MouseLeft]:
