@@ -923,10 +923,12 @@ proc subMenuEnd*(sk: Silky, ctx: MenuEntryContext) =
 template subMenu*(label: string, menuWidth = 200, body: untyped) =
   ## Menu entry that can contain other menu items.
   let ctx = sk.subMenuStart(window, label, menuWidth)
-  if ctx.open:
-    menuPopup(ctx.path, ctx.popupPos, menuWidth):
-      body
-  sk.subMenuEnd(ctx)
+  try:
+    if ctx.open:
+      menuPopup(ctx.path, ctx.popupPos, menuWidth):
+        body
+  finally:
+    sk.subMenuEnd(ctx)
 
 proc menuItemStart*(sk: Silky, window: Window, label: string): MenuItemContext =
   ## Begin a menu item; returns context indicating click state.
@@ -968,81 +970,11 @@ proc menuItemEnd*(sk: Silky, ctx: MenuItemContext) =
 template menuItem*(label: string, body: untyped) =
   ## Leaf menu entry that runs `body` on click.
   let ctx = sk.menuItemStart(window, label)
-  if ctx.clicked:
-    body
-  sk.menuItemEnd(ctx)
-
-template subMenu*(label: string, menuWidth = 200, body: untyped) =
-  ## Menu entry that can contain other menu items.
-  menuEnsureState()
-  let path = menuPathStack & @[label]
-  let isRoot = menuLayouts.len == 0
-
-  if isRoot:
-    let textSize = sk.getTextSize(sk.textStyle, label)
-    let size = textSize + vec2(sk.theme.menuPadding.float32 * 2, sk.theme.menuPadding.float32 * 2)
-    let menuRect = rect(sk.at, size)
-    menuAddActive(menuRect)
-
-    let hover = window.mousePos.vec2.overlaps(menuRect)
-    let open = menuPathOpen(path)
-
-    if hover and window.buttonReleased[MouseLeft]:
-      if open:
-        menuState.openPath.setLen(0)
-      else:
-        menuState.openPath = path
-    elif hover and menuState.openPath.len > 0 and not window.buttonDown[MouseLeft]:
-      # When a menu is already open, hovering another root entry switches it.
-      menuState.openPath = path
-
-    if hover or open:
-      sk.drawRect(menuRect.xy, menuRect.wh, rgbx(70, 70, 90, 200))
-    discard sk.drawText(sk.textStyle, label, menuRect.xy + vec2(sk.theme.menuPadding), sk.theme.defaultTextColor)
-    sk.at.x += size.x + sk.theme.spacing.float32
-
-    if open:
-      menuPathStack.add(label)
-      let popupPos = vec2(menuRect.x, menuRect.y + menuRect.h)
-      menuPopup(path, popupPos, menuWidth):
-        body
-      menuPathStack.setLen(menuPathStack.len - 1)
-  else:
-    var layout = menuLayouts[^1]
-    let textSize = sk.getTextSize(sk.textStyle, label)
-    let rowH = textSize.y + sk.theme.menuPadding.float32 * 2
-    let rowPos = vec2(layout.origin.x + sk.theme.menuPadding.float32, layout.origin.y + layout.cursorY)
-    let rowSize = vec2(layout.width - sk.theme.menuPadding.float32 * 2, rowH)
-    let itemRect = rect(rowPos, rowSize)
-    menuAddActive(itemRect)
-
-    let open = menuPathOpen(path)
-    let hover = window.mousePos.vec2.overlaps(itemRect)
-
-    if hover and menuState.openPath.len >= path.len - 1:
-      menuState.openPath = path
-
-    if hover or open:
-      sk.drawRect(itemRect.xy, itemRect.wh, rgbx(70, 70, 90, 180))
-    discard sk.drawText(
-      sk.textStyle,
-      label,
-      rowPos + vec2(sk.theme.textPadding),
-      sk.theme.defaultTextColor
-    )
-
-    # Draw submenu arrow on the right.
-    let arrowPos = vec2(itemRect.x + itemRect.w - textSize.y, rowPos.y + sk.theme.textPadding.float32)
-    discard sk.drawText(sk.textStyle, ">", arrowPos, sk.theme.defaultTextColor)
-
-    layout.cursorY += rowH
-
-    if open:
-      menuPathStack.add(label)
-      let popupPos = vec2(itemRect.x + itemRect.w, itemRect.y)
-      menuPopup(path, popupPos, menuWidth):
-        body
-      menuPathStack.setLen(menuPathStack.len - 1)
+  try:
+    if ctx.clicked:
+      body
+  finally:
+    sk.menuItemEnd(ctx)
 
 template menuItem*(label: string, body: untyped) =
   ## Leaf menu entry that runs `body` on click.
