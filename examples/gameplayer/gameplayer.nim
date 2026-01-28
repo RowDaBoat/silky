@@ -226,26 +226,48 @@ window.onFrame = proc() =
     group(vec2(16, 16), TopToBottom):
       iconButton("ui/rewindToStart"):
         echo "rewindToStart"
+      if sk.shouldShowTooltip:
+        tooltip("Rewind to Start")
       iconButton("ui/stepBack"):
         echo "stepBack"
+      if sk.shouldShowTooltip:
+        tooltip("Step Back")
       iconButton("ui/play"):
         echo "play"
+      if sk.shouldShowTooltip:
+        tooltip("Play")
       iconButton("ui/stepForward"):
         echo "stepForward"
+      if sk.shouldShowTooltip:
+        tooltip("Step Forward")
       iconButton("ui/rewindToEnd"):
         echo "rewindToEnd"
+      if sk.shouldShowTooltip:
+        tooltip("Rewind to End")
 
-    group(vec2(sk.size.x - 240, 16), TopToBottom):
+    # position the second group of buttons relative to the right side of the window (not relative to the first group)
+    sk.at = sk.pos + vec2(sk.size.x - 240, 16)
+    group(vec2(0, 0), TopToBottom):
       iconButton("ui/heart"):
         echo "heart"
+      if sk.shouldShowTooltip:
+        tooltip("Heart")
       iconButton("ui/cloud"):
         echo "cloud"
+      if sk.shouldShowTooltip:
+        tooltip("Cloud")
       iconButton("ui/grid"):
         echo "grid"
+      if sk.shouldShowTooltip:
+        tooltip("Grid")
       iconButton("ui/eye"):
         echo "eye"
+      if sk.shouldShowTooltip:
+        tooltip("Eye")
       iconButton("ui/tack"):
         echo "tack"
+      if sk.shouldShowTooltip:
+        tooltip("Tack")
 
   frame("vibe-frame", vec2(sk.size.x - (11 * (32 + m)), 100) - vec2(14, 14), vec2(500, 800) + vec2(14, 14)):
     sk.at = sk.pos + vec2(m, m) * 2
@@ -258,7 +280,7 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip(vibe)
 
-  group vec2(10, 200), TopToBottom:
+  group(vec2(10, 200), TopToBottom):
     text("Step: 1 of 10\nscore: 100\nlevel: 1\nwidth: 100\nheight: 100\nnum agents: 10")
 
   let ms = sk.avgFrameTime * 1000
