@@ -269,7 +269,7 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip("Tack")
 
-  frame("vibe-frame", vec2(sk.size.x - (15 * (32 + m)), 100) - vec2(14, 14), vec2(600, 600) + vec2(14, 14)):
+  frame("vibe-frame", vec2(sk.size.x - (16 * (32 + m)), 100) - vec2(14, 14), vec2(700, 600) + vec2(14, 14)):
     sk.at = sk.pos + vec2(m, m) * 2
     for i, vibe in vibes:
       if i > 0 and i mod 13 == 0:

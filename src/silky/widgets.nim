@@ -374,7 +374,7 @@ template iconButton*(image: string, body) =
   let
     m2 = vec2(8, 8)
     s2 = sk.getImageSize(image) + vec2(8, 8) * 2
-    buttonRect = rect(sk.at - m2, s2)
+    buttonRect = rect(sk.at, sk.getImageSize(image))
   if mouseInsideClip(buttonRect):
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
