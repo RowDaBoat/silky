@@ -16,7 +16,7 @@ builder.write("dist/atlas.png", "dist/atlas.json")
 
 var window = newWindow(
   "Silky Example 1",
-  ivec2(800, 600),
+  ivec2(1200, 900),
   vsync = false
 )
 makeContextCurrent(window)
@@ -269,10 +269,10 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip("Tack")
 
-  frame("vibe-frame", vec2(sk.size.x - (11 * (32 + m)), 100) - vec2(14, 14), vec2(500, 800) + vec2(14, 14)):
+  frame("vibe-frame", vec2(sk.size.x - (15 * (32 + m)), 100) - vec2(14, 14), vec2(600, 600) + vec2(14, 14)):
     sk.at = sk.pos + vec2(m, m) * 2
     for i, vibe in vibes:
-      if i > 0 and i mod 10 == 0:
+      if i > 0 and i mod 13 == 0:
         sk.at.x = sk.pos.x + m * 2
         sk.at.y += 32 + m
       iconButton(vibe):
