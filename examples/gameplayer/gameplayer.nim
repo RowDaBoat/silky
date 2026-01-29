@@ -211,10 +211,14 @@ window.onFrame = proc() =
     #   echo "pressed"
 
     sk.at = sk.pos + vec2(sk.size.x - 100, 16)
-    clickableIcon("ui/heart", true):
+    iconButton("ui/heart"):
       echo "heart"
-    clickableIcon("ui/cloud", true):
+    if sk.shouldShowTooltip:
+      tooltip("Heart")  
+    iconButton("ui/cloud"):
       echo "cloud"
+    if sk.shouldShowTooltip:
+      tooltip("Cloud")
 
   # Scrubber
   ribbon(vec2(0, sk.size.y - 64*2), vec2(sk.size.x, 66), ScrubberColor):
@@ -275,7 +279,7 @@ window.onFrame = proc() =
       if i > 0 and i mod 13 == 0:
         sk.at.x = sk.pos.x + m * 2
         sk.at.y += 32 + m
-      clickableIcon(vibe, true):
+      iconButton(vibe):
         echo vibe
       if sk.shouldShowTooltip:
         tooltip(vibe)
