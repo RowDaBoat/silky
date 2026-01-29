@@ -211,9 +211,9 @@ window.onFrame = proc() =
     #   echo "pressed"
 
     sk.at = sk.pos + vec2(sk.size.x - 100, 16)
-    iconButton("ui/heart"):
+    clickableIcon("ui/heart", true):
       echo "heart"
-    iconButton("ui/cloud"):
+    clickableIcon("ui/cloud", true):
       echo "cloud"
 
   # Scrubber
@@ -224,23 +224,23 @@ window.onFrame = proc() =
   ribbon(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64), RibbonColor):
 
     group(vec2(16, 16), TopToBottom):
-      iconButton("ui/rewindToStart"):
+      clickableIcon("ui/rewindToStart", true):
         echo "rewindToStart"
       if sk.shouldShowTooltip:
         tooltip("Rewind to Start")
-      iconButton("ui/stepBack"):
+      clickableIcon("ui/stepBack", true):
         echo "stepBack"
       if sk.shouldShowTooltip:
         tooltip("Step Back")
-      iconButton("ui/play"):
+      clickableIcon("ui/play", true):
         echo "play"
       if sk.shouldShowTooltip:
         tooltip("Play")
-      iconButton("ui/stepForward"):
+      clickableIcon("ui/stepForward", true):
         echo "stepForward"
       if sk.shouldShowTooltip:
         tooltip("Step Forward")
-      iconButton("ui/rewindToEnd"):
+      clickableIcon("ui/rewindToEnd", true):
         echo "rewindToEnd"
       if sk.shouldShowTooltip:
         tooltip("Rewind to End")
@@ -248,23 +248,23 @@ window.onFrame = proc() =
     # position the second group of buttons relative to the right side of the window (not relative to the first group)
     sk.at = sk.pos + vec2(sk.size.x - 240, 16)
     group(vec2(0, 0), TopToBottom):
-      iconButton("ui/heart"):
-        echo "heart"
+      clickableIcon("ui/heart", true):
+        echo "clickable heart"
       if sk.shouldShowTooltip:
-        tooltip("Heart")
-      iconButton("ui/cloud"):
-        echo "cloud"
+        tooltip("Clickable Heart")
+      clickableIcon("ui/cloud", true):
+        echo "clickable cloud"
       if sk.shouldShowTooltip:
-        tooltip("Cloud")
-      iconButton("ui/grid"):
+        tooltip("Clickable Cloud")
+      clickableIcon("ui/grid", true):
         echo "grid"
       if sk.shouldShowTooltip:
         tooltip("Grid")
-      iconButton("ui/eye"):
+      clickableIcon("ui/eye", true):
         echo "eye"
       if sk.shouldShowTooltip:
         tooltip("Eye")
-      iconButton("ui/tack"):
+      clickableIcon("ui/tack", true):
         echo "tack"
       if sk.shouldShowTooltip:
         tooltip("Tack")
@@ -275,7 +275,7 @@ window.onFrame = proc() =
       if i > 0 and i mod 13 == 0:
         sk.at.x = sk.pos.x + m * 2
         sk.at.y += 32 + m
-      iconButton(vibe):
+      clickableIcon(vibe, true):
         echo vibe
       if sk.shouldShowTooltip:
         tooltip(vibe)

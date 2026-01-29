@@ -401,6 +401,7 @@ template clickableIcon*(image: string, on: bool, body) =
     offColor = rgbx(110, 110, 110, 110)
   var color = upColor
   if mouseInsideClip(rect(sk.at, s2)):
+    sk.hover = true
     if window.buttonReleased[MouseLeft]:
       body
     elif window.buttonDown[MouseLeft]:
@@ -411,6 +412,7 @@ template clickableIcon*(image: string, on: bool, body) =
       else:
         color = upColor
   else:
+    sk.hover = false
     if on:
       color = onColor
     else:
