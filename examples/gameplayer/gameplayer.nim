@@ -16,7 +16,7 @@ builder.write("dist/atlas.png", "dist/atlas.json")
 
 var window = newWindow(
   "Silky Example 1",
-  ivec2(800, 600),
+  ivec2(1200, 900),
   vsync = false
 )
 makeContextCurrent(window)
@@ -213,8 +213,12 @@ window.onFrame = proc() =
     sk.at = sk.pos + vec2(sk.size.x - 100, 16)
     iconButton("ui/heart"):
       echo "heart"
+    if sk.shouldShowTooltip:
+      tooltip("Heart")  
     iconButton("ui/cloud"):
       echo "cloud"
+    if sk.shouldShowTooltip:
+      tooltip("Cloud")
 
   # Scrubber
   ribbon(vec2(0, sk.size.y - 64*2), vec2(sk.size.x, 66), ScrubberColor):
@@ -224,33 +228,55 @@ window.onFrame = proc() =
   ribbon(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64), RibbonColor):
 
     group(vec2(16, 16), TopToBottom):
-      iconButton("ui/rewindToStart"):
+      clickableIcon("ui/rewindToStart", true):
         echo "rewindToStart"
-      iconButton("ui/stepBack"):
+      if sk.shouldShowTooltip:
+        tooltip("Rewind to Start")
+      clickableIcon("ui/stepBack", true):
         echo "stepBack"
-      iconButton("ui/play"):
+      if sk.shouldShowTooltip:
+        tooltip("Step Back")
+      clickableIcon("ui/play", true):
         echo "play"
-      iconButton("ui/stepForward"):
+      if sk.shouldShowTooltip:
+        tooltip("Play")
+      clickableIcon("ui/stepForward", true):
         echo "stepForward"
-      iconButton("ui/rewindToEnd"):
+      if sk.shouldShowTooltip:
+        tooltip("Step Forward")
+      clickableIcon("ui/rewindToEnd", true):
         echo "rewindToEnd"
+      if sk.shouldShowTooltip:
+        tooltip("Rewind to End")
 
-    group(vec2(sk.size.x - 240, 16), TopToBottom):
-      iconButton("ui/heart"):
-        echo "heart"
-      iconButton("ui/cloud"):
-        echo "cloud"
-      iconButton("ui/grid"):
+    # position the second group of buttons relative to the right side of the window (not relative to the first group)
+    sk.at = sk.pos + vec2(sk.size.x - 240, 16)
+    group(vec2(0, 0), TopToBottom):
+      clickableIcon("ui/heart", true):
+        echo "clickable heart"
+      if sk.shouldShowTooltip:
+        tooltip("Clickable Heart")
+      clickableIcon("ui/cloud", true):
+        echo "clickable cloud"
+      if sk.shouldShowTooltip:
+        tooltip("Clickable Cloud")
+      clickableIcon("ui/grid", true):
         echo "grid"
-      iconButton("ui/eye"):
+      if sk.shouldShowTooltip:
+        tooltip("Grid")
+      clickableIcon("ui/eye", true):
         echo "eye"
-      iconButton("ui/tack"):
+      if sk.shouldShowTooltip:
+        tooltip("Eye")
+      clickableIcon("ui/tack", true):
         echo "tack"
+      if sk.shouldShowTooltip:
+        tooltip("Tack")
 
-  frame("vibe-frame", vec2(sk.size.x - (11 * (32 + m)), 100) - vec2(14, 14), vec2(500, 800) + vec2(14, 14)):
+  frame("vibe-frame", vec2(sk.size.x - (16 * (32 + m)), 100) - vec2(14, 14), vec2(700, 600) + vec2(14, 14)):
     sk.at = sk.pos + vec2(m, m) * 2
     for i, vibe in vibes:
-      if i > 0 and i mod 10 == 0:
+      if i > 0 and i mod 13 == 0:
         sk.at.x = sk.pos.x + m * 2
         sk.at.y += 32 + m
       iconButton(vibe):
@@ -258,7 +284,7 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip(vibe)
 
-  group vec2(10, 200), TopToBottom:
+  group(vec2(10, 200), TopToBottom):
     text("Step: 1 of 10\nscore: 100\nlevel: 1\nwidth: 100\nheight: 100\nnum agents: 10")
 
   let ms = sk.avgFrameTime * 1000

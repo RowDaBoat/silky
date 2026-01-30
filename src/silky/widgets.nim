@@ -374,7 +374,7 @@ template iconButton*(image: string, body) =
   let
     m2 = vec2(8, 8)
     s2 = sk.getImageSize(image) + vec2(8, 8) * 2
-    buttonRect = rect(sk.at - m2, s2)
+    buttonRect = rect(sk.at, sk.getImageSize(image))
   if mouseInsideClip(buttonRect):
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
@@ -401,6 +401,7 @@ template clickableIcon*(image: string, on: bool, body) =
     offColor = rgbx(110, 110, 110, 110)
   var color = upColor
   if mouseInsideClip(rect(sk.at, s2)):
+    sk.hover = true
     if window.buttonReleased[MouseLeft]:
       body
     elif window.buttonDown[MouseLeft]:
@@ -411,6 +412,7 @@ template clickableIcon*(image: string, on: bool, body) =
       else:
         color = upColor
   else:
+    sk.hover = false
     if on:
       color = onColor
     else:
