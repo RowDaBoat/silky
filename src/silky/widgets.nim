@@ -1,7 +1,12 @@
 import
   std/[tables, unicode, times, strutils, options],
-  vmath, bumpy, chroma, windy,
-  silky/[textinput, drawing]
+  vmath, bumpy, chroma, 
+  silky/textinput
+
+when defined(silkyTesting):
+  import silky/semantic, silky/testing
+else:
+  import silky/drawing, windy
 
 when defined(macos):
   const ScrollSpeed* = 10.0

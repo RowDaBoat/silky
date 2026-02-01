@@ -1,13 +1,28 @@
 ## Test harness for Silky UI testing.
 ## 
-## Provides a TestWindow and TestHarness for running UI tests without
+## Provides a Window type and TestHarness for running UI tests without
 ## a real window or GPU.
 
-import vmath, bumpy, windy, jsony
+import vmath, bumpy, jsony
 import silky/[semantic, atlas]
 
+# Re-export Button enum for input handling
 type
-  TestWindow* = object
+  Button* = enum
+    MouseLeft
+    MouseRight
+    MouseMiddle
+    MouseButton4
+    MouseButton5
+    DoubleClick
+    TripleClick
+    QuadrupleClick
+    KeyUnknown
+
+export Button
+
+type
+  Window* = object
     ## A test window that simulates windy Window for testing.
     size*: IVec2
     mousePos*: IVec2
@@ -20,35 +35,35 @@ type
   TestHarness* = object
     ## Test harness for running Silky UI tests.
     sk*: Silky
-    window*: TestWindow
+    window*: Window
     lastSnapshot*: string
     frameCount*: int
 
-proc newTestWindow*(width = 800, height = 600): TestWindow =
-  TestWindow(
+proc newWindow*(width = 800, height = 600): Window =
+  Window(
     size: ivec2(width.int32, height.int32),
     mousePos: ivec2(0, 0)
   )
 
-proc resetInputState*(w: var TestWindow) =
+proc resetInputState*(w: var Window) =
   for i in Button:
     w.buttonPressed[i] = false
     w.buttonReleased[i] = false
   w.scrollDelta = vec2(0, 0)
 
-proc pressButton*(w: var TestWindow, button: Button) =
+proc pressButton*(w: var Window, button: Button) =
   w.buttonDown[button] = true
   w.buttonPressed[button] = true
 
-proc releaseButton*(w: var TestWindow, button: Button) =
+proc releaseButton*(w: var Window, button: Button) =
   w.buttonDown[button] = false
   w.buttonReleased[button] = true
 
-proc moveMouse*(w: var TestWindow, x, y: int) =
+proc moveMouse*(w: var Window, x, y: int) =
   w.mousePos = ivec2(x.int32, y.int32)
 
 proc newTestHarness*(atlasImg, atlasJson: string, width = 800, height = 600): TestHarness =
-  result.window = newTestWindow(width, height)
+  result.window = newWindow(width, height)
   result.frameCount = 0
   
   result.sk = Silky()
@@ -71,14 +86,15 @@ proc endFrame*(h: var TestHarness) =
   inc h.frameCount
   h.lastSnapshot = h.sk.semantic.toSnapshot()
 
-proc pumpFrame*(h: var TestHarness, onFrame: proc(sk: Silky, window: TestWindow), count = 1): string =
+proc pumpFrame*(h: var TestHarness, onFrame: proc(sk: Silky, window: Window), count = 1): string =
   let previousSnapshot = h.lastSnapshot
   
   for i in 0 ..< count:
-    h.window.resetInputState()
     h.beginFrame()
     onFrame(h.sk, h.window)
     h.endFrame()
+    # Reset input state AFTER the frame so pressed/released are seen
+    h.window.resetInputState()
   
   result = diff(previousSnapshot, h.lastSnapshot)
 
@@ -91,7 +107,7 @@ proc findByPath*(h: TestHarness, path: string): SemanticNode =
 proc findByText*(h: TestHarness, text: string, kind = ""): SemanticNode =
   h.sk.semantic.root.findByText(text, kind)
 
-proc clickPath*(h: var TestHarness, path: string, onFrame: proc(sk: Silky, window: TestWindow)): string =
+proc clickPath*(h: var TestHarness, path: string, onFrame: proc(sk: Silky, window: Window)): string =
   let node = h.findByPath(path)
   if node != nil and node.rect.w > 0:
     let centerX = (node.rect.x + node.rect.w / 2).int
@@ -103,7 +119,7 @@ proc clickPath*(h: var TestHarness, path: string, onFrame: proc(sk: Silky, windo
   h.window.releaseButton(MouseLeft)
   result = h.pumpFrame(onFrame, 1)
 
-proc clickLabel*(h: var TestHarness, label: string, onFrame: proc(sk: Silky, window: TestWindow)): string =
+proc clickLabel*(h: var TestHarness, label: string, onFrame: proc(sk: Silky, window: Window)): string =
   let node = h.findByText(label)
   if node != nil and node.rect.w > 0:
     let centerX = (node.rect.x + node.rect.w / 2).int
@@ -115,14 +131,15 @@ proc clickLabel*(h: var TestHarness, label: string, onFrame: proc(sk: Silky, win
   h.window.releaseButton(MouseLeft)
   result = h.pumpFrame(onFrame, 1)
 
-template mousePos*(w: TestWindow): Vec2 =
+# Compatibility templates for windy-like access
+template mousePos*(w: Window): Vec2 =
   w.mousePos.vec2
 
-template buttonDown*(w: TestWindow, btn: Button): bool =
+template buttonDown*(w: Window, btn: Button): bool =
   w.buttonDown[btn]
 
-template buttonPressed*(w: TestWindow, btn: Button): bool =
+template buttonPressed*(w: Window, btn: Button): bool =
   w.buttonPressed[btn]
 
-template buttonReleased*(w: TestWindow, btn: Button): bool =
+template buttonReleased*(w: Window, btn: Button): bool =
   w.buttonReleased[btn]

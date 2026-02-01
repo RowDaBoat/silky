@@ -1,8 +1,11 @@
 
 import
   std/[strformat, strutils, sequtils],
-  opengl, windy, bumpy, vmath, chroma,
+  vmath, bumpy, chroma,
   silky
+
+when not defined(silkyTesting):
+  import opengl, windy
 
 type
   SymbolKind = enum
@@ -93,24 +96,38 @@ proc compute() =
     if t.operator == "-": operate left() - right()
     inc i
 
-let builder = newAtlasBuilder(1024, 4)
-builder.addDir("data/", "data/")
-const CalculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
-builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorChars)
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
-builder.write("dist/atlas.png", "dist/atlas.json")
+proc getFormula(): string =
+  ## Build the display formula string.
+  for t in symbols:
+    result.add(t.number)
+    result.add(t.operator)
+  result = result.replace("--", "+").replace("+-", "-")
 
-let window = newWindow(
-  "Calculator",
-  ivec2(800, 600),
-  vsync = false
-)
-makeContextCurrent(window)
-loadExtensions()
+proc resetCalculator() =
+  symbols.setLen(0)
+  repeat.setLen(0)
+
+# Build the atlas (paths are relative to calculator folder)
+import std/os
+const CalcDir = currentSourcePath().parentDir()
+let builder = newAtlasBuilder(1024, 4)
+builder.addDir(CalcDir / "data/", "data/")
+const CalculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
+builder.addFont(CalcDir / "data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorChars)
+builder.addFont(CalcDir / "data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
+discard existsOrCreateDir(CalcDir / "dist")
+builder.write(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json")
+
+when not defined(silkyTesting):
+  let window = newWindow(
+    "Calculator",
+    ivec2(800, 600),
+    vsync = false
+  )
+  makeContextCurrent(window)
+  loadExtensions()
 
 const BackgroundColor = parseHtmlColor("#000000").rgbx
-
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
 var showWindow = true
 
@@ -118,11 +135,16 @@ template calcButton(label: string, body: untyped) =
   let
     btnSize = vec2(60, 50)
     startPos = sk.at
+    btnRect = rect(startPos, btnSize)
+    hover = sk.mouseInsideClip(window, btnRect)
+    pressed = hover and window.buttonDown[MouseLeft]
 
-  if sk.mouseInsideClip(window, rect(startPos, btnSize)):
+  sk.beginWidget("Button", text = label, rect = btnRect)
+
+  if hover:
     if window.buttonReleased[MouseLeft]:
       body
-    elif window.buttonDown[MouseLeft]:
+    elif pressed:
       sk.draw9Patch("button.down.9patch", 4, startPos, btnSize, rgbx(200, 200, 200, 255))
     else:
       sk.draw9Patch("button.hover.9patch", 4, startPos, btnSize, rgbx(220, 220, 220, 255))
@@ -136,41 +158,34 @@ template calcButton(label: string, body: untyped) =
   discard sk.drawText(sk.textStyle, label, textPos, rgbx(255, 255, 255, 255))
   sk.textStyle = oldStyle
 
+  sk.setWidgetState(enabled = true, pressed = pressed, hovered = hover)
+  sk.endWidget()
+
   sk.at.x += btnSize.x + 10
   sk.stretchAt.x = max(sk.stretchAt.x, sk.at.x + 10)
   sk.stretchAt.y = max(sk.stretchAt.y, sk.at.y + 50 + 10)
 
-window.onFrame = proc() =
-
-  sk.beginUI(window, window.size)
-
-  # Draw tiled test texture as the background.
-  for x in 0 ..< 16:
-    for y in 0 ..< 10:
-      sk.at = vec2(x.float32 * 256, y.float32 * 256)
-      image("testTexture", rgbx(30, 30, 30, 255))
-
+template drawCalculatorFrame(sk: Silky, window: Window) =
+  ## Draw the calculator UI. Can be used from tests.
   subWindow("Calculator", showWindow, vec2(10, 10), vec2(340, 480)):
-
-    # Build the display formula string.
-    var formula = ""
-    for t in symbols:
-      formula.add(t.number)
-      formula.add(t.operator)
-    formula = formula.replace("--", "+").replace("+-", "-")
+    let formula = getFormula()
 
     # Draw display background.
-    sk.drawRect(sk.at, vec2(sk.size.x - 24, 60), rgbx(50, 50, 50, 255))
+    let displayRect = rect(sk.at, vec2(sk.size.x - 24, 60))
+    let displayText = if formula == "": "0" else: formula
+    
+    sk.beginWidget("Display", name = "display", text = displayText, rect = displayRect)
+    sk.drawRect(displayRect.xy, displayRect.wh, rgbx(50, 50, 50, 255))
 
     # Draw the display text right-aligned.
     let oldStyle = sk.textStyle
     sk.textStyle = "H1"
-    let displayText = if formula == "": "0" else: formula
     let textSize = sk.getTextSize(sk.textStyle, displayText)
     # Calculate right-aligned position.
     let textX = sk.at.x + (sk.size.x - 24) - textSize.x - 10
     discard sk.drawText(sk.textStyle, displayText, vec2(textX, sk.at.y + 14), rgbx(255, 255, 255, 255))
     sk.textStyle = oldStyle
+    sk.endWidget()
 
     # Move past the display area.
     sk.advance(vec2(0, 70))
@@ -268,20 +283,35 @@ window.onFrame = proc() =
     sk.at.x = rowX
     sk.at.y += 60
 
-  if not showWindow:
-    if window.buttonPressed[MouseLeft]:
-      showWindow = true
-    sk.at = vec2(100, 100)
+when not defined(silkyTesting):
+  let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
-  let ms = sk.avgFrameTime * 1000
-  sk.at = sk.pos + vec2(sk.size.x - 250, 20)
-  text(&"frame time: {ms:>7.3f}ms")
+  window.onFrame = proc() =
 
-  sk.endUi()
-  window.swapBuffers()
+    sk.beginUI(window, window.size)
 
-when defined(emscripten):
-  window.run()
-else:
-  while not window.closeRequested:
-    pollEvents()
+    # Draw tiled test texture as the background.
+    for x in 0 ..< 16:
+      for y in 0 ..< 10:
+        sk.at = vec2(x.float32 * 256, y.float32 * 256)
+        image("testTexture", rgbx(30, 30, 30, 255))
+
+    drawCalculatorFrame(sk, window)
+
+    if not showWindow:
+      if window.buttonPressed[MouseLeft]:
+        showWindow = true
+      sk.at = vec2(100, 100)
+
+    let ms = sk.avgFrameTime * 1000
+    sk.at = sk.pos + vec2(sk.size.x - 250, 20)
+    text(&"frame time: {ms:>7.3f}ms")
+
+    sk.endUi()
+    window.swapBuffers()
+
+  when defined(emscripten):
+    window.run()
+  else:
+    while not window.closeRequested:
+      pollEvents()
