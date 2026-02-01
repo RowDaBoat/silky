@@ -24,3 +24,12 @@ jobs:
     - run: nim c examples/menu/menu.nim
     - run: nim c examples/panels/panels.nim
     - run: nim c examples/the7gui/the7gui.nim
+
+    # Run example tests
+    - name: Run calculator tests
+      working-directory: examples/calculator
+      run: nim r tests/test.nim
+
+    - name: Run basicwindow tests
+      working-directory: examples/basicwindow
+      run: nim r tests/test.nim
