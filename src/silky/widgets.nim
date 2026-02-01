@@ -650,15 +650,15 @@ template ribbon*(p, s: Vec2, tint: ColorRGBX, body: untyped) =
   finally:
     sk.ribbonEnd()
 
-template image*(image: string, tint: ColorRGBX) =
+template image*(imageName: string, tint: ColorRGBX) =
   ## Draw an image with explicit tint.
-  sk.drawImage(image, sk.at, tint)
-  sk.at.x += sk.getImageSize(image).x
+  sk.drawImage(imageName, sk.at, tint)
+  sk.at.x += sk.getImageSize(imageName).x
   sk.at.x += sk.padding
 
-template image*(image: string) =
+template image*(imageName: string) =
   ## Draw an image with default text color tint.
-  image(image, sk.theme.textColor)
+  image(imageName, sk.theme.textColor)
 
 template text*(t: string) =
   ## Draw text.
