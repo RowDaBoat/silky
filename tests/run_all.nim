@@ -2,7 +2,7 @@
 
 import std/[osproc, os, strformat]
 
-const examples = [
+const Examples = [
   "basicwindow",
   "calculator",
   "flowgrid",
@@ -13,18 +13,21 @@ const examples = [
 ]
 
 proc main() =
-  let rootDir = currentSourcePath().parentDir.parentDir
-  let examplesDir = rootDir / "examples"
+  ## Run all examples in sequence.
+  let
+    rootDir = currentSourcePath().parentDir.parentDir
+    examplesDir = rootDir / "examples"
 
   echo "=== Silky Examples Runner ==="
   echo "Compiling and running each example."
   echo "Close each window to proceed to the next example.\n"
 
-  for i, name in examples:
-    let exampleDir = examplesDir / name
-    let nimFile = name & ".nim"
+  for i, name in Examples:
+    let
+      exampleDir = examplesDir / name
+      nimFile = name & ".nim"
     
-    echo fmt"[{i + 1}/{examples.len}] Compiling and running: {name}"
+    echo fmt"[{i + 1}/{Examples.len}] Compiling and running: {name}"
     
     # Change to example directory so it can find its data folder
     setCurrentDir(exampleDir)

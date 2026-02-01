@@ -51,8 +51,8 @@ proc compute() =
   ## Compute current symbols and produce an answer (also a symbol).
 
   if symbols.len > 2:
-  # If there are more than 2 symbols remember the last operation.
-  repeat = symbols[^2 .. ^1]
+    # If there are more than 2 symbols remember the last operation.
+    repeat = symbols[^2 .. ^1]
 
   if symbols.len == 0:
     return
@@ -95,9 +95,9 @@ proc compute() =
 
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
-const calculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
-builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = calculatorChars)
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = calculatorChars)
+const CalculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
+builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorChars)
+builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
 builder.write("dist/atlas.png", "dist/atlas.json")
 
 let window = newWindow(
@@ -108,13 +108,11 @@ let window = newWindow(
 makeContextCurrent(window)
 loadExtensions()
 
-const
-  BackgroundColor = parseHtmlColor("#000000").rgbx
+const BackgroundColor = parseHtmlColor("#000000").rgbx
 
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
-var
-  showWindow = true
+var showWindow = true
 
 template calcButton(label: string, body: untyped) =
   let
