@@ -611,29 +611,29 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
 template listBox*[T](id: string, items: seq[T], selectedIndex: var int) =
   ## Listbox with scrolling and selection.
   let font = sk.atlas.fonts[sk.textStyle]
-  let rowHeight = font.lineHeight + theme.padding.float32
-  let outerWidth = sk.size.x - theme.padding.float32 * 3
+  let rowHeight = font.lineHeight + sk.theme.padding.float32
+  let outerWidth = sk.size.x - sk.theme.padding.float32 * 3
   # Use a fixed height or calculate based on items, but capped at 4 items.
-  let listHeight = min(rowHeight * 4.float32, rowHeight * max(1, items.len).float32) + theme.padding.float32 * 2
+  let listHeight = min(rowHeight * 4.float32, rowHeight * max(1, items.len).float32) + sk.theme.padding.float32 * 2
 
   frame(id, sk.at, vec2(outerWidth, listHeight)):
-    let itemWidth = sk.size.x - theme.padding.float32 * 3
+    let itemWidth = sk.size.x - sk.theme.padding.float32 * 3
     for i, item in items:
       let
         rowRect = rect(sk.at, vec2(itemWidth, rowHeight))
-        textPos = sk.at + vec2(theme.padding.float32, theme.padding.float32 * 0.5)
+        textPos = sk.at + vec2(sk.theme.padding.float32, sk.theme.padding.float32 * 0.5)
 
       let isSelected = selectedIndex == i
-      let rowHover = mouseInsideClip(rowRect)
+      let rowHover = sk.mouseInsideClip(window, rowRect)
 
       if rowHover or isSelected:
-        let tint = if rowHover: theme.rowHoverColor else: theme.rowSelectedColor
+        let tint = if rowHover: sk.theme.menuPopupHoverColor else: sk.theme.menuPopupSelectedColor
         sk.drawRect(rowRect.xy, rowRect.wh, tint)
         if rowHover and window.buttonReleased[MouseLeft]:
           selectedIndex = i
 
-      discard sk.drawText(sk.textStyle, $item, textPos, theme.defaultTextColor)
-      sk.advance(vec2(itemWidth, rowHeight - theme.spacing.float32))
+      discard sk.drawText(sk.textStyle, $item, textPos, sk.theme.defaultTextColor)
+      sk.advance(vec2(itemWidth, rowHeight - sk.theme.spacing.float32))
   sk.advance(vec2(outerWidth, listHeight))
 
 template progressBar*(value: SomeNumber, minVal: SomeNumber, maxVal: SomeNumber) =

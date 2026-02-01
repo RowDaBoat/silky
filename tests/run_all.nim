@@ -6,6 +6,7 @@ import std/[osproc, os, strformat]
 const examples = [
   "basicwindow",
   "calculator",
+  "flowgrid",
   "gameplayer",
   "menu",
   "panels",

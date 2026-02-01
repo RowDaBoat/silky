@@ -23,7 +23,20 @@ const
 
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
-theme.defaultTextColor = parseHtmlColor("#6C758D").rgbx
+# Set up a light theme for 7GUIs
+sk.theme.defaultTextColor = parseHtmlColor("#2C3E50").rgbx  # Dark blue-gray text
+sk.theme.disabledTextColor = parseHtmlColor("#95A5A6").rgbx  # Lighter gray for disabled
+sk.theme.errorTextColor = parseHtmlColor("#E74C3C").rgbx  # Red for errors
+sk.theme.textColor = parseHtmlColor("#2C3E50").rgbx  # Same as default
+sk.theme.textH1Color = parseHtmlColor("#1A252F").rgbx  # Darker for headers
+sk.theme.frameFocusColor = parseHtmlColor("#D5DBDB").rgbx  # Light gray focus
+sk.theme.dropdownBgColor = parseHtmlColor("#ECF0F1").rgbx  # Light background
+sk.theme.dropdownHoverBgColor = parseHtmlColor("#BDC3C7").rgbx  # Slightly darker hover
+sk.theme.dropdownPopupBgColor = parseHtmlColor("#FDFEFE").rgbx  # White popup
+sk.theme.buttonHoverColor = rgbx(200, 200, 200, 255)
+sk.theme.buttonDownColor = rgbx(180, 180, 180, 255)
+sk.theme.menuPopupHoverColor = parseHtmlColor("#3498DB").rgbx  # Blue hover
+sk.theme.menuPopupSelectedColor = parseHtmlColor("#2980B9").rgbx  # Darker blue selected
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =

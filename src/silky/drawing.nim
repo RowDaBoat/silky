@@ -34,6 +34,8 @@ type
     textPadding*: int = 4
     headerHeight*: int = 32
     defaultTextColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    disabledTextColor*: ColorRGBX = rgbx(150, 150, 150, 255)
+    errorTextColor*: ColorRGBX = rgbx(255, 100, 100, 255)
     buttonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
     buttonDownColor*: ColorRGBX = rgbx(255, 255, 255, 255)
     iconButtonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
