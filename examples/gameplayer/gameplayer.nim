@@ -3,18 +3,15 @@ import
   opengl, windy, bumpy, vmath, chroma,
   silky
 
-var builder = newAtlasBuilder(1024, 4)
-
+let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
 builder.addDir("data/ui/", "data/")
 builder.addDir("data/vibe/", "data/")
-
 builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-
 builder.write("dist/atlas.png", "dist/atlas.json")
 
-var window = newWindow(
+let window = newWindow(
   "Silky Example 1",
   ivec2(1200, 900),
   vsync = false
@@ -26,12 +23,11 @@ const
   BackgroundColor = parseHtmlColor("#000000").rgbx
   RibbonColor = parseHtmlColor("#273646").rgbx
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx
-  m = 12f # Default margin
+  Margin = 12f
 
-var sk = newSilky("dist/atlas.png", "dist/atlas.json")
-var scrubValue: float32 = 0
-
-var vibes = @[
+let
+  sk = newSilky("dist/atlas.png", "dist/atlas.json")
+  vibes = @[
   "vibe/alembic",
   "vibe/angry",
   "vibe/anxious",
@@ -190,25 +186,23 @@ var vibes = @[
   "vibe/yellow-heart",
   "vibe/yellow-square",
   "vibe/zero",
-]
+  ]
+
+var scrubValue: float32 = 0
 
 window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
 
-  # Draw map background
+  # Draw map background.
   for x in 0 ..< 16:
     for y in 0 ..< 10:
       sk.at = vec2(x.float32 * 256, y.float32 * 256)
       image("testTexture", rgbx(30, 30, 30, 255))
 
-  # Header
   ribbon(sk.pos, vec2(sk.size.x, 64), RibbonColor):
     image("ui/logo")
     h1text("Hello, World!")
-
-    # button("press me"):
-    #   echo "pressed"
 
     sk.at = sk.pos + vec2(sk.size.x - 100, 16)
     iconButton("ui/heart"):
@@ -220,11 +214,9 @@ window.onFrame = proc() =
     if sk.shouldShowTooltip:
       tooltip("Cloud")
 
-  # Scrubber
   ribbon(vec2(0, sk.size.y - 64*2), vec2(sk.size.x, 66), ScrubberColor):
     scrubber("timeline", scrubValue, 0, 1000)
 
-  # Footer
   ribbon(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64), RibbonColor):
 
     group(vec2(16, 16), TopToBottom):
@@ -249,7 +241,7 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip("Rewind to End")
 
-    # position the second group of buttons relative to the right side of the window (not relative to the first group)
+    # Position the second group relative to the right side of the window.
     sk.at = sk.pos + vec2(sk.size.x - 240, 16)
     group(vec2(0, 0), TopToBottom):
       clickableIcon("ui/heart", true):
@@ -273,12 +265,12 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip("Tack")
 
-  frame("vibe-frame", vec2(sk.size.x - (16 * (32 + m)), 100) - vec2(14, 14), vec2(700, 600) + vec2(14, 14)):
-    sk.at = sk.pos + vec2(m, m) * 2
+  frame("vibe-frame", vec2(sk.size.x - (16 * (32 + Margin)), 100) - vec2(14, 14), vec2(700, 600) + vec2(14, 14)):
+    sk.at = sk.pos + vec2(Margin, Margin) * 2
     for i, vibe in vibes:
       if i > 0 and i mod 13 == 0:
-        sk.at.x = sk.pos.x + m * 2
-        sk.at.y += 32 + m
+        sk.at.x = sk.pos.x + Margin * 2
+        sk.at.y += 32 + Margin
       iconButton(vibe):
         echo vibe
       if sk.shouldShowTooltip:

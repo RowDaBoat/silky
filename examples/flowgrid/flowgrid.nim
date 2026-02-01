@@ -1,4 +1,3 @@
-## Flow Grid Example
 ## Demonstrates element wrapping and scrolling in a resizable frame.
 
 import
@@ -27,9 +26,10 @@ const
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
 # Track which items have been clicked.
-var clickedItems: array[NumItems, bool]
-var frameWidth = 400.0f
-var frameHeight = 300.0f
+var
+  clickedItems: array[NumItems, bool]
+  frameWidth = 400.0f
+  frameHeight = 300.0f
 
 window.onFrame = proc() =
   sk.beginUI(window, window.size)
@@ -67,20 +67,23 @@ window.onFrame = proc() =
   let frameSize = vec2(frameWidth, frameHeight)
 
   frame("flowFrame", framePos, frameSize):
-    let buttonWidth = 32.0f + sk.padding
-    let margin = 12.0f
-    let scrollbarWidth = 16.0f
-    let startX = sk.at.x
+    let
+      buttonWidth = 32.0f + sk.padding
+      margin = 12.0f
+      scrollbarWidth = 16.0f
+      startX = sk.at.x
 
     for i in 0 ..< NumItems:
-      # Check if we need to wrap to the next line.
-      # Account for scrollbar width on the right side.
+      # Check if we need to wrap to the next line, accounting for scrollbar.
       if sk.at.x + buttonWidth > sk.pos.x + sk.size.x - margin - scrollbarWidth:
         sk.at.x = startX
         sk.at.y += 32 + margin
 
-      # Alternate between heart and cloud icons.
-      let icon = if i mod 2 == 0: "heart" else: "cloud"
+      let icon = 
+        if i mod 2 == 0: 
+          "heart" 
+        else: 
+          "cloud"
       iconButton(icon):
         clickedItems[i] = not clickedItems[i]
         echo "Clicked item ", i

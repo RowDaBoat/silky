@@ -69,12 +69,15 @@ var
   menuPathStack: seq[string]
 
 proc menuPathKey(path: seq[string]): string =
+  ## Join menu path segments into a unique key.
   path.join(">")
 
 proc menuPathOpen(path: seq[string]): bool =
+  ## Check if the given menu path is currently open.
   menuState.openPath.len >= path.len and menuState.openPath[0 ..< path.len] == path
 
 proc menuEnsureState() =
+  ## Initialize menu state if not already created.
   if menuState.isNil:
     menuState = MenuState(
       openPath: @[],
@@ -86,6 +89,7 @@ proc menuAddActive(rect: Rect) =
   menuState.activeRects.add(rect)
 
 proc menuPointInside(rects: seq[Rect], p: Vec2): bool =
+  ## Check if point is inside any of the given rectangles.
   for r in rects:
     if p.overlaps(r):
       return true
@@ -321,7 +325,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
       scrollbarTrackRect.h * scrollSizePercent
     )
 
-    # Handle scrollbar Y dragging
+    # Handle scrollbar Y dragging.
     if frameState.scrollingY:
       let mouseY = window.mousePos.vec2.y
       let relativeY = mouseY - frameState.scrollDragOffset.y - scrollbarTrackRect.y
@@ -356,7 +360,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
       8
     )
 
-    # Handle scrollbar X dragging
+    # Handle scrollbar X dragging.
     if frameState.scrollingX:
       let mouseX = window.mousePos.vec2.x
       let relativeX = mouseX - frameState.scrollDragOffset.x - scrollbarTrackRect.x
@@ -382,22 +386,53 @@ template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   finally:
     sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
 
-template button*(label: string, body) =
-  ## Create a button.
+template button*(label: string, enabled: bool, error: bool, body: untyped) =
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
-  if sk.mouseInsideClip(window, rect(sk.at, buttonSize)):
-    if window.buttonReleased[MouseLeft]:
-      body
-    elif window.buttonDown[MouseLeft]:
-      sk.draw9Patch("button.down.9patch", 8, sk.at, buttonSize, sk.theme.buttonDownColor)
+  let hover = sk.mouseInsideClip(window, rect(sk.at, buttonSize))
+
+  let patch = 
+    if not enabled: 
+      "button.disabled.9patch"
+    elif error: 
+      "button.error.9patch"
+    else: 
+      "button.9patch"
+
+  let textColor = 
+    if not enabled: 
+      sk.theme.disabledTextColor
+    elif error: 
+      sk.theme.errorTextColor
+    else: 
+      sk.theme.defaultTextColor
+
+  if enabled:
+    if hover:
+      let hoverPatch = if error: "button.error.9patch" else: "button.hover.9patch"
+      if window.buttonReleased[MouseLeft]:
+        body
+      elif window.buttonDown[MouseLeft]:
+        let downPatch = if error: "button.error.9patch" else: "button.down.9patch"
+        sk.draw9Patch(downPatch, 8, sk.at, buttonSize)
+      else:
+        sk.draw9Patch(hoverPatch, 8, sk.at, buttonSize)
     else:
-      sk.draw9Patch("button.hover.9patch", 8, sk.at, buttonSize, sk.theme.buttonHoverColor)
+      sk.draw9Patch(patch, 8, sk.at, buttonSize)
   else:
-    sk.draw9Patch("button.9patch", 8, sk.at, buttonSize)
-  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), sk.theme.textColor)
+    sk.draw9Patch(patch, 8, sk.at, buttonSize)
+
+  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
   sk.advance(buttonSize + vec2(sk.theme.padding))
+
+template button*(label: string, body: untyped) =
+  ## Create a button.
+  button(label, true, false, body)
+
+template button*(label: string, enabled: bool, body: untyped) =
+  ## Create a button.
+  button(label, enabled, false, body)
 
 template icon*(image: string) =
   ## Draw an icon.
@@ -576,6 +611,34 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
     sk.popClipRect()
     sk.popLayer()
 
+template listBox*[T](id: string, items: seq[T], selectedIndex: var int) =
+  ## Listbox with scrolling and selection.
+  let font = sk.atlas.fonts[sk.textStyle]
+  let rowHeight = font.lineHeight + sk.theme.padding.float32
+  let outerWidth = sk.size.x - sk.theme.padding.float32 * 3
+  # Use a fixed height or calculate based on items, but capped at 4 items.
+  let listHeight = min(rowHeight * 4.float32, rowHeight * max(1, items.len).float32) + sk.theme.padding.float32 * 2
+
+  frame(id, sk.at, vec2(outerWidth, listHeight)):
+    let itemWidth = sk.size.x - sk.theme.padding.float32 * 3
+    for i, item in items:
+      let
+        rowRect = rect(sk.at, vec2(itemWidth, rowHeight))
+        textPos = sk.at + vec2(sk.theme.padding.float32, sk.theme.padding.float32 * 0.5)
+
+      let isSelected = selectedIndex == i
+      let rowHover = sk.mouseInsideClip(window, rowRect)
+
+      if rowHover or isSelected:
+        let tint = if rowHover: sk.theme.menuPopupHoverColor else: sk.theme.menuPopupSelectedColor
+        sk.drawRect(rowRect.xy, rowRect.wh, tint)
+        if rowHover and window.buttonReleased[MouseLeft]:
+          selectedIndex = i
+
+      discard sk.drawText(sk.textStyle, $item, textPos, sk.theme.defaultTextColor)
+      sk.advance(vec2(itemWidth, rowHeight - sk.theme.spacing.float32))
+  sk.advance(vec2(outerWidth, listHeight))
+
 template progressBar*(value: SomeNumber, minVal: SomeNumber, maxVal: SomeNumber) =
   ## Non-interactive progress bar.
   let
@@ -591,9 +654,10 @@ template progressBar*(value: SomeNumber, minVal: SomeNumber, maxVal: SomeNumber)
 
   sk.draw9Patch("progressBar.body.9patch", 6, barRect.xy, barRect.wh)
 
-  let fillWidth = width * t
+  let scrubberPadding = 4
+  let fillWidth = scrubberPadding.float32 * 2 + (width - scrubberPadding.float32 * 2) * t
   if fillWidth > 0:
-    sk.draw9Patch("progressBar.progress.9patch", 6, barRect.xy, vec2(fillWidth, height))
+    sk.draw9Patch("progressBar.progress.9patch", scrubberPadding, barRect.xy, vec2(fillWidth, height))
 
   sk.advance(vec2(width, height))
 
@@ -724,7 +788,7 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
   sk.drawImage("scrubber.handle", handlePos2)
   sk.advance(vec2(width, height))
 
-template inputText*(id: int, t: var string) =
+template inputText*(id: int, t: var string, enabled: bool = true, error: bool = false) =
   ## Create an input text.
   let font = sk.atlas.fonts[sk.textStyle]
   let height = font.lineHeight + sk.theme.padding.float32 * 2
@@ -737,17 +801,29 @@ template inputText*(id: int, t: var string) =
 
   let textInputState = textInputStates[id]
 
+  # If t changed externally, update the internal state
+  if not textInputState.focused and textInputState.getText() != t:
+    textInputState.setText(t)
+
   # Handle focus
-  if window.buttonPressed[MouseLeft]:
+  if enabled and window.buttonPressed[MouseLeft]:
     if sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
       textInputState.focused = true
-      # TODO: Set cursor position based on click
+      # TODO: Set cursor position based on click.
     else:
       textInputState.focused = false
 
+  let patch = 
+    if not enabled: 
+      "input.disabled.9patch"
+    elif error: 
+      "input.error.9patch"
+    else: 
+      "input.9patch"
+
   # Handle input if focused
-  if textInputState.focused:
-    sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size, sk.theme.frameFocusColor)
+  if enabled and textInputState.focused:
+    sk.draw9Patch(patch, 6, sk.pos, sk.size, sk.theme.frameFocusColor)
 
     # Process runes
     for r in sk.inputRunes:
@@ -758,18 +834,23 @@ template inputText*(id: int, t: var string) =
     # Sync back
     t = textInputState.getText()
   else:
-    sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size)
+    textInputState.focused = false
+    sk.draw9Patch(patch, 6, sk.pos, sk.size)
 
-  # Draw text
-  # We should probably clip or scroll text
+  # Draw text and we should probably clip or scroll text.
   let padding = vec2(sk.theme.padding)
-  discard sk.drawText(sk.textStyle, t, sk.at + padding, sk.theme.defaultTextColor)
+  let textColor = 
+    if not enabled: 
+      sk.theme.disabledTextColor
+    elif error: 
+      sk.theme.errorTextColor
+    else: 
+      sk.theme.defaultTextColor
+  discard sk.drawText(sk.textStyle, t, sk.at + padding, textColor)
 
-  # Draw cursor
+  # Draw cursor if focused and blinking is on.
   if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
-    # Calculate cursor position
-    # This is inefficient, measuring text up to cursor
-    # But fine for now
+    # Calculate cursor position, which is inefficient but fine for now.
     let textBeforeCursor = $textInputState.runes[0 ..< min(textInputState.cursor, textInputState.runes.len)]
     let textSize = sk.getTextSize(sk.textStyle, textBeforeCursor)
     let cursorHeight = sk.atlas.fonts[sk.textStyle].lineHeight
@@ -777,7 +858,7 @@ template inputText*(id: int, t: var string) =
     let cursorX = sk.at.x + padding.x + textSize.x
     let cursorY = sk.at.y + padding.y
 
-    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), sk.theme.defaultTextColor)
+    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), textColor)
 
   sk.popLayout()
   sk.advance(vec2(width, height))

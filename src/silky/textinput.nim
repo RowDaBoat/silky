@@ -66,14 +66,17 @@ proc selectAll*(state: InputTextState) =
   state.selector = state.runes.len
 
 proc getText*(state: InputTextState): string =
+  ## Returns the current text content.
   $state.runes
 
 proc setText*(state: InputTextState, text: string) =
+  ## Sets the text content and moves cursor to end.
   state.runes = text.toRunes
   state.cursor = state.runes.len
   state.selector = state.runes.len
 
 proc handleInput*(state: InputTextState, window: Window) =
+  ## Process keyboard input for the text field.
   if not state.focused:
     return
 
@@ -98,10 +101,10 @@ proc handleInput*(state: InputTextState, window: Window) =
   elif window.buttonPressed[KeyA] and (window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl] or window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]):
     state.selectAll()
   elif window.buttonPressed[KeyC] and (window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl] or window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]):
-    # Copy
+    # Copy text to clipboard is not yet implemented.
     discard
   elif window.buttonPressed[KeyV] and (window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl] or window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]):
-    # Paste
+    # Paste text from clipboard.
     let clipboard = getClipboardString()
     if clipboard.len > 0:
       for rune in clipboard.toRunes:

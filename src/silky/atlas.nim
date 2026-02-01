@@ -60,7 +60,7 @@ proc newAtlasBuilder*(size, margin: int): AtlasBuilder =
     atlas = SilkyAtlas(size: size)
     allocator = newSkylineAllocator(size, margin)
 
-  # Always add pure white square to the atlas.
+  # Always add a pure white square to the atlas.
   let whiteTile = newImage(16, 16)
   whiteTile.fill(color(1, 1, 1, 1))
   let allocation = allocator.allocate(whiteTile.width, whiteTile.height)

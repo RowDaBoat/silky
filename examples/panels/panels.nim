@@ -4,14 +4,12 @@ import
   opengl, windy, bumpy, vmath, chroma,
   silky
 
-# Setup Atlas
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
 builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
 builder.write("dist/atlas.png", "dist/atlas.json")
 
-# Setup Window
 let window = newWindow(
   "Panels Example",
   ivec2(1200, 800),
@@ -21,12 +19,11 @@ makeContextCurrent(window)
 loadExtensions()
 
 proc snapToPixels(rect: Rect): Rect =
+  ## Snap rectangle coordinates to integer pixels.
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
 
-# Setup Silky
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
-# Types
 type
   AreaLayout = enum
     Horizontal
@@ -52,13 +49,11 @@ type
     East
     West
 
-# Constants
 const
   AreaHeaderHeight = 32.0
   AreaMargin = 6.0
   BackgroundColor = parseHtmlColor("#222222").rgbx
 
-# Globals
 var
   rootArea: Area
   dragArea: Area # For resizing splits
@@ -72,10 +67,8 @@ var
   prevMem: int
   prevNumAlloc: int
 
-# Forward declarations
 proc movePanels*(area: Area, panels: seq[Panel])
 
-# Logic
 proc clear*(area: Area) =
   ## Clear the area.
   for panel in area.panels:
@@ -266,8 +259,8 @@ proc scan*(area: Area): (Area, AreaScan, Rect) =
   visit(rootArea)
   return (targetArea, areaScan, resRect)
 
-# Initialization
 proc initRootArea() =
+  ## Initialize the root area with default panels.
   randomize()
   rootArea = Area()
   rootArea.split(Vertical)
@@ -288,6 +281,7 @@ proc initRootArea() =
   rootArea.areas[1].areas[1].addPanel("Amazing Panel 8")
 
 proc regenerate() =
+  ## Regenerate the panel layout randomly.
   rootArea = Area()
 
   var panelNum = 1
@@ -310,8 +304,8 @@ proc regenerate() =
 
 initRootArea()
 
-# Drawing
 proc drawAreaRecursive(area: Area, r: Rect) =
+  ## Recursively draw an area and its subareas.
   area.rect = r.snapToPixels()
 
   if area.areas.len > 0:
@@ -369,15 +363,15 @@ proc drawAreaRecursive(area: Area, r: Rect) =
       let isSelected = i == area.selectedPanelNum
       let isHovered = window.mousePos.vec2.overlaps(tabRect)
 
-      # Handle Tab Clicks and Dragging
+      # Handle tab clicks and dragging.
       if isHovered:
         if window.buttonPressed[MouseLeft]:
           area.selectedPanelNum = i
-          # Only start dragging if the mouse moves 10 pixels.
+          # Only start dragging if the mouse moves 10 pixels or more.
           maybeDragStartPos = window.mousePos.vec2
           maybeDragPanel = panel
         elif window.buttonDown[MouseLeft] and dragPanel == panel:
-          # Dragging started
+          # Dragging has started.
           discard
 
       if window.buttonDown[MouseLeft]:
@@ -401,14 +395,14 @@ proc drawAreaRecursive(area: Area, r: Rect) =
       x += tabW + 2
     sk.popClipRect()
 
-    # Draw Content
+    # Draw the content area for the selected panel.
     let contentRect = rect(r.x, r.y + AreaHeaderHeight, r.w, r.h - AreaHeaderHeight)
     let activePanel = area.panels[area.selectedPanelNum]
     let frameId = "panel:" & $cast[uint](activePanel)
     let contentPos = vec2(contentRect.x, contentRect.y)
     let contentSize = vec2(contentRect.w, contentRect.h)
     frame(frameId, contentPos, contentSize):
-      # Start content a bit inset.
+      # Start content with some inset padding.
       sk.at += vec2(8, 8)
       h1text(activePanel.name)
       text("This is the content of " & activePanel.name)
@@ -416,17 +410,14 @@ proc drawAreaRecursive(area: Area, r: Rect) =
         text(&"Scrollable line {i} for " & activePanel.name)
 
 
-# Main Loop
 window.onFrame = proc() =
+  ## Main frame loop.
   sk.beginUI(window, window.size)
 
-  # Background
   sk.drawRect(vec2(0, 0), window.size.vec2, BackgroundColor)
-
-  # Reset cursor
   sk.cursor = Cursor(kind: ArrowCursor)
 
-  # Update Dragging Split
+  # Update dragging split if active.
   if dragArea != nil:
     if not window.buttonDown[MouseLeft]:
       dragArea = nil
@@ -439,7 +430,7 @@ window.onFrame = proc() =
         dragArea.split = (window.mousePos.vec2.x - dragArea.rect.x) / dragArea.rect.w
       dragArea.split = clamp(dragArea.split, 0.1, 0.9)
 
-  # Update Dragging Panel
+  # Update dragging panel if active.
   showDropHighlight = false
   if dragPanel != nil:
     if not window.buttonDown[MouseLeft]:
@@ -472,7 +463,7 @@ window.onFrame = proc() =
         rootArea.removeBlankAreas()
       dragPanel = nil
     else:
-      # Dragging
+      # Continue dragging and show highlight.
       let (targetArea, areaScan, rect) = rootArea.scan()
       dropHighlight = rect
       showDropHighlight = true
@@ -481,10 +472,9 @@ window.onFrame = proc() =
          let (_, highlightRect) = targetArea.getTabInsertInfo(window.mousePos.vec2)
          dropHighlight = highlightRect
 
-  # Draw Areas
   drawAreaRecursive(rootArea, rect(0, 1, window.size.x.float32, window.size.y.float32))
 
-  # Draw Drop Highlight
+  # Draw drop highlight and ghost when dragging a panel.
   if showDropHighlight and dragPanel != nil:
     sk.drawRect(dropHighlight.xy, dropHighlight.wh, rgbx(255, 255, 0, 100))
 
@@ -495,7 +485,7 @@ window.onFrame = proc() =
     sk.draw9Patch("tooltip.9patch", 4, window.mousePos.vec2 + vec2(10, 10), size, rgbx(255, 255, 255, 200))
     discard sk.drawText("Default", label, window.mousePos.vec2 + vec2(18, 14), rgbx(255, 255, 255, 255))
 
-  # Input Handling for Refresh
+  # Regenerate the layout when R is pressed.
   if window.buttonPressed[KeyR]:
     regenerate()
 

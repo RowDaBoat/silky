@@ -34,6 +34,8 @@ type
     textPadding*: int = 4
     headerHeight*: int = 32
     defaultTextColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    disabledTextColor*: ColorRGBX = rgbx(150, 150, 150, 255)
+    errorTextColor*: ColorRGBX = rgbx(255, 100, 100, 255)
     buttonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
     buttonDownColor*: ColorRGBX = rgbx(255, 255, 255, 255)
     iconButtonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
@@ -79,7 +81,7 @@ type
     cursor*: Cursor = Cursor(kind: ArrowCursor)
     inputRunes*: seq[Rune]
 
-    # Tooltip tracking.
+    # Fields for tracking tooltip visibility and hover state.
     showTooltip*: bool = false
     lastMousePos*: Vec2
     mouseIdleTime*: float64
@@ -93,7 +95,6 @@ type
 
     # VBOs.
     instanceVbo: GLuint      ## Single VBO for all instance data.
-
     atlasTexture: GLuint     ## GL texture for the atlas image.
 
     # Instance Data.

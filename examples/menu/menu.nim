@@ -18,8 +18,7 @@ let window = newWindow(
 makeContextCurrent(window)
 loadExtensions()
 
-const
-  BackgroundColor = parseHtmlColor("#808080").rgbx
+const BackgroundColor = parseHtmlColor("#808080").rgbx
 
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
@@ -31,7 +30,7 @@ window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
 
-  # Clear screen with selected background color
+  # Clear screen with the selected background color.
   sk.clearScreen(BackgroundColor)
 
   menuBar:
