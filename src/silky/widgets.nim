@@ -397,7 +397,7 @@ template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
     sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
   sk.endWidget()
 
-template button*(label: string, enabled: bool, error: bool, body: untyped) =
+template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
@@ -408,28 +408,28 @@ template button*(label: string, enabled: bool, error: bool, body: untyped) =
   sk.beginWidget("Button", text = label, rect = buttonRect)
 
   let patch = 
-    if not enabled: 
+    if not isEnabled: 
       "button.disabled.9patch"
-    elif error: 
+    elif isError: 
       "button.error.9patch"
     else: 
       "button.9patch"
 
   let textColor = 
-    if not enabled: 
+    if not isEnabled: 
       sk.theme.disabledTextColor
-    elif error: 
+    elif isError: 
       sk.theme.errorTextColor
     else: 
       sk.theme.defaultTextColor
 
-  if enabled:
+  if isEnabled:
     if hover:
-      let hoverPatch = if error: "button.error.9patch" else: "button.hover.9patch"
+      let hoverPatch = if isError: "button.error.9patch" else: "button.hover.9patch"
       if window.buttonReleased[MouseLeft]:
         body
       elif window.buttonDown[MouseLeft]:
-        let downPatch = if error: "button.error.9patch" else: "button.down.9patch"
+        let downPatch = if isError: "button.error.9patch" else: "button.down.9patch"
         sk.draw9Patch(downPatch, 8, sk.at, buttonSize)
       else:
         sk.draw9Patch(hoverPatch, 8, sk.at, buttonSize)
@@ -440,7 +440,7 @@ template button*(label: string, enabled: bool, error: bool, body: untyped) =
 
   discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
   
-  sk.setWidgetState(enabled = enabled, pressed = pressed, hovered = hover)
+  sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hover)
   sk.endWidget()
   
   sk.advance(buttonSize + vec2(sk.theme.padding))
@@ -449,9 +449,9 @@ template button*(label: string, body: untyped) =
   ## Create a button.
   button(label, true, false, body)
 
-template button*(label: string, enabled: bool, body: untyped) =
+template button*(label: string, isEnabled: bool, body: untyped) =
   ## Create a button.
-  button(label, enabled, false, body)
+  button(label, isEnabled, false, body)
 
 template icon*(image: string) =
   ## Draw an icon.
