@@ -1,0 +1,496 @@
+## Semantic capture layer for Silky UI testing.
+## 
+## This module provides the same API as drawing.nim but with:
+## - Stub drawing functions (no GPU, no actual rendering)
+## - Real semantic capture functions
+##
+## Use this instead of drawing.nim for testing (-d:silkyTesting).
+
+import
+  std/[strutils, tables, unicode, times],
+  vmath, bumpy, chroma, jsony,
+  silky/atlas
+
+# =============================================================================
+# Semantic Types
+# =============================================================================
+
+type
+  WidgetState* = object
+    enabled*: bool
+    focused*: bool
+    pressed*: bool
+    hovered*: bool
+    checked*: bool
+    value*: string  ## For sliders, text inputs, etc.
+
+  SemanticNode* = ref object
+    kind*: string           ## "Button", "Frame", "CheckBox", etc.
+    name*: string           ## For named containers (frames, windows), empty otherwise
+    text*: string           ## Visible text content
+    rect*: Rect             ## Bounding box
+    state*: WidgetState
+    childIndex*: int        ## Position among siblings
+    children*: seq[SemanticNode]
+    parent*: SemanticNode   ## Parent node (nil for root)
+
+  SemanticCapture* = object
+    enabled*: bool
+    stack*: seq[SemanticNode]  ## Current path in tree (stack of parents)
+    root*: SemanticNode
+    frameNumber*: int
+    previousSnapshot*: string
+
+proc newSemanticNode*(kind: string, name = "", text = ""): SemanticNode =
+  SemanticNode(
+    kind: kind,
+    name: name,
+    text: text,
+    state: WidgetState(enabled: true)
+  )
+
+proc currentNode*(capture: var SemanticCapture): SemanticNode =
+  if capture.stack.len > 0:
+    capture.stack[^1]
+  else:
+    capture.root
+
+proc pushNode*(capture: var SemanticCapture, node: SemanticNode) =
+  let parent = capture.currentNode()
+  node.childIndex = parent.children.len
+  node.parent = parent
+  parent.children.add(node)
+  capture.stack.add(node)
+
+proc popNode*(capture: var SemanticCapture) =
+  if capture.stack.len > 0:
+    discard capture.stack.pop()
+
+proc reset*(capture: var SemanticCapture) =
+  capture.root = newSemanticNode("Root")
+  capture.stack = @[]
+  inc capture.frameNumber
+
+# =============================================================================
+# Text Output Formatting
+# =============================================================================
+
+proc toText*(node: SemanticNode, indent: int = 0): string =
+  let prefix = "  ".repeat(indent)
+  let id = if node.name.len > 0: node.name else: $node.childIndex
+  
+  if node.kind == "Root":
+    result = ""
+    for child in node.children:
+      result.add(child.toText(indent))
+    return
+  
+  result.add(prefix & id & ":\n")
+  result.add(prefix & "  type: " & node.kind & "\n")
+  
+  if node.text.len > 0:
+    result.add(prefix & "  text: " & node.text & "\n")
+  
+  if node.rect.w > 0 or node.rect.h > 0:
+    result.add(prefix & "  rect: " & 
+      $node.rect.x.int & " " & $node.rect.y.int & " " & 
+      $node.rect.w.int & " " & $node.rect.h.int & "\n")
+  
+  var stateStr = ""
+  if node.state.enabled: stateStr.add("enabled ")
+  if node.state.focused: stateStr.add("focused ")
+  if node.state.pressed: stateStr.add("pressed ")
+  if node.state.hovered: stateStr.add("hovered ")
+  if node.state.checked: stateStr.add("checked ")
+  if node.state.value.len > 0: stateStr.add("value:" & node.state.value & " ")
+  
+  if stateStr.len > 0:
+    result.add(prefix & "  state: " & stateStr.strip() & "\n")
+  
+  if node.children.len > 0:
+    result.add(prefix & "  children:\n")
+    for child in node.children:
+      result.add(child.toText(indent + 2))
+
+proc toSnapshot*(capture: SemanticCapture): string =
+  result = "frame: " & $capture.frameNumber & "\n"
+  result.add(capture.root.toText(0))
+
+# =============================================================================
+# Path Resolution
+# =============================================================================
+
+proc pathOf*(node: SemanticNode): string =
+  var parts: seq[string] = @[]
+  var current = node
+  while current != nil and current.kind != "Root":
+    let id = if current.name.len > 0: current.name else: $current.childIndex
+    parts.insert(id, 0)
+    current = current.parent
+  parts.join(".")
+
+proc findByPath*(node: SemanticNode, path: string): SemanticNode =
+  if path.len == 0:
+    return node
+  
+  let parts = path.split(".")
+  var current = node
+  
+  for part in parts:
+    if current == nil:
+      return nil
+    
+    var found = false
+    for child in current.children:
+      let childId = if child.name.len > 0: child.name else: $child.childIndex
+      if childId == part:
+        current = child
+        found = true
+        break
+    
+    if not found:
+      return nil
+  
+  current
+
+proc findByText*(node: SemanticNode, text: string, kind = ""): SemanticNode =
+  if node.text == text:
+    if kind.len == 0 or node.kind == kind:
+      return node
+  
+  for child in node.children:
+    let found = child.findByText(text, kind)
+    if found != nil:
+      return found
+  
+  nil
+
+proc findAllByText*(node: SemanticNode, text: string, kind = ""): seq[SemanticNode] =
+  if node.text == text:
+    if kind.len == 0 or node.kind == kind:
+      result.add(node)
+  
+  for child in node.children:
+    result.add(child.findAllByText(text, kind))
+
+# =============================================================================
+# Diffing
+# =============================================================================
+
+proc diff*(old, new: string): string =
+  let oldLines = old.splitLines()
+  let newLines = new.splitLines()
+  
+  var output: seq[string] = @[]
+  var i, j = 0
+  
+  while i < oldLines.len or j < newLines.len:
+    if i >= oldLines.len:
+      output.add("+ " & newLines[j])
+      inc j
+    elif j >= newLines.len:
+      output.add("- " & oldLines[i])
+      inc i
+    elif oldLines[i] == newLines[j]:
+      inc i
+      inc j
+    else:
+      output.add("- " & oldLines[i])
+      output.add("+ " & newLines[j])
+      inc i
+      inc j
+  
+  if output.len == 0:
+    return ""
+  
+  output.join("\n")
+
+# =============================================================================
+# Silky Types (Testing Mode)
+# =============================================================================
+
+const
+  NormalLayer* = 0
+  PopupsLayer* = 1
+
+type
+  StackDirection* = enum
+    TopToBottom
+    BottomToTop
+    LeftToRight
+    RightToLeft
+
+  Theme* = object
+    padding*: int = 8
+    menuPadding*: int = 2
+    spacing*: int = 8
+    border*: int = 10
+    textPadding*: int = 4
+    headerHeight*: int = 32
+    defaultTextColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    disabledTextColor*: ColorRGBX = rgbx(150, 150, 150, 255)
+    errorTextColor*: ColorRGBX = rgbx(255, 100, 100, 255)
+    buttonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    buttonDownColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconButtonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconButtonDownColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconClickableUpColor*: ColorRGBX = rgbx(200, 200, 200, 200)
+    iconClickableOnColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconClickableHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconClickableOffColor*: ColorRGBX = rgbx(110, 110, 110, 110)
+    dropdownHoverBgColor*: ColorRGBX = rgbx(220, 220, 240, 255)
+    dropdownBgColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    dropdownPopupBgColor*: ColorRGBX = rgbx(245, 245, 255, 255)
+    textColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    textH1Color*: ColorRGBX = rgbx(255, 255, 255, 255)
+    frameFocusColor*: ColorRGBX = rgbx(220, 220, 255, 255)
+    headerBgColor*: ColorRGBX = rgbx(30, 30, 40, 255)
+    menuRootHoverColor*: ColorRGBX = rgbx(70, 70, 90, 200)
+    menuItemHoverColor*: ColorRGBX = rgbx(70, 70, 90, 180)
+    menuItemBgColor*: ColorRGBX = rgbx(40, 40, 50, 140)
+    menuPopupHoverColor*: ColorRGBX = rgbx(80, 80, 100, 180)
+    menuPopupSelectedColor*: ColorRGBX = rgbx(60, 60, 80, 120)
+
+  SilkyVertex* {.packed.} = object
+    pos*: Vec2
+    size*: Vec2
+    uvPos*: array[2, uint16]
+    uvSize*: array[2, uint16]
+    color*: ColorRGBX
+    clipPos*: Vec2
+    clipSize*: Vec2
+
+  Silky* = ref object
+    ## Silky for testing mode (no GPU).
+    inFrame: bool = false
+    at*: Vec2
+    atStack: seq[Vec2]
+    posStack: seq[Vec2]
+    sizeStack: seq[Vec2]
+    stretchAt*: Vec2
+    directionStack: seq[StackDirection]
+    textStyle*: string = "Default"
+    padding*: float32 = 12
+    theme*: Theme = Theme()
+    inputRunes*: seq[Rune]
+
+    showTooltip*: bool = false
+    lastMousePos*: Vec2
+    mouseIdleTime*: float64
+    hover*: bool = false
+    tooltipThreshold*: float64 = 0.5
+
+    atlas*: SilkyAtlas
+
+    layers*: array[2, seq[SilkyVertex]]
+    currentLayer*: int
+    layerStack*: seq[int]
+    clipStack: seq[Rect]
+
+    frameStartTime*: float64
+    frameTime*: float64
+    avgFrameTime*: float64
+
+    semantic*: SemanticCapture
+
+# =============================================================================
+# Layout Functions
+# =============================================================================
+
+proc pushLayer*(sk: Silky, layer: int) =
+  sk.layerStack.add(sk.currentLayer)
+  sk.currentLayer = layer
+
+proc popLayer*(sk: Silky) =
+  sk.currentLayer = sk.layerStack.pop()
+
+proc pushLayout*(sk: Silky, pos: Vec2, size: Vec2, direction: StackDirection = TopToBottom) =
+  sk.atStack.add(sk.at)
+  sk.posStack.add(pos)
+  sk.at = pos
+  sk.sizeStack.add(size)
+  sk.directionStack.add(direction)
+  sk.stretchAt = sk.at
+  case direction:
+    of TopToBottom: sk.at = pos
+    of BottomToTop: sk.at = pos + vec2(0, size.y)
+    of LeftToRight: sk.at = pos
+    of RightToLeft: sk.at = pos + vec2(size.x, 0)
+
+proc popLayout*(sk: Silky) =
+  sk.at = sk.atStack.pop()
+  discard sk.posStack.pop()
+  discard sk.sizeStack.pop()
+  discard sk.directionStack.pop()
+
+proc pos*(sk: Silky): Vec2 =
+  sk.posStack[^1]
+
+proc size*(sk: Silky): Vec2 =
+  sk.sizeStack[^1]
+
+proc rootSize*(sk: Silky): Vec2 =
+  sk.sizeStack[0]
+
+proc stackDirection*(sk: Silky): StackDirection =
+  sk.directionStack[^1]
+
+proc pushClipRect*(sk: Silky, rect: Rect) =
+  sk.clipStack.add(rect)
+
+proc popClipRect*(sk: Silky) =
+  discard sk.clipStack.pop()
+
+proc clipRect*(sk: Silky): Rect =
+  sk.clipStack[^1]
+
+proc advance*(sk: Silky, amount: Vec2) =
+  sk.stretchAt = max(sk.stretchAt, sk.at + amount + vec2(sk.theme.spacing.float32))
+  case sk.stackDirection:
+    of TopToBottom: sk.at.y += amount.y + sk.theme.spacing.float32
+    of BottomToTop: sk.at.y -= amount.y + sk.theme.spacing.float32
+    of LeftToRight: sk.at.x += amount.x + sk.theme.spacing.float32
+    of RightToLeft: sk.at.x -= amount.x + sk.theme.spacing.float32
+
+# =============================================================================
+# Atlas/Font Query Functions
+# =============================================================================
+
+proc getImageSize*(sk: Silky, image: string): Vec2 =
+  if image notin sk.atlas.entries:
+    return vec2(0, 0)
+  let uv = sk.atlas.entries[image]
+  vec2(uv.width.float32, uv.height.float32)
+
+proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
+  if font notin sk.atlas.fonts:
+    return vec2(0, 0)
+  let fontData = sk.atlas.fonts[font]
+  var currentPos = vec2(0, fontData.lineHeight)
+  let runedText = text.toRunes
+
+  for i in 0 ..< runedText.len:
+    let rune = runedText[i]
+    if rune == Rune(10):
+      currentPos.x = 0
+      currentPos.y += fontData.lineHeight
+      continue
+
+    let glyphStr = $rune
+    var entry: LetterEntry
+    if glyphStr in fontData.entries:
+      entry = fontData.entries[glyphStr]
+    elif "?" in fontData.entries:
+      entry = fontData.entries["?"]
+    else:
+      continue
+
+    currentPos.x += entry.advance
+    if i < runedText.len - 1:
+      let nextGlyphStr = $runedText[i+1]
+      if nextGlyphStr in entry.kerning:
+        currentPos.x += entry.kerning[nextGlyphStr]
+
+  currentPos
+
+proc contains*(sk: Silky, name: string): bool =
+  name in sk.atlas.entries
+
+proc shouldShowTooltip*(sk: Silky): bool =
+  sk.hover and sk.mouseIdleTime >= sk.tooltipThreshold
+
+# =============================================================================
+# Drawing Stubs (no-op)
+# =============================================================================
+
+proc drawQuad*(sk: Silky, pos: Vec2, size: Vec2, uvPos: Vec2, uvSize: Vec2, color: ColorRGBX) {.inline.} =
+  discard
+
+proc drawImage*(sk: Silky, name: string, pos: Vec2, color = rgbx(255, 255, 255, 255)) {.inline.} =
+  discard
+
+proc drawRect*(sk: Silky, pos: Vec2, size: Vec2, color: ColorRGBX) {.inline.} =
+  discard
+
+proc draw9Patch*(sk: Silky, name: string, patch: int, pos: Vec2, size: Vec2, color = rgbx(255, 255, 255, 255)) {.inline.} =
+  discard
+
+proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGBX, maxWidth = float32.high, maxHeight = float32.high): Vec2 =
+  sk.getTextSize(font, text)
+
+proc clearScreen*(sk: Silky, color: ColorRGBX) {.inline.} =
+  discard
+
+proc clear*(sk: Silky) =
+  sk.layers[NormalLayer].setLen(0)
+  sk.layers[PopupsLayer].setLen(0)
+  sk.currentLayer = NormalLayer
+  sk.layerStack.setLen(0)
+
+proc instanceCount*(sk: Silky): int =
+  0
+
+# =============================================================================
+# Frame Management
+# =============================================================================
+
+proc newSilky*(imagePath, jsonPath: string): Silky =
+  result = Silky()
+  result.atlas = readFile(jsonPath).fromJson(SilkyAtlas)
+  result.layers[NormalLayer] = @[]
+  result.layers[PopupsLayer] = @[]
+  result.currentLayer = NormalLayer
+  result.layerStack = @[]
+  result.semantic.enabled = true
+
+proc beginUi*(sk: Silky, window: auto, size: IVec2) =
+  sk.showTooltip = false
+  sk.pushLayout(vec2(0, 0), size.vec2)
+  sk.inFrame = true
+  let currentTime = epochTime()
+  sk.frameStartTime = currentTime
+  sk.pushClipRect(rect(0, 0, sk.size.x, sk.size.y))
+  sk.semantic.reset()
+
+proc endUi*(sk: Silky) =
+  sk.clear()
+  sk.popLayout()
+  sk.popClipRect()
+  sk.frameTime = epochTime() - sk.frameStartTime
+  sk.avgFrameTime = (sk.avgFrameTime * 0.99) + (sk.frameTime * 0.01)
+  sk.inputRunes.setLen(0)
+
+# =============================================================================
+# Semantic Capture (real implementations)
+# =============================================================================
+
+proc beginWidget*(sk: Silky, kind: string, name = "", text = "", rect = rect(0f, 0f, 0f, 0f)) {.inline.} =
+  let node = newSemanticNode(kind, name, text)
+  node.rect = rect
+  sk.semantic.pushNode(node)
+
+proc endWidget*(sk: Silky) {.inline.} =
+  sk.semantic.popNode()
+
+proc setWidgetState*(sk: Silky, enabled = true, focused = false, pressed = false, 
+                     hovered = false, checked = false, value = "") {.inline.} =
+  let node = sk.semantic.currentNode()
+  node.state.enabled = enabled
+  node.state.focused = focused
+  node.state.pressed = pressed
+  node.state.hovered = hovered
+  node.state.checked = checked
+  node.state.value = value
+
+proc setWidgetRect*(sk: Silky, rect: Rect) {.inline.} =
+  let node = sk.semantic.currentNode()
+  node.rect = rect
+
+proc semanticSnapshot*(sk: Silky): string =
+  sk.semantic.toSnapshot()
+
+proc semanticReset*(sk: Silky) =
+  sk.semantic.reset()
+
+proc semanticEnabled*(sk: Silky): bool =
+  true

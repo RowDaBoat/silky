@@ -233,6 +233,7 @@ proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
 template subWindow*(title: string, show: var bool, body: untyped) =
   ## Create a window frame using default placement and sizing.
   let state = sk.subWindowStart(window, title, show, none(Vec2), none(Vec2))
+  sk.beginWidget("SubWindow", name = title, rect = rect(state.pos, state.size))
   if state.visible:
     try:
       if not state.minimized:
@@ -240,10 +241,12 @@ template subWindow*(title: string, show: var bool, body: untyped) =
           body
     finally:
       sk.subWindowEnd(window, state)
+  sk.endWidget()
 
 template subWindow*(title: string, show: var bool, initialOrigin: Vec2, initialSize: Vec2, body: untyped) =
   ## Create a window frame with explicit initial position and size.
   let state = sk.subWindowStart(window, title, show, some(initialOrigin), some(initialSize))
+  sk.beginWidget("SubWindow", name = title, rect = rect(state.pos, state.size))
   if state.visible:
     try:
       if not state.minimized:
@@ -251,6 +254,7 @@ template subWindow*(title: string, show: var bool, initialOrigin: Vec2, initialS
           body
     finally:
       sk.subWindowEnd(window, state)
+  sk.endWidget()
 
 proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state: FrameState, originPos: Vec2] =
   ## Begin a scrollable frame; returns state and origin for cleanup.
@@ -380,17 +384,23 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
 
 template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   ## Frame with scrollbars similar to a window body.
+  sk.beginWidget("Frame", name = id, rect = rect(framePos, frameSize))
   let frameCtx = sk.frameStart(id, framePos, frameSize)
   try:
     body
   finally:
     sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
+  sk.endWidget()
 
 template button*(label: string, enabled: bool, error: bool, body: untyped) =
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
-  let hover = sk.mouseInsideClip(window, rect(sk.at, buttonSize))
+    buttonRect = rect(sk.at, buttonSize)
+  let hover = sk.mouseInsideClip(window, buttonRect)
+  let pressed = hover and window.buttonDown[MouseLeft]
+
+  sk.beginWidget("Button", text = label, rect = buttonRect)
 
   let patch = 
     if not enabled: 
@@ -424,6 +434,10 @@ template button*(label: string, enabled: bool, error: bool, body: untyped) =
     sk.draw9Patch(patch, 8, sk.at, buttonSize)
 
   discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
+  
+  sk.setWidgetState(enabled = enabled, pressed = pressed, hovered = hover)
+  sk.endWidget()
+  
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template button*(label: string, body: untyped) =
@@ -501,6 +515,8 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
 
+  sk.beginWidget("RadioButton", text = label, rect = hitRect)
+
   if sk.mouseInsideClip(window, hitRect) and window.buttonReleased[MouseLeft]:
     variable = value
 
@@ -513,6 +529,10 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     )
   sk.drawImage(if on: "radio.on" else: "radio.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
+  
+  sk.setWidgetState(checked = on)
+  sk.endWidget()
+  
   sk.advance(vec2(width, height))
 
 template checkBox*(label: string, value: var bool) =
@@ -523,6 +543,8 @@ template checkBox*(label: string, value: var bool) =
     height = max(iconSize.y.float32, textSize.y)
     width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
+
+  sk.beginWidget("CheckBox", text = label, rect = hitRect)
 
   if sk.mouseInsideClip(window, hitRect) and window.buttonReleased[MouseLeft]:
     value = not value
@@ -535,6 +557,10 @@ template checkBox*(label: string, value: var bool) =
     )
   sk.drawImage(if value: "check.on" else: "check.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
+  
+  sk.setWidgetState(checked = value)
+  sk.endWidget()
+  
   sk.advance(vec2(width, height))
 
 template dropDown*[T](selected: var T, options: openArray[T]) =
@@ -726,7 +752,10 @@ template image*(imageName: string) =
 
 template text*(t: string) =
   ## Draw text.
+  let textRect = rect(sk.at, sk.getTextSize(sk.textStyle, t))
+  sk.beginWidget("Text", text = t, rect = textRect)
   let textSize = sk.drawText(sk.textStyle, t, sk.at, sk.theme.textColor)
+  sk.endWidget()
   sk.advance(textSize)
 
 template h1text*(t: string) =
