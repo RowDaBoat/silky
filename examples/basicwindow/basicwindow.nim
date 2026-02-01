@@ -37,6 +37,13 @@ var
   progress = 0.0
   howMuch = 30.0
 
+proc returnTest() =
+  text("Return Test")
+  group(vec2(8, 8), LeftToRight):
+    text("Group")
+    return
+  text("You will not see this.")
+
 window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
@@ -47,7 +54,7 @@ window.onFrame = proc() =
       sk.at = vec2(x.float32 * 256, y.float32 * 256)
       image("testTexture", rgbx(30, 30, 30, 255))
 
-  subWindow("A SubWindow", showWindow):
+  subWindow("A SubWindow", showWindow, vec2(100, 100), vec2(400, 700)):
     text("Hello world!")
     button("Close Me"):
       showWindow = false
@@ -83,6 +90,8 @@ window.onFrame = proc() =
 
     for i in 0 ..< 10:
       text("Time will tell...")
+
+    returnTest()
 
   if not showWindow:
     if window.buttonPressed[MouseLeft]:

@@ -95,7 +95,7 @@ proc compute() =
 
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
-const calculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r"]
+const calculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
 builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = calculatorChars)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = calculatorChars)
 builder.write("dist/atlas.png", "dist/atlas.json")
@@ -121,7 +121,7 @@ template calcButton(label: string, body: untyped) =
     btnSize = vec2(60, 50)
     startPos = sk.at
 
-  if mouseInsideClip(rect(startPos, btnSize)):
+  if sk.mouseInsideClip(window, rect(startPos, btnSize)):
     if window.buttonReleased[MouseLeft]:
       body
     elif window.buttonDown[MouseLeft]:
@@ -152,7 +152,7 @@ window.onFrame = proc() =
       sk.at = vec2(x.float32 * 256, y.float32 * 256)
       image("testTexture", rgbx(30, 30, 30, 255))
 
-  subWindow("Calculator", showWindow):
+  subWindow("Calculator", showWindow, vec2(10, 10), vec2(340, 480)):
 
     # Display
     var formula = ""

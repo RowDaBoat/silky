@@ -51,16 +51,16 @@ window.onFrame = proc() =
   # Width slider with fixed width frame.
   sk.at = vec2(Margin, 80)
   text("Width:")
-  sk.pushFrame(vec2(Margin + SliderLabelWidth, 80), vec2(SliderWidth, 24))
+  sk.pushLayout(vec2(Margin + SliderLabelWidth, 80), vec2(SliderWidth, 24))
   scrubber("width", frameWidth, 200.0, 600.0)
-  sk.popFrame()
+  sk.popLayout()
 
   # Height slider with fixed width frame.
   sk.at = vec2(Margin, 110)
   text("Height:")
-  sk.pushFrame(vec2(Margin + SliderLabelWidth, 110), vec2(SliderWidth, 24))
+  sk.pushLayout(vec2(Margin + SliderLabelWidth, 110), vec2(SliderWidth, 24))
   scrubber("height", frameHeight, 100.0, 500.0)
-  sk.popFrame()
+  sk.popLayout()
 
   # Scrollable frame with flowing icon buttons.
   let framePos = vec2(Margin, 150)
@@ -108,4 +108,3 @@ when defined(emscripten):
 else:
   while not window.closeRequested:
     pollEvents()
-
