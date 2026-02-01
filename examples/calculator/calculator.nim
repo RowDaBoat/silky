@@ -4,9 +4,6 @@ import
   vmath, bumpy, chroma,
   silky
 
-when not defined(silkyTesting):
-  import opengl, windy
-
 type
   SymbolKind = enum
     Operator
@@ -107,31 +104,19 @@ proc resetCalculator() =
   symbols.setLen(0)
   repeat.setLen(0)
 
-# Build the atlas (paths are relative to calculator folder)
-import std/os
-const CalcDir = currentSourcePath().parentDir()
 let builder = newAtlasBuilder(1024, 4)
-builder.addDir(CalcDir / "data/", "data/")
+builder.addDir("data/", "data/")
 const CalculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
-builder.addFont(CalcDir / "data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorChars)
-builder.addFont(CalcDir / "data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
-discard existsOrCreateDir(CalcDir / "dist")
-builder.write(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json")
-
-when not defined(silkyTesting):
-  let window = newWindow(
-    "Calculator",
-    ivec2(800, 600),
-    vsync = false
-  )
-  makeContextCurrent(window)
-  loadExtensions()
+builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorChars)
+builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
+builder.write("dist/atlas.png", "dist/atlas.json")
 
 const BackgroundColor = parseHtmlColor("#000000").rgbx
 
 var showWindow = true
 
 template calcButton(label: string, body: untyped) =
+  ## Calculator button - uses 'sk' and 'window' from scope.
   let
     btnSize = vec2(60, 50)
     startPos = sk.at
@@ -165,7 +150,7 @@ template calcButton(label: string, body: untyped) =
   sk.stretchAt.x = max(sk.stretchAt.x, sk.at.x + 10)
   sk.stretchAt.y = max(sk.stretchAt.y, sk.at.y + 50 + 10)
 
-template drawCalculatorFrame(sk: Silky, window: Window) =
+template drawCalculatorFrame(sk: Silky, window {.inject.}: Window) =
   ## Draw the calculator UI. Can be used from tests.
   subWindow("Calculator", showWindow, vec2(10, 10), vec2(340, 480)):
     let formula = getFormula()
@@ -283,7 +268,15 @@ template drawCalculatorFrame(sk: Silky, window: Window) =
     sk.at.x = rowX
     sk.at.y += 60
 
-when not defined(silkyTesting):
+when isMainModule:
+  let window = newWindow(
+    "Calculator",
+    ivec2(800, 600),
+    vsync = false
+  )
+  makeContextCurrent(window)
+  loadExtensions()
+
   let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
   window.onFrame = proc() =

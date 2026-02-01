@@ -4,12 +4,10 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
-import std/[strutils, os]
+import std/[strutils]
 import vmath, bumpy
 import silky
 import ../calculator {.all.}
-
-const CalcDir = currentSourcePath().parentDir().parentDir()
 
 # Frame callback for the calculator UI
 proc calcFrame(sk: Silky, window: Window) =
@@ -43,7 +41,7 @@ proc testInitialState() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json", 800, 600)
+  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
   discard h.pumpFrame(calcFrame, 1)
   
   # Check display shows "0" initially
@@ -63,7 +61,7 @@ proc testSimpleAddition() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json", 800, 600)
+  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
   discard h.pumpFrame(calcFrame, 1)
   
   # Click 7
@@ -89,7 +87,7 @@ proc testMultiplication() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json", 800, 600)
+  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
   discard h.pumpFrame(calcFrame, 1)
   
   h.clickCalcButton("6")
@@ -105,7 +103,7 @@ proc testClearButton() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json", 800, 600)
+  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
   discard h.pumpFrame(calcFrame, 1)
   
   # Enter 5 + 3 (three symbols)
@@ -133,7 +131,7 @@ proc testDecimalNumbers() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json", 800, 600)
+  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
   discard h.pumpFrame(calcFrame, 1)
   
   h.clickCalcButton("3")
@@ -155,7 +153,7 @@ proc testOrderOfOperations() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness(CalcDir / "dist/atlas.png", CalcDir / "dist/atlas.json", 800, 600)
+  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
   discard h.pumpFrame(calcFrame, 1)
   
   h.clickCalcButton("2")
