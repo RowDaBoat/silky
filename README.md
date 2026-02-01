@@ -1,10 +1,70 @@
 
 # Silky - Fast UI for Nim.
 
-Silky is an immediate mode GUI focuses on speed above all else.
+Silky is an immediate mode GUI that focuses on speed above all else.
 
-Single draw call to draw the entire UI.
-
-A nice DSL to build the UI.
+- Single draw call to render the entire UI
+- A clean DSL to build interfaces that looks like idiomatic Nim
+- 9-patch support for scalable UI elements
+- Texture atlas for efficient rendering
 
 It borrows many ideas from Dear ImGui, but it is not a direct port.
+
+## Philosophy
+
+I wanted something very, very fast. Dear ImGui is known to be one of the fastest GUI libraries out there. I studied Dear ImGui to understand *what* actually makes it fast. Why is it so performant?
+
+But I didn't want to just use Dear ImGui directly. It's written in C++, a completely different language. I wanted to build something that feels more Nim-like — using templates that look the way Nim code is supposed to look.
+
+So this is my reimplementation, or rather, reimagination of what an immediate mode GUI should look like in Nim.
+
+I've written many other libraries like Pixie (2D graphics) and Windy (Windowing system). I wanted to use them as well because I believe they're high-quality software. But ultimately, I wanted to build my own GUI library to understand GUIs from the inside out.
+
+## Getting Started
+
+```nim
+import silky
+
+# Build the texture atlas
+let builder = newAtlasBuilder(1024, 4)
+builder.addDir("data/", "data/")
+builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
+builder.write("dist/atlas.png", "dist/atlas.json")
+
+# Create a window
+let window = newWindow("My App", ivec2(800, 600), vsync = false)
+makeContextCurrent(window)
+loadExtensions()
+
+# Create Silky instance
+let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+
+window.onFrame = proc() =
+  sk.beginUI(window, window.size)
+
+  # Your UI code here
+  text("Hello Silky!")
+  button("Click me"):
+    echo "Clicked!"
+
+  sk.endUi()
+  window.swapBuffers()
+
+while not window.closeRequested:
+  pollEvents()
+```
+
+## Theming
+
+Silky supports theming via the `theme` object:
+
+```nim
+sk.theme.defaultTextColor = parseHtmlColor("#2C3E50").rgbx
+sk.theme.buttonHoverColor = rgbx(200, 200, 200, 255)
+sk.theme.buttonDownColor = rgbx(180, 180, 180, 255)
+sk.theme.frameFocusColor = parseHtmlColor("#D5DBDB").rgbx
+```
+
+## License
+
+MIT License
