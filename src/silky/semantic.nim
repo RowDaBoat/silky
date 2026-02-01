@@ -46,9 +46,9 @@ proc newSemanticNode*(kind: string, name = "", text = ""): SemanticNode =
 proc currentNode*(capture: var SemanticCapture): SemanticNode =
   ## Returns the current node at the top of the stack, or root if empty.
   if capture.stack.len > 0:
-    capture.stack[^1]
+    return capture.stack[^1]
   else:
-    capture.root
+    return capture.root
 
 proc pushNode*(capture: var SemanticCapture, node: SemanticNode) =
   ## Adds a node as child of current node and pushes it onto the stack.
@@ -120,20 +120,17 @@ proc pathOf*(node: SemanticNode): string =
     let id = if current.name.len > 0: current.name else: $current.childIndex
     parts.insert(id, 0)
     current = current.parent
-  parts.join(".")
+  return parts.join(".")
 
 proc findByPath*(node: SemanticNode, path: string): SemanticNode =
   ## Finds a node by its dot-separated path.
   if path.len == 0:
     return node
-  
   let parts = path.split(".")
   var current = node
-  
   for part in parts:
     if current == nil:
       return nil
-    
     var found = false
     for child in current.children:
       let childId = if child.name.len > 0: child.name else: $child.childIndex
@@ -141,24 +138,20 @@ proc findByPath*(node: SemanticNode, path: string): SemanticNode =
         current = child
         found = true
         break
-    
     if not found:
       return nil
-  
-  current
+  return current
 
 proc findByText*(node: SemanticNode, text: string, kind = ""): SemanticNode =
   ## Finds the first node with matching text and optional kind.
   if node.text == text:
     if kind.len == 0 or node.kind == kind:
       return node
-  
   for child in node.children:
     let found = child.findByText(text, kind)
     if found != nil:
       return found
-  
-  nil
+  return nil
 
 proc findAllByText*(node: SemanticNode, text: string, kind = ""): seq[SemanticNode] =
   ## Finds all nodes with matching text and optional kind.
@@ -196,7 +189,7 @@ proc diff*(old, new: string): string =
   if output.len == 0:
     return ""
   
-  output.join("\n")
+  return output.join("\n")
 
 const
   NormalLayer* = 0
@@ -383,7 +376,7 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
       if nextGlyphStr in entry.kerning:
         currentPos.x += entry.kerning[nextGlyphStr]
 
-  currentPos
+  return currentPos
 
 proc contains*(sk: Silky, name: string): bool =
   ## Returns true if the atlas contains an entry with the given name.
@@ -426,7 +419,7 @@ proc clear*(sk: Silky) =
 
 proc instanceCount*(sk: Silky): int =
   ## Returns the number of render instances.
-  0
+  return 0
 
 proc newSilky*(imagePath, jsonPath: string): Silky =
   ## Creates a new Silky context for testing.

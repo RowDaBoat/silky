@@ -697,10 +697,10 @@ proc setWidgetRect*(sk: Silky, rect: Rect) {.inline.} =
   discard
 
 proc semanticSnapshot*(sk: Silky): string =
-  ""
+  return ""
 
 proc semanticReset*(sk: Silky) =
   discard
 
 proc semanticEnabled*(sk: Silky): bool =
-  false
+  return false

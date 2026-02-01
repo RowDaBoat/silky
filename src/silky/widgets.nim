@@ -98,7 +98,7 @@ proc menuPointInside(rects: seq[Rect], p: Vec2): bool =
   for r in rects:
     if p.overlaps(r):
       return true
-  false
+  return false
 
 proc vec2(v: SomeNumber): Vec2 =
   ## Create a Vec2 from a number.
@@ -266,7 +266,6 @@ proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state:
   if id notin frameStates:
     frameStates[id] = FrameState()
   let frameState = frameStates[id]
-
   sk.pushLayout(framePos, frameSize)
   sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size)
   sk.pushClipRect(rect(
@@ -275,12 +274,10 @@ proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state:
     sk.size.x - 2,
     sk.size.y - 2
   ))
-
   sk.at = sk.pos + vec2(sk.theme.padding)
   let originPos = sk.at
   sk.at -= frameState.scrollPos
-
-  (frameState, originPos)
+  return (frameState, originPos)
 
 proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec2) =
   ## Finish a scrollable frame and handle scrollbars.
@@ -1032,8 +1029,8 @@ proc subMenuStart*(sk: Silky, window: Window, label: string, menuWidth = 200): M
     if ctx.open:
       menuPathStack.add(label)
       ctx.popupPos = vec2(itemRect.x + itemRect.w, itemRect.y)
-
-  ctx
+      
+  return ctx
 
 proc subMenuEnd*(sk: Silky, ctx: MenuEntryContext) =
   ## Finish a submenu entry and pop path if open.
@@ -1077,8 +1074,8 @@ proc menuItemStart*(sk: Silky, window: Window, label: string): MenuItemContext =
   if hover and window.buttonReleased[MouseLeft]:
     menuState.openPath.setLen(0)
     clicked = true
-
-  MenuItemContext(
+    
+  return MenuItemContext(
     layout: layout,
     rowH: rowH,
     clicked: clicked
