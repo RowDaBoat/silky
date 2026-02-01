@@ -104,15 +104,6 @@ proc mouseInsideClip*(sk: Silky, window: Window, r: Rect): bool =
   window.mousePos.vec2.overlaps(r) and
   window.mousePos.vec2.overlaps(sk.clipRect)
 
-template children*(body) =
-  ## Wrap children in a function call.
-  proc wrapper() {.gensym.} =
-
-    body
-
-    return
-  wrapper()
-
 proc subWindowStart*(
     sk: Silky,
     window: Window,
@@ -397,13 +388,21 @@ template button*(label: string, enabled: bool, error: bool, body: untyped) =
     buttonSize = textSize + vec2(sk.theme.padding) * 2
   let hover = sk.mouseInsideClip(window, rect(sk.at, buttonSize))
 
-  let patch = if not enabled: "button.disabled.9patch"
-              elif error: "button.error.9patch"
-              else: "button.9patch"
+  let patch = 
+    if not enabled: 
+      "button.disabled.9patch"
+    elif error: 
+      "button.error.9patch"
+    else: 
+      "button.9patch"
 
-  let textColor = if not enabled: sk.theme.disabledTextColor
-                  elif error: sk.theme.errorTextColor
-                  else: sk.theme.defaultTextColor
+  let textColor = 
+    if not enabled: 
+      sk.theme.disabledTextColor
+    elif error: 
+      sk.theme.errorTextColor
+    else: 
+      sk.theme.defaultTextColor
 
   if enabled:
     if hover:
@@ -810,9 +809,13 @@ template inputText*(id: int, t: var string, enabled: bool = true, error: bool = 
     else:
       textInputState.focused = false
 
-  let patch = if not enabled: "input.disabled.9patch"
-              elif error: "input.error.9patch"
-              else: "input.9patch"
+  let patch = 
+    if not enabled: 
+      "input.disabled.9patch"
+    elif error: 
+      "input.error.9patch"
+    else: 
+      "input.9patch"
 
   # Handle input if focused
   if enabled and textInputState.focused:
