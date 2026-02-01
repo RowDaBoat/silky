@@ -11,7 +11,7 @@ type
     kind: BufferKind
     values: array[64, uint8]
     location: GLint
-    changed: bool # Flag for if this uniform has changed since last bound.
+    changed: bool ## True if this uniform has changed since last bound.
 
   Shader* = ref object
     paths: seq[string]
@@ -88,7 +88,7 @@ proc compileShaderFiles*(vert, frag: (string, string)): GLuint =
   ## Compiles the shader files and links them into a program, returning that id.
   var vertShader, fragShader: GLuint
 
-  # Compile the shaders
+  # Compile the vertex and fragment shaders.
   block shaders:
     var vertShaderArray = allocCStringArray([vert[1]])
     var fragShaderArray = allocCStringArray([frag[1]])
@@ -127,7 +127,7 @@ proc compileShaderFiles*(vert, frag: (string, string)): GLuint =
     deallocCStringArray(vertShaderArray)
     deallocCStringArray(fragShaderArray)
 
-  # Attach shaders to a GL program
+  # Attach shaders to a GL program.
   result = glCreateProgram()
   glAttachShader(result, vertShader)
   glAttachShader(result, fragShader)
@@ -149,6 +149,7 @@ proc compileShaderFiles*(vertPath, fragPath: string): GLuint =
   )
 
 proc readAttribsAndUniforms(shader: Shader) =
+  ## Read active attributes and uniforms from the shader program.
   block attributes:
     var activeAttribCount: GLint
     glGetProgramiv(
@@ -201,7 +202,7 @@ proc readAttribsAndUniforms(shader: Shader) =
       buf.setLen(length)
 
       if buf.endsWith("[0]"):
-        # Skip arrays, these are part of UBOs and done a different way
+        # Skip arrays because they are part of UBOs and handled differently.
         continue
 
       let location = glGetUniformLocation(shader.programId, buf.cstring)

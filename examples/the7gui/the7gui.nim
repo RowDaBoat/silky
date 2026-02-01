@@ -23,20 +23,20 @@ const
 
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
-# Set up a light theme for 7GUIs
-sk.theme.defaultTextColor = parseHtmlColor("#2C3E50").rgbx  # Dark blue-gray text
-sk.theme.disabledTextColor = parseHtmlColor("#95A5A6").rgbx  # Lighter gray for disabled
-sk.theme.errorTextColor = parseHtmlColor("#E74C3C").rgbx  # Red for errors
-sk.theme.textColor = parseHtmlColor("#2C3E50").rgbx  # Same as default
-sk.theme.textH1Color = parseHtmlColor("#1A252F").rgbx  # Darker for headers
-sk.theme.frameFocusColor = parseHtmlColor("#D5DBDB").rgbx  # Light gray focus
-sk.theme.dropdownBgColor = parseHtmlColor("#ECF0F1").rgbx  # Light background
-sk.theme.dropdownHoverBgColor = parseHtmlColor("#BDC3C7").rgbx  # Slightly darker hover
-sk.theme.dropdownPopupBgColor = parseHtmlColor("#FDFEFE").rgbx  # White popup
+# Set up a light theme for 7GUIs.
+sk.theme.defaultTextColor = parseHtmlColor("#2C3E50").rgbx
+sk.theme.disabledTextColor = parseHtmlColor("#95A5A6").rgbx
+sk.theme.errorTextColor = parseHtmlColor("#E74C3C").rgbx
+sk.theme.textColor = parseHtmlColor("#2C3E50").rgbx
+sk.theme.textH1Color = parseHtmlColor("#1A252F").rgbx
+sk.theme.frameFocusColor = parseHtmlColor("#D5DBDB").rgbx
+sk.theme.dropdownBgColor = parseHtmlColor("#ECF0F1").rgbx
+sk.theme.dropdownHoverBgColor = parseHtmlColor("#BDC3C7").rgbx
+sk.theme.dropdownPopupBgColor = parseHtmlColor("#FDFEFE").rgbx
 sk.theme.buttonHoverColor = rgbx(200, 200, 200, 255)
 sk.theme.buttonDownColor = rgbx(180, 180, 180, 255)
-sk.theme.menuPopupHoverColor = parseHtmlColor("#3498DB").rgbx  # Blue hover
-sk.theme.menuPopupSelectedColor = parseHtmlColor("#2980B9").rgbx  # Darker blue selected
+sk.theme.menuPopupHoverColor = parseHtmlColor("#3498DB").rgbx
+sk.theme.menuPopupSelectedColor = parseHtmlColor("#2980B9").rgbx
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =
@@ -72,6 +72,7 @@ var
   oldCrudSelected = -1
 
 proc isValidDate(s: string): bool =
+  ## Check if the string is a valid date.
   try:
     discard parse(s, "dd.MM.yyyy")
     return true
@@ -79,13 +80,14 @@ proc isValidDate(s: string): bool =
     return false
 
 proc parseDate(s: string): DateTime =
+  ## Parse a date string or return a safe default on failure.
   try:
     return parse(s, "dd.MM.yyyy")
   except:
-    # Return a safe default instead of an uninitialized DateTime to avoid crashes
     return dateTime(2000, Month(1), 1, 0, 0, 0, zone = utc())
 
 proc isValidFloat(s: string): bool =
+  ## Check if the string is a valid float.
   try:
     discard parseFloat(s)
     return true
@@ -96,13 +98,12 @@ window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
 
-  # Update timer
+  # Update the timer elapsed time.
   let now = epochTime()
   let dt = now - lastFrameTime
   lastFrameTime = now
   timerElapsed = min(timerElapsed + dt, timerDuration)
 
-  # Draw tiled test texture as the background.
   for x in 0 ..< 16:
     for y in 0 ..< 10:
       sk.at = vec2(x.float32 * 256, y.float32 * 256)
@@ -195,8 +196,7 @@ window.onFrame = proc() =
     text("Filter prefix:")
     inputText(5, crudPrefix)
 
-    # Filter database based on prefix (case insensitive, surname starts with prefix)
-    # Database stores "Surname, Name"
+    # Filter database based on prefix using case insensitive comparison.
     var filteredItems: seq[string]
     var originalIndices: seq[int]
     for i, person in crudDatabase:
@@ -204,13 +204,13 @@ window.onFrame = proc() =
         filteredItems.add(person)
         originalIndices.add(i)
 
-    # If selection is out of bounds for the filtered list, reset it
+    # If selection is out of bounds for the filtered list, reset it.
     if crudSelected >= filteredItems.len:
       crudSelected = -1
 
     listBox("crud_list", filteredItems, crudSelected)
 
-    # If selection changed, sync fields
+    # If selection changed, sync the name and surname fields.
     if crudSelected != oldCrudSelected:
       if crudSelected != -1 and crudSelected < filteredItems.len:
         let person = filteredItems[crudSelected]
@@ -219,11 +219,11 @@ window.onFrame = proc() =
           crudSurname = parts[0]
           crudName = parts[1]
       else:
-        # Clear fields when selection is lost
+        # Clear fields when selection is lost.
         crudName = ""
         crudSurname = ""
 
-      # Sync back to input text states to update display immediately
+      # Sync back to input text states to update display immediately.
       if 6 in textInputStates: textInputStates[6].setText(crudName)
       if 7 in textInputStates: textInputStates[7].setText(crudSurname)
       oldCrudSelected = crudSelected

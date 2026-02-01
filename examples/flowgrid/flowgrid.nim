@@ -1,4 +1,3 @@
-## Flow Grid Example
 ## Demonstrates element wrapping and scrolling in a resizable frame.
 
 import

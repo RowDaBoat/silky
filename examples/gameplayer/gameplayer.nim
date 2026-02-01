@@ -196,19 +196,15 @@ window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
 
-  # Draw map background
+  # Draw map background.
   for x in 0 ..< 16:
     for y in 0 ..< 10:
       sk.at = vec2(x.float32 * 256, y.float32 * 256)
       image("testTexture", rgbx(30, 30, 30, 255))
 
-  # Header
   ribbon(sk.pos, vec2(sk.size.x, 64), RibbonColor):
     image("ui/logo")
     h1text("Hello, World!")
-
-    # button("press me"):
-    #   echo "pressed"
 
     sk.at = sk.pos + vec2(sk.size.x - 100, 16)
     iconButton("ui/heart"):
@@ -220,11 +216,9 @@ window.onFrame = proc() =
     if sk.shouldShowTooltip:
       tooltip("Cloud")
 
-  # Scrubber
   ribbon(vec2(0, sk.size.y - 64*2), vec2(sk.size.x, 66), ScrubberColor):
     scrubber("timeline", scrubValue, 0, 1000)
 
-  # Footer
   ribbon(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64), RibbonColor):
 
     group(vec2(16, 16), TopToBottom):
@@ -249,7 +243,7 @@ window.onFrame = proc() =
       if sk.shouldShowTooltip:
         tooltip("Rewind to End")
 
-    # position the second group of buttons relative to the right side of the window (not relative to the first group)
+    # Position the second group relative to the right side of the window.
     sk.at = sk.pos + vec2(sk.size.x - 240, 16)
     group(vec2(0, 0), TopToBottom):
       clickableIcon("ui/heart", true):

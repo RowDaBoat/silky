@@ -50,12 +50,13 @@ proc findSkylinePosition(allocator: SkylineAllocator, width, height: int): (bool
       widthLeft = width
       j = i
 
-    # Check if rectangle fits by checking skyline nodes it would span.
+    # Check if rectangle fits by examining skyline nodes it would span.
     while widthLeft > 0 and j < allocator.skyline.len:
       let currentNode = allocator.skyline[j]
       y = max(y, currentNode.y)
       if y + height > allocator.atlasSize:
-        break  # Doesn't fit vertically.
+        # Rectangle does not fit vertically.
+        break
 
       let nodeWidth = if j + 1 < allocator.skyline.len:
         min(currentNode.width, allocator.skyline[j + 1].x - currentNode.x)
@@ -79,7 +80,7 @@ proc findSkylinePosition(allocator: SkylineAllocator, width, height: int): (bool
     return (false, 0, 0)
 
 proc addToSkyline(allocator: SkylineAllocator, x, y, width, height: int) =
-  ## Add a rectangle to the skyline.
+  ## Update the skyline after placing a rectangle.
   var newSkyline: seq[SkylineNode]
 
   # Add nodes before the rectangle.

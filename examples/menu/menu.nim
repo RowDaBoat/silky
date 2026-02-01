@@ -31,7 +31,7 @@ window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
 
-  # Clear screen with selected background color
+  # Clear screen with the selected background color.
   sk.clearScreen(BackgroundColor)
 
   menuBar:

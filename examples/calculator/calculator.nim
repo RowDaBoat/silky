@@ -16,7 +16,7 @@ type
 
 var
   symbols: seq[Symbol] ## List of currently entered symbols.
-  repeat: seq[Symbol] ## Used to repeat prev operation
+  repeat: seq[Symbol] ## Used to repeat the previous operation.
 
 proc inNumber() =
   ## Entering a number, make sure everything is setup for it.
@@ -51,8 +51,8 @@ proc compute() =
   ## Compute current symbols and produce an answer (also a symbol).
 
   if symbols.len > 2:
-    # If there is more then 2 symbols remember the last operation.
-    repeat = symbols[^2 .. ^1]
+  # If there are more than 2 symbols remember the last operation.
+  repeat = symbols[^2 .. ^1]
 
   if symbols.len == 0:
     return
@@ -60,10 +60,10 @@ proc compute() =
     # If there is only 1 symbol, repeat previous operation.
     symbols.add repeat
   if symbols[^1].kind == Operator:
-    # Not complete.
+    # Expression is not complete.
     return
 
-  var i: int # Used to count where we are in the symbols array.
+  var i: int ## Index into the symbols array.
 
   proc left(): float =
     ## Grabs the left parameter for the operation.
@@ -79,7 +79,7 @@ proc compute() =
     symbols.delete(i .. i+1)
     dec i
 
-  # Runs the symbols, × and ÷ first then + and -.
+  # Run the symbols, processing × and ÷ first then + and -.
   i = 0
   while i < symbols.len:
     let t = symbols[i]
@@ -154,32 +154,32 @@ window.onFrame = proc() =
 
   subWindow("Calculator", showWindow, vec2(10, 10), vec2(340, 480)):
 
-    # Display
+    # Build the display formula string.
     var formula = ""
     for t in symbols:
       formula.add(t.number)
       formula.add(t.operator)
     formula = formula.replace("--", "+").replace("+-", "-")
 
-    # Draw display background
+    # Draw display background.
     sk.drawRect(sk.at, vec2(sk.size.x - 24, 60), rgbx(50, 50, 50, 255))
 
-    # Right align text? Or just left for now.
-    # Text
+    # Draw the display text right-aligned.
     let oldStyle = sk.textStyle
     sk.textStyle = "H1"
     let displayText = if formula == "": "0" else: formula
     let textSize = sk.getTextSize(sk.textStyle, displayText)
-    # Right align
+    # Calculate right-aligned position.
     let textX = sk.at.x + (sk.size.x - 24) - textSize.x - 10
     discard sk.drawText(sk.textStyle, displayText, vec2(textX, sk.at.y + 14), rgbx(255, 255, 255, 255))
     sk.textStyle = oldStyle
 
-    sk.advance(vec2(0, 70)) # Move past display
+    # Move past the display area.
+    sk.advance(vec2(0, 70))
 
     let rowX = sk.at.x
 
-    # Row 1: C, +/- (±), %, ÷
+    # Row 1: C, +/- (±), %, ÷.
     calcButton("C"):
       if symbols.len > 0:
         repeat.setLen(0)
@@ -201,7 +201,7 @@ window.onFrame = proc() =
     sk.at.x = rowX
     sk.at.y += 60
 
-    # Row 2: 7, 8, 9, ×
+    # Row 2: 7, 8, 9, ×.
     calcButton("7"):
       inNumber()
       symbols[^1].number.add("7")
@@ -217,7 +217,7 @@ window.onFrame = proc() =
     sk.at.x = rowX
     sk.at.y += 60
 
-    # Row 3: 4, 5, 6, -
+    # Row 3: 4, 5, 6, -.
     calcButton("4"):
       inNumber()
       symbols[^1].number.add("4")
@@ -228,7 +228,7 @@ window.onFrame = proc() =
       inNumber()
       symbols[^1].number.add("6")
     calcButton("-"):
-      # Minus symbol can be an operator or start of a number
+      # Minus symbol can be an operator or the start of a negative number.
       if inOperator():
         symbols[^1].operator = "-"
       else:
@@ -239,7 +239,7 @@ window.onFrame = proc() =
     sk.at.x = rowX
     sk.at.y += 60
 
-    # Row 4: 1, 2, 3, +
+    # Row 4: 1, 2, 3, +.
     calcButton("1"):
       inNumber()
       symbols[^1].number.add("1")
@@ -255,11 +255,6 @@ window.onFrame = proc() =
     sk.at.x = rowX
     sk.at.y += 60
 
-    # Row 5: 0, ., =
-    # 0 button double width? Or just regular. Fidget example uses "Button0".
-    # I'll make it regular for grid consistency or custom width.
-    # calcButton("0") ...
-    # But usually 0 is wide. I'll stick to regular for now to fit the template.
     calcButton("0"):
       inNumber()
       symbols[^1].number.add("0")
@@ -271,8 +266,6 @@ window.onFrame = proc() =
 
     calcButton("="):
       compute()
-
-    # Empty spot or maybe backspace? Fidget doesn't have it.
 
     sk.at.x = rowX
     sk.at.y += 60

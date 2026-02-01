@@ -69,12 +69,15 @@ var
   menuPathStack: seq[string]
 
 proc menuPathKey(path: seq[string]): string =
+  ## Join menu path segments into a unique key.
   path.join(">")
 
 proc menuPathOpen(path: seq[string]): bool =
+  ## Check if the given menu path is currently open.
   menuState.openPath.len >= path.len and menuState.openPath[0 ..< path.len] == path
 
 proc menuEnsureState() =
+  ## Initialize menu state if not already created.
   if menuState.isNil:
     menuState = MenuState(
       openPath: @[],
@@ -86,6 +89,7 @@ proc menuAddActive(rect: Rect) =
   menuState.activeRects.add(rect)
 
 proc menuPointInside(rects: seq[Rect], p: Vec2): bool =
+  ## Check if point is inside any of the given rectangles.
   for r in rects:
     if p.overlaps(r):
       return true
@@ -321,7 +325,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
       scrollbarTrackRect.h * scrollSizePercent
     )
 
-    # Handle scrollbar Y dragging
+    # Handle scrollbar Y dragging.
     if frameState.scrollingY:
       let mouseY = window.mousePos.vec2.y
       let relativeY = mouseY - frameState.scrollDragOffset.y - scrollbarTrackRect.y
@@ -356,7 +360,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
       8
     )
 
-    # Handle scrollbar X dragging
+    # Handle scrollbar X dragging.
     if frameState.scrollingX:
       let mouseX = window.mousePos.vec2.x
       let relativeX = mouseX - frameState.scrollDragOffset.x - scrollbarTrackRect.x
@@ -805,7 +809,7 @@ template inputText*(id: int, t: var string, enabled: bool = true, error: bool = 
   if enabled and window.buttonPressed[MouseLeft]:
     if sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
       textInputState.focused = true
-      # TODO: Set cursor position based on click
+      # TODO: Set cursor position based on click.
     else:
       textInputState.focused = false
 
@@ -833,19 +837,20 @@ template inputText*(id: int, t: var string, enabled: bool = true, error: bool = 
     textInputState.focused = false
     sk.draw9Patch(patch, 6, sk.pos, sk.size)
 
-  # Draw text
-  # We should probably clip or scroll text
+  # Draw text and we should probably clip or scroll text.
   let padding = vec2(sk.theme.padding)
-  let textColor = if not enabled: sk.theme.disabledTextColor
-                  elif error: sk.theme.errorTextColor
-                  else: sk.theme.defaultTextColor
+  let textColor = 
+    if not enabled: 
+      sk.theme.disabledTextColor
+    elif error: 
+      sk.theme.errorTextColor
+    else: 
+      sk.theme.defaultTextColor
   discard sk.drawText(sk.textStyle, t, sk.at + padding, textColor)
 
-  # Draw cursor
+  # Draw cursor if focused and blinking is on.
   if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
-    # Calculate cursor position
-    # This is inefficient, measuring text up to cursor
-    # But fine for now
+    # Calculate cursor position, which is inefficient but fine for now.
     let textBeforeCursor = $textInputState.runes[0 ..< min(textInputState.cursor, textInputState.runes.len)]
     let textSize = sk.getTextSize(sk.textStyle, textBeforeCursor)
     let cursorHeight = sk.atlas.fonts[sk.textStyle].lineHeight

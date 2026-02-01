@@ -12,6 +12,7 @@ type
     bufferId*: GLuint
 
 func size*(componentType: GLenum): Positive =
+  ## Returns the byte size of a GL component type.
   case componentType:
     of cGL_BYTE, cGL_UNSIGNED_BYTE:
       1
@@ -23,6 +24,7 @@ func size*(componentType: GLenum): Positive =
       raise newException(Exception, "Unexpected componentType")
 
 func componentCount*(bufferKind: BufferKind): Positive =
+  ## Returns the number of components for a buffer kind.
   case bufferKind:
     of bkSCALAR:
       1
@@ -38,6 +40,7 @@ func componentCount*(bufferKind: BufferKind): Positive =
       16
 
 proc bindBufferData*(buffer: Buffer, data: pointer) =
+  ## Bind and upload data to the buffer.
   if buffer.bufferId == 0:
     glGenBuffers(1, buffer.bufferId.addr)
 

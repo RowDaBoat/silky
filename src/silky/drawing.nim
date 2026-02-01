@@ -81,7 +81,7 @@ type
     cursor*: Cursor = Cursor(kind: ArrowCursor)
     inputRunes*: seq[Rune]
 
-    # Tooltip tracking.
+    # Fields for tracking tooltip visibility and hover state.
     showTooltip*: bool = false
     lastMousePos*: Vec2
     mouseIdleTime*: float64
@@ -95,7 +95,6 @@ type
 
     # VBOs.
     instanceVbo: GLuint      ## Single VBO for all instance data.
-
     atlasTexture: GLuint     ## GL texture for the atlas image.
 
     # Instance Data.

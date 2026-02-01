@@ -1,5 +1,4 @@
-## Compile and run all examples sequentially for visual verification.
-## Close each window to proceed to the next example.
+## Compiles and runs all examples sequentially for visual verification.
 
 import std/[osproc, os, strformat]
 
