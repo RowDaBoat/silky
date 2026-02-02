@@ -153,6 +153,17 @@ proc findByText*(node: SemanticNode, text: string, kind = ""): SemanticNode =
       return found
   return nil
 
+proc findByName*(node: SemanticNode, name: string, kind = ""): SemanticNode =
+  ## Finds the first node with matching name and optional kind.
+  if node.name == name:
+    if kind.len == 0 or node.kind == kind:
+      return node
+  for child in node.children:
+    let found = child.findByName(name, kind)
+    if found != nil:
+      return found
+  return nil
+
 proc findAllByText*(node: SemanticNode, text: string, kind = ""): seq[SemanticNode] =
   ## Finds all nodes with matching text and optional kind.
   if node.text == text:

@@ -581,6 +581,8 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
 
   let displayText = $selected
 
+  sk.beginWidget("DropDown", text = displayText, rect = dropRect)
+
   # Toggle open/close on click.
   let hover = sk.mouseInsideClip(window, dropRect)
   if hover and window.buttonReleased[MouseLeft]:
@@ -598,6 +600,8 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
   sk.drawImage("droparrow", arrowPos)
   sk.popLayout()
   sk.advance(vec2(width, height))
+
+  sk.endWidget()
 
   if state.open and options.len > 0:
     sk.pushLayer(PopupsLayer)

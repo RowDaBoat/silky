@@ -1,5 +1,6 @@
 ## Test harness for Silky UI testing without a real window or GPU.
 
+import std/unicode
 import vmath, bumpy, jsony
 import silky/[semantic, atlas]
 
@@ -15,11 +16,27 @@ type
     TripleClick
     QuadrupleClick
     KeyUnknown
+    # Keyboard keys for text input
+    KeyBackspace
+    KeyDelete
+    KeyLeft
+    KeyRight
+    KeyHome
+    KeyEnd
+    KeyA
+    KeyC
+    KeyV
+    KeyLeftShift
+    KeyRightShift
+    KeyLeftControl
+    KeyRightControl
+    KeyLeftSuper
+    KeyRightSuper
 
-export Button
+export Button, unicode
 
 type
-  Window* = object
+  Window* = ref object
     ## Test window that simulates a windy Window.
     size*: IVec2
     mousePos*: IVec2
@@ -28,6 +45,9 @@ type
     buttonReleased*: array[Button, bool]
     scrollDelta*: Vec2
     closeRequested*: bool
+    runeInputEnabled*: bool
+    onRune*: proc(rune: Rune)
+    onFrame*: proc()
 
   TestHarness* = object
     ## Test harness for running Silky UI tests.
@@ -50,6 +70,18 @@ proc newWindow*(title: string, size: IVec2, vsync = true): Window =
     mousePos: ivec2(0, 0)
   )
 
+proc swapBuffers*(window: Window) {.inline.} =
+  ## Stub for swapping buffers.
+  discard
+
+proc pollEvents*() {.inline.} =
+  ## Stub for polling events.
+  discard
+
+proc getClipboardString*(): string =
+  ## Stub for getting clipboard content.
+  ""
+
 proc makeContextCurrent*(window: Window) {.inline.} =
   ## Stub for OpenGL context creation.
   discard
@@ -58,24 +90,24 @@ proc loadExtensions*() {.inline.} =
   ## Stub for loading OpenGL extensions.
   discard
 
-proc resetInputState*(w: var Window) =
+proc resetInputState*(w: Window) =
   ## Resets button pressed and released states for a new frame.
   for i in Button:
     w.buttonPressed[i] = false
     w.buttonReleased[i] = false
   w.scrollDelta = vec2(0, 0)
 
-proc pressButton*(w: var Window, button: Button) =
+proc pressButton*(w: Window, button: Button) =
   ## Simulates pressing a mouse button.
   w.buttonDown[button] = true
   w.buttonPressed[button] = true
 
-proc releaseButton*(w: var Window, button: Button) =
+proc releaseButton*(w: Window, button: Button) =
   ## Simulates releasing a mouse button.
   w.buttonDown[button] = false
   w.buttonReleased[button] = true
 
-proc moveMouse*(w: var Window, x, y: int) =
+proc moveMouse*(w: Window, x, y: int) =
   ## Moves the simulated mouse cursor to the given position.
   w.mousePos = ivec2(x.int32, y.int32)
 

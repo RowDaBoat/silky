@@ -4,8 +4,7 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
-import std/[strutils, strformat]
-import vmath, bumpy, chroma
+import bumpy
 import silky
 import ../basicwindow {.all.}
 
@@ -16,7 +15,7 @@ sk.semantic.enabled = true
 # Reset all state to initial values
 proc resetState() =
   showWindow = true
-  inputText = "Type here!"
+  basicwindow.inputText = "Type here!"
   option = 1
   cumulative = false
   element = "Fire"
@@ -26,9 +25,9 @@ proc resetState() =
 
 # Run a frame using basicwindow's onFrame
 proc pumpFrame() =
-  window.resetInputState()
   sk.semantic.reset()
   window.onFrame()
+  window.resetInputState()
 
 # Helper to click a widget by text and kind
 proc clickWidget(text: string, kind: string) =
@@ -59,7 +58,7 @@ proc testInitialState() =
   pumpFrame()
   
   # Check the window title is present
-  let windowNode = sk.semantic.root.findByText("A SubWindow", "SubWindow")
+  let windowNode = sk.semantic.root.findByName("A SubWindow", "SubWindow")
   assert windowNode != nil, "SubWindow not found"
   
   # Check Hello world text is present
