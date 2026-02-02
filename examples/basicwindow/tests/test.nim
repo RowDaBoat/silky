@@ -4,7 +4,6 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
-import bumpy
 import silky
 import ../basicwindow {.all.}
 
@@ -22,42 +21,10 @@ proc resetState() =
   progress = 0.0
   howMuch = 30.0
 
-proc pumpFrame() =
-  ## Runs a frame using basicwindow's onFrame callback.
-  sk.semantic.reset()
-  window.onFrame()
-  window.resetInputState()
-
-proc clickWidget(text: string, kind: string) =
-  ## Clicks a widget by its text content and kind.
-  let node = sk.semantic.root.findByText(text, kind)
-  if node != nil and node.rect.w > 0:
-    let centerX = (node.rect.x + node.rect.w / 2).int
-    let centerY = (node.rect.y + node.rect.h / 2).int
-    window.moveMouse(centerX, centerY)
-  
-  window.pressButton(MouseLeft)
-  pumpFrame()
-  window.releaseButton(MouseLeft)
-  pumpFrame()
-  pumpFrame()
-
-proc clickButton(label: string) =
-  ## Clicks a button by its label.
-  clickWidget(label, "Button")
-
-proc clickRadioButton(label: string) =
-  ## Clicks a radio button by its label.
-  clickWidget(label, "RadioButton")
-
-proc clickCheckBox(label: string) =
-  ## Clicks a checkbox by its label.
-  clickWidget(label, "CheckBox")
-
 proc testInitialState() =
   echo "Testing initial state..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   
   # Check the window title is present.
   let windowNode = sk.semantic.root.findByName("A SubWindow", "SubWindow")
@@ -84,11 +51,11 @@ proc testInitialState() =
 proc testCloseButton() =
   echo "Testing close button..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   assert showWindow == true, "showWindow should start true"
   
   # Click Close Me button.
-  clickButton("Close Me")
+  window.clickButton(sk, "Close Me")
   
   # Verify the window is now closed.
   assert showWindow == false, "showWindow should be false after clicking Close Me"
@@ -98,19 +65,19 @@ proc testCloseButton() =
 proc testRadioButtons() =
   echo "Testing radio buttons..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   assert option == 1, "Option should start at 1"
   
   # Click Max radio button.
-  clickRadioButton("Max")
+  window.clickText(sk, "Max", "RadioButton")
   assert option == 2, "Option should be 2 after clicking Max, got " & $option
   
   # Click Min radio button.
-  clickRadioButton("Min")
+  window.clickText(sk, "Min", "RadioButton")
   assert option == 3, "Option should be 3 after clicking Min, got " & $option
   
   # Click back to Avg.
-  clickRadioButton("Avg")
+  window.clickText(sk, "Avg", "RadioButton")
   assert option == 1, "Option should be 1 after clicking Avg, got " & $option
   
   echo "  PASS"
@@ -118,15 +85,15 @@ proc testRadioButtons() =
 proc testCheckBox() =
   echo "Testing checkbox..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   assert cumulative == false, "Cumulative should start false"
   
   # Click Cumulative checkbox.
-  clickCheckBox("Cumulative")
+  window.clickText(sk, "Cumulative", "CheckBox")
   assert cumulative == true, "Cumulative should be true after click"
   
   # Click again to uncheck.
-  clickCheckBox("Cumulative")
+  window.clickText(sk, "Cumulative", "CheckBox")
   assert cumulative == false, "Cumulative should be false after second click"
   
   echo "  PASS"
@@ -134,7 +101,7 @@ proc testCheckBox() =
 proc testDropDownsExist() =
   echo "Testing dropdowns exist..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   
   # Check dropdown for element shows Fire initially.
   let elementDropdown = sk.semantic.root.findByText("Fire", "DropDown")
@@ -149,7 +116,7 @@ proc testDropDownsExist() =
 proc testProgressBarExists() =
   echo "Testing progress bar exists..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   
   # Find Progress Bar label.
   let progressLabel = sk.semantic.root.findByText("Progress Bar:")
@@ -160,7 +127,7 @@ proc testProgressBarExists() =
 proc testScrubberExists() =
   echo "Testing scrubber exists..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   
   # Find the scrubber label text.
   let scrubberLabel = sk.semantic.root.findByText("How much: 30.00")
@@ -171,7 +138,7 @@ proc testScrubberExists() =
 proc testIconsAndGroupLayout() =
   echo "Testing icons and group layout..."
   resetState()
-  pumpFrame()
+  window.pumpFrame(sk)
   
   # Check for Heart text next to icon.
   let heartText = sk.semantic.root.findByText("Heart")

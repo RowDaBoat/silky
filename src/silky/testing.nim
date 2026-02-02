@@ -200,3 +200,32 @@ template buttonPressed*(w: Window, btn: Button): bool =
 template buttonReleased*(w: Window, btn: Button): bool =
   ## Returns true if the button was just released this frame.
   w.buttonReleased[btn]
+
+proc pumpFrame*(w: Window, sk: Silky) =
+  ## Runs one frame using the window's onFrame callback.
+  sk.semantic.reset()
+  if w.onFrame != nil:
+    w.onFrame()
+  w.resetInputState()
+
+proc click*(w: Window, sk: Silky, node: SemanticNode) =
+  ## Clicks a semantic node by simulating mouse press and release.
+  if node != nil and node.rect.w > 0:
+    let centerX = (node.rect.x + node.rect.w / 2).int
+    let centerY = (node.rect.y + node.rect.h / 2).int
+    w.moveMouse(centerX, centerY)
+  
+  w.pressButton(MouseLeft)
+  w.pumpFrame(sk)
+  w.releaseButton(MouseLeft)
+  w.pumpFrame(sk)
+
+proc clickText*(w: Window, sk: Silky, label: string, kind = "") =
+  ## Clicks a widget by its text label.
+  w.pumpFrame(sk)
+  let node = sk.semantic.root.findByText(label, kind)
+  w.click(sk, node)
+
+proc clickButton*(w: Window, sk: Silky, label: string) =
+  ## Clicks a Button widget by its label.
+  w.clickText(sk, label, "Button")

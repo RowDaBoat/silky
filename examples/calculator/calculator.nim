@@ -1,7 +1,7 @@
 
 import
   std/[strformat, strutils, sequtils],
-  vmath, bumpy, chroma,
+  bumpy, vmath, chroma,
   silky
 
 type
@@ -93,17 +93,6 @@ proc compute() =
     if t.operator == "-": operate left() - right()
     inc i
 
-proc getFormula(): string =
-  ## Build the display formula string.
-  for t in symbols:
-    result.add(t.number)
-    result.add(t.operator)
-  result = result.replace("--", "+").replace("+-", "-")
-
-proc resetCalculator() =
-  symbols.setLen(0)
-  repeat.setLen(0)
-
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
 const CalculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
@@ -111,25 +100,32 @@ builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorCh
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
 builder.write("dist/atlas.png", "dist/atlas.json")
 
+let window = newWindow(
+  "Calculator",
+  ivec2(800, 600),
+  vsync = false
+)
+makeContextCurrent(window)
+loadExtensions()
+
 const BackgroundColor = parseHtmlColor("#000000").rgbx
+
+let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
 var showWindow = true
 
 template calcButton(label: string, body: untyped) =
-  ## Calculator button - uses 'sk' and 'window' from scope.
   let
     btnSize = vec2(60, 50)
     startPos = sk.at
     btnRect = rect(startPos, btnSize)
-    hover = sk.mouseInsideClip(window, btnRect)
-    pressed = hover and window.buttonDown[MouseLeft]
 
   sk.beginWidget("Button", text = label, rect = btnRect)
 
-  if hover:
+  if sk.mouseInsideClip(window, btnRect):
     if window.buttonReleased[MouseLeft]:
       body
-    elif pressed:
+    elif window.buttonDown[MouseLeft]:
       sk.draw9Patch("button.down.9patch", 4, startPos, btnSize, rgbx(200, 200, 200, 255))
     else:
       sk.draw9Patch("button.hover.9patch", 4, startPos, btnSize, rgbx(220, 220, 220, 255))
@@ -143,34 +139,43 @@ template calcButton(label: string, body: untyped) =
   discard sk.drawText(sk.textStyle, label, textPos, rgbx(255, 255, 255, 255))
   sk.textStyle = oldStyle
 
-  sk.setWidgetState(enabled = true, pressed = pressed, hovered = hover)
   sk.endWidget()
 
   sk.at.x += btnSize.x + 10
   sk.stretchAt.x = max(sk.stretchAt.x, sk.at.x + 10)
   sk.stretchAt.y = max(sk.stretchAt.y, sk.at.y + 50 + 10)
 
-template drawCalculatorFrame(sk: Silky, window {.inject.}: Window) =
-  ## Draw the calculator UI. Can be used from tests.
+window.onFrame = proc() =
+
+  sk.beginUI(window, window.size)
+
+  # Draw tiled test texture as the background.
+  for x in 0 ..< 16:
+    for y in 0 ..< 10:
+      sk.at = vec2(x.float32 * 256, y.float32 * 256)
+      image("testTexture", rgbx(30, 30, 30, 255))
+
   subWindow("Calculator", showWindow, vec2(10, 10), vec2(340, 480)):
-    let formula = getFormula()
+
+    # Build the display formula string.
+    var formula = ""
+    for t in symbols:
+      formula.add(t.number)
+      formula.add(t.operator)
+    formula = formula.replace("--", "+").replace("+-", "-")
 
     # Draw display background.
-    let displayRect = rect(sk.at, vec2(sk.size.x - 24, 60))
-    let displayText = if formula == "": "0" else: formula
-    
-    sk.beginWidget("Display", name = "display", text = displayText, rect = displayRect)
-    sk.drawRect(displayRect.xy, displayRect.wh, rgbx(50, 50, 50, 255))
+    sk.drawRect(sk.at, vec2(sk.size.x - 24, 60), rgbx(50, 50, 50, 255))
 
     # Draw the display text right-aligned.
     let oldStyle = sk.textStyle
     sk.textStyle = "H1"
+    let displayText = if formula == "": "0" else: formula
     let textSize = sk.getTextSize(sk.textStyle, displayText)
     # Calculate right-aligned position.
     let textX = sk.at.x + (sk.size.x - 24) - textSize.x - 10
     discard sk.drawText(sk.textStyle, displayText, vec2(textX, sk.at.y + 14), rgbx(255, 255, 255, 255))
     sk.textStyle = oldStyle
-    sk.endWidget()
 
     # Move past the display area.
     sk.advance(vec2(0, 70))
@@ -268,41 +273,19 @@ template drawCalculatorFrame(sk: Silky, window {.inject.}: Window) =
     sk.at.x = rowX
     sk.at.y += 60
 
+  if not showWindow:
+    if window.buttonPressed[MouseLeft]:
+      showWindow = true
+    sk.at = vec2(100, 100)
+
+  let ms = sk.avgFrameTime * 1000
+  sk.at = sk.pos + vec2(sk.size.x - 250, 20)
+  text(&"frame time: {ms:>7.3f}ms")
+
+  sk.endUi()
+  window.swapBuffers()
+
 when isMainModule:
-  let window = newWindow(
-    "Calculator",
-    ivec2(800, 600),
-    vsync = false
-  )
-  makeContextCurrent(window)
-  loadExtensions()
-
-  let sk = newSilky("dist/atlas.png", "dist/atlas.json")
-
-  window.onFrame = proc() =
-
-    sk.beginUI(window, window.size)
-
-    # Draw tiled test texture as the background.
-    for x in 0 ..< 16:
-      for y in 0 ..< 10:
-        sk.at = vec2(x.float32 * 256, y.float32 * 256)
-        image("testTexture", rgbx(30, 30, 30, 255))
-
-    drawCalculatorFrame(sk, window)
-
-    if not showWindow:
-      if window.buttonPressed[MouseLeft]:
-        showWindow = true
-      sk.at = vec2(100, 100)
-
-    let ms = sk.avgFrameTime * 1000
-    sk.at = sk.pos + vec2(sk.size.x - 250, 20)
-    text(&"frame time: {ms:>7.3f}ms")
-
-    sk.endUi()
-    window.swapBuffers()
-
   when defined(emscripten):
     window.run()
   else:

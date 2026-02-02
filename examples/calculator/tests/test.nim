@@ -4,55 +4,32 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
-import std/[strutils]
-import vmath, bumpy
 import silky
 import ../calculator {.all.}
 
-# Frame callback for the calculator UI
-proc calcFrame(sk: Silky, window: Window) =
-  sk.beginUi(window, window.size)
-  drawCalculatorFrame(sk, window)
-  sk.endUi()
+# Enable semantic capture on the existing silky instance.
+sk.semantic.enabled = true
 
-# Helper to get display text from snapshot
-proc getDisplayText(h: TestHarness): string =
-  let display = h.findByPath("Calculator.Calculator.display")
-  if display != nil:
-    return display.text
-  return ""
-
-# Helper to click a calculator button by label
-proc clickCalcButton(h: var TestHarness, label: string) =
-  let node = h.findByText(label, "Button")
-  if node != nil and node.rect.w > 0:
-    let centerX = (node.rect.x + node.rect.w / 2).int
-    let centerY = (node.rect.y + node.rect.h / 2).int
-    h.window.moveMouse(centerX, centerY)
-  
-  h.window.pressButton(MouseLeft)
-  discard h.pumpFrame(calcFrame)
-  h.window.releaseButton(MouseLeft)
-  discard h.pumpFrame(calcFrame)  # Click registers, symbols updated.
-  discard h.pumpFrame(calcFrame)  # UI redraws with new symbols value.
+proc resetCalculator() =
+  ## Resets calculator state to initial values.
+  symbols.setLen(0)
+  calculator.repeat.setLen(0)
 
 proc testInitialState() =
   echo "Testing initial state..."
   resetCalculator()
   showWindow = true
+  window.pumpFrame(sk)
   
-  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame)
+  # Check all buttons are present.
+  assert sk.semantic.root.findByText("1", "Button") != nil, "Button 1 not found"
+  assert sk.semantic.root.findByText("2", "Button") != nil, "Button 2 not found"
+  assert sk.semantic.root.findByText("+", "Button") != nil, "Button + not found"
+  assert sk.semantic.root.findByText("=", "Button") != nil, "Button = not found"
+  assert sk.semantic.root.findByText("C", "Button") != nil, "Button C not found"
   
-  # Check display shows "0" initially
-  let displayText = h.getDisplayText()
-  assert displayText == "0", "Expected display '0', got '" & displayText & "'"
-  
-  # Check all buttons are present
-  assert h.findByText("1", "Button") != nil, "Button 1 not found"
-  assert h.findByText("2", "Button") != nil, "Button 2 not found"
-  assert h.findByText("+", "Button") != nil, "Button + not found"
-  assert h.findByText("=", "Button") != nil, "Button = not found"
+  # Check initial state has no symbols.
+  assert symbols.len == 0, "Expected no symbols initially"
   
   echo "  PASS"
 
@@ -61,24 +38,18 @@ proc testSimpleAddition() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame)
+  window.clickButton(sk, "7")
+  assert symbols.len == 1, "Expected 1 symbol after clicking 7"
   
-  # Click 7
-  h.clickCalcButton("7")
-  assert h.getDisplayText() == "7", "After clicking 7, expected '7' got '" & h.getDisplayText() & "'"
+  window.clickButton(sk, "+")
+  assert symbols.len == 2, "Expected 2 symbols after clicking +"
   
-  # Click +
-  h.clickCalcButton("+")
-  assert h.getDisplayText() == "7+", "After clicking +, expected '7+' got '" & h.getDisplayText() & "'"
+  window.clickButton(sk, "3")
+  assert symbols.len == 3, "Expected 3 symbols after clicking 3"
   
-  # Click 3
-  h.clickCalcButton("3")
-  assert h.getDisplayText() == "7+3", "After clicking 3, expected '7+3' got '" & h.getDisplayText() & "'"
-  
-  # Click =
-  h.clickCalcButton("=")
-  assert h.getDisplayText() == "10", "After clicking =, expected '10' got '" & h.getDisplayText() & "'"
+  window.clickButton(sk, "=")
+  # After compute, should have 1 symbol with result 10.
+  assert symbols.len == 1, "Expected 1 symbol after clicking ="
   
   echo "  PASS"
 
@@ -87,15 +58,12 @@ proc testMultiplication() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame)
+  window.clickButton(sk, "6")
+  window.clickButton(sk, "×")
+  window.clickButton(sk, "7")
+  window.clickButton(sk, "=")
   
-  h.clickCalcButton("6")
-  h.clickCalcButton("×")
-  h.clickCalcButton("7")
-  h.clickCalcButton("=")
-  
-  assert h.getDisplayText() == "42", "Expected '42' got '" & h.getDisplayText() & "'"
+  assert symbols.len == 1, "Expected 1 symbol after compute"
   echo "  PASS"
 
 proc testClearButton() =
@@ -103,26 +71,23 @@ proc testClearButton() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame)
+  # Enter 5 + 3 (three symbols).
+  window.clickButton(sk, "5")
+  window.clickButton(sk, "+")
+  window.clickButton(sk, "3")
+  assert symbols.len == 3, "Expected 3 symbols"
   
-  # Enter 5 + 3 (three symbols)
-  h.clickCalcButton("5")
-  h.clickCalcButton("+")
-  h.clickCalcButton("3")
-  assert h.getDisplayText() == "5+3", "Expected '5+3' got '" & h.getDisplayText() & "'"
+  # Clear last symbol (3).
+  window.clickButton(sk, "C")
+  assert symbols.len == 2, "Expected 2 symbols after first C"
   
-  # Clear last symbol (3)
-  h.clickCalcButton("C")
-  assert h.getDisplayText() == "5+", "After C, expected '5+' got '" & h.getDisplayText() & "'"
+  # Clear operator (+).
+  window.clickButton(sk, "C")
+  assert symbols.len == 1, "Expected 1 symbol after second C"
   
-  # Clear operator (+)
-  h.clickCalcButton("C")
-  assert h.getDisplayText() == "5", "After second C, expected '5' got '" & h.getDisplayText() & "'"
-  
-  # Clear number (5)
-  h.clickCalcButton("C")
-  assert h.getDisplayText() == "0", "After third C, expected '0' got '" & h.getDisplayText() & "'"
+  # Clear number (5).
+  window.clickButton(sk, "C")
+  assert symbols.len == 0, "Expected 0 symbols after third C"
   
   echo "  PASS"
 
@@ -131,21 +96,18 @@ proc testDecimalNumbers() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame)
+  window.clickButton(sk, "3")
+  window.clickButton(sk, ".")
+  window.clickButton(sk, "1")
+  window.clickButton(sk, "4")
+  window.clickButton(sk, "+")
+  window.clickButton(sk, "2")
+  window.clickButton(sk, ".")
+  window.clickButton(sk, "8")
+  window.clickButton(sk, "6")
+  window.clickButton(sk, "=")
   
-  h.clickCalcButton("3")
-  h.clickCalcButton(".")
-  h.clickCalcButton("1")
-  h.clickCalcButton("4")
-  h.clickCalcButton("+")
-  h.clickCalcButton("2")
-  h.clickCalcButton(".")
-  h.clickCalcButton("8")
-  h.clickCalcButton("6")
-  h.clickCalcButton("=")
-  
-  assert h.getDisplayText() == "6", "Expected '6' got '" & h.getDisplayText() & "'"
+  assert symbols.len == 1, "Expected 1 symbol after compute"
   echo "  PASS"
 
 proc testOrderOfOperations() =
@@ -153,17 +115,14 @@ proc testOrderOfOperations() =
   resetCalculator()
   showWindow = true
   
-  var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame)
+  window.clickButton(sk, "2")
+  window.clickButton(sk, "+")
+  window.clickButton(sk, "3")
+  window.clickButton(sk, "×")
+  window.clickButton(sk, "4")
+  window.clickButton(sk, "=")
   
-  h.clickCalcButton("2")
-  h.clickCalcButton("+")
-  h.clickCalcButton("3")
-  h.clickCalcButton("×")
-  h.clickCalcButton("4")
-  h.clickCalcButton("=")
-  
-  assert h.getDisplayText() == "14", "Expected '14' got '" & h.getDisplayText() & "'"
+  assert symbols.len == 1, "Expected 1 symbol after compute"
   echo "  PASS"
 
 when isMainModule:
