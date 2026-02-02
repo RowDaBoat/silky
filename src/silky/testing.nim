@@ -16,7 +16,7 @@ type
     TripleClick
     QuadrupleClick
     KeyUnknown
-    # Keyboard keys for text input
+    # Keyboard keys for text input.
     KeyBackspace
     KeyDelete
     KeyLeft

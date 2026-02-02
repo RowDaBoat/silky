@@ -8,12 +8,11 @@ import bumpy
 import silky
 import ../basicwindow {.all.}
 
-# Use basicwindow's own window and sk directly
-# Enable semantic capture on the existing silky instance
+# Enable semantic capture on the existing silky instance.
 sk.semantic.enabled = true
 
-# Reset all state to initial values
 proc resetState() =
+  ## Resets all state to initial values.
   showWindow = true
   basicwindow.inputText = "Type here!"
   option = 1
@@ -23,14 +22,14 @@ proc resetState() =
   progress = 0.0
   howMuch = 30.0
 
-# Run a frame using basicwindow's onFrame
 proc pumpFrame() =
+  ## Runs a frame using basicwindow's onFrame callback.
   sk.semantic.reset()
   window.onFrame()
   window.resetInputState()
 
-# Helper to click a widget by text and kind
 proc clickWidget(text: string, kind: string) =
+  ## Clicks a widget by its text content and kind.
   let node = sk.semantic.root.findByText(text, kind)
   if node != nil and node.rect.w > 0:
     let centerX = (node.rect.x + node.rect.w / 2).int
@@ -44,12 +43,15 @@ proc clickWidget(text: string, kind: string) =
   pumpFrame()
 
 proc clickButton(label: string) =
+  ## Clicks a button by its label.
   clickWidget(label, "Button")
 
 proc clickRadioButton(label: string) =
+  ## Clicks a radio button by its label.
   clickWidget(label, "RadioButton")
 
 proc clickCheckBox(label: string) =
+  ## Clicks a checkbox by its label.
   clickWidget(label, "CheckBox")
 
 proc testInitialState() =
@@ -57,24 +59,24 @@ proc testInitialState() =
   resetState()
   pumpFrame()
   
-  # Check the window title is present
+  # Check the window title is present.
   let windowNode = sk.semantic.root.findByName("A SubWindow", "SubWindow")
   assert windowNode != nil, "SubWindow not found"
   
-  # Check Hello world text is present
+  # Check Hello world text is present.
   let helloNode = sk.semantic.root.findByText("Hello world!")
   assert helloNode != nil, "Hello world text not found"
   
-  # Check Close Me button is present
+  # Check Close Me button is present.
   let closeBtn = sk.semantic.root.findByText("Close Me", "Button")
   assert closeBtn != nil, "Close Me button not found"
   
-  # Check radio buttons
+  # Check radio buttons.
   assert sk.semantic.root.findByText("Avg", "RadioButton") != nil, "Avg radio not found"
   assert sk.semantic.root.findByText("Max", "RadioButton") != nil, "Max radio not found"
   assert sk.semantic.root.findByText("Min", "RadioButton") != nil, "Min radio not found"
   
-  # Check checkbox
+  # Check checkbox.
   assert sk.semantic.root.findByText("Cumulative", "CheckBox") != nil, "Cumulative checkbox not found"
   
   echo "  PASS"
@@ -85,10 +87,10 @@ proc testCloseButton() =
   pumpFrame()
   assert showWindow == true, "showWindow should start true"
   
-  # Click Close Me button
+  # Click Close Me button.
   clickButton("Close Me")
   
-  # Verify the window is now closed
+  # Verify the window is now closed.
   assert showWindow == false, "showWindow should be false after clicking Close Me"
   
   echo "  PASS"
@@ -99,15 +101,15 @@ proc testRadioButtons() =
   pumpFrame()
   assert option == 1, "Option should start at 1"
   
-  # Click Max radio button
+  # Click Max radio button.
   clickRadioButton("Max")
   assert option == 2, "Option should be 2 after clicking Max, got " & $option
   
-  # Click Min radio button
+  # Click Min radio button.
   clickRadioButton("Min")
   assert option == 3, "Option should be 3 after clicking Min, got " & $option
   
-  # Click back to Avg
+  # Click back to Avg.
   clickRadioButton("Avg")
   assert option == 1, "Option should be 1 after clicking Avg, got " & $option
   
@@ -119,11 +121,11 @@ proc testCheckBox() =
   pumpFrame()
   assert cumulative == false, "Cumulative should start false"
   
-  # Click Cumulative checkbox
+  # Click Cumulative checkbox.
   clickCheckBox("Cumulative")
   assert cumulative == true, "Cumulative should be true after click"
   
-  # Click again to uncheck
+  # Click again to uncheck.
   clickCheckBox("Cumulative")
   assert cumulative == false, "Cumulative should be false after second click"
   
@@ -134,11 +136,11 @@ proc testDropDownsExist() =
   resetState()
   pumpFrame()
   
-  # Check dropdown for element (should show "Fire" initially)
+  # Check dropdown for element shows Fire initially.
   let elementDropdown = sk.semantic.root.findByText("Fire", "DropDown")
   assert elementDropdown != nil, "Element dropdown with 'Fire' not found"
   
-  # Check dropdown for power (should show "Medium" initially)
+  # Check dropdown for power shows Medium initially.
   let powerDropdown = sk.semantic.root.findByText("Medium", "DropDown")
   assert powerDropdown != nil, "Power dropdown with 'Medium' not found"
   
@@ -149,7 +151,7 @@ proc testProgressBarExists() =
   resetState()
   pumpFrame()
   
-  # Find Progress Bar label
+  # Find Progress Bar label.
   let progressLabel = sk.semantic.root.findByText("Progress Bar:")
   assert progressLabel != nil, "Progress Bar label not found"
   
@@ -160,7 +162,7 @@ proc testScrubberExists() =
   resetState()
   pumpFrame()
   
-  # Find the scrubber label text
+  # Find the scrubber label text.
   let scrubberLabel = sk.semantic.root.findByText("How much: 30.00")
   assert scrubberLabel != nil, "Scrubber label not found"
   
@@ -171,11 +173,11 @@ proc testIconsAndGroupLayout() =
   resetState()
   pumpFrame()
   
-  # Check for Heart text next to icon
+  # Check for Heart text next to icon.
   let heartText = sk.semantic.root.findByText("Heart")
   assert heartText != nil, "Heart text not found"
   
-  # Check for Cloud text next to icon
+  # Check for Cloud text next to icon.
   let cloudText = sk.semantic.root.findByText("Cloud")
   assert cloudText != nil, "Cloud text not found"
   
