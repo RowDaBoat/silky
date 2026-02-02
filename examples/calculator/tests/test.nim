@@ -31,10 +31,10 @@ proc clickCalcButton(h: var TestHarness, label: string) =
     h.window.moveMouse(centerX, centerY)
   
   h.window.pressButton(MouseLeft)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   h.window.releaseButton(MouseLeft)
-  discard h.pumpFrame(calcFrame, 1)  # Click registers, symbols updated
-  discard h.pumpFrame(calcFrame, 1)  # UI redraws with new symbols value
+  discard h.pumpFrame(calcFrame)  # Click registers, symbols updated.
+  discard h.pumpFrame(calcFrame)  # UI redraws with new symbols value.
 
 proc testInitialState() =
   echo "Testing initial state..."
@@ -42,7 +42,7 @@ proc testInitialState() =
   showWindow = true
   
   var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   
   # Check display shows "0" initially
   let displayText = h.getDisplayText()
@@ -62,7 +62,7 @@ proc testSimpleAddition() =
   showWindow = true
   
   var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   
   # Click 7
   h.clickCalcButton("7")
@@ -88,7 +88,7 @@ proc testMultiplication() =
   showWindow = true
   
   var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   
   h.clickCalcButton("6")
   h.clickCalcButton("×")
@@ -104,7 +104,7 @@ proc testClearButton() =
   showWindow = true
   
   var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   
   # Enter 5 + 3 (three symbols)
   h.clickCalcButton("5")
@@ -132,7 +132,7 @@ proc testDecimalNumbers() =
   showWindow = true
   
   var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   
   h.clickCalcButton("3")
   h.clickCalcButton(".")
@@ -154,7 +154,7 @@ proc testOrderOfOperations() =
   showWindow = true
   
   var h = newTestHarness("dist/atlas.png", "dist/atlas.json", 800, 600)
-  discard h.pumpFrame(calcFrame, 1)
+  discard h.pumpFrame(calcFrame)
   
   h.clickCalcButton("2")
   h.clickCalcButton("+")

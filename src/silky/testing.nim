@@ -169,9 +169,9 @@ proc clickPath*(h: var TestHarness, path: string, onFrame: proc(sk: Silky, windo
     let centerY = (node.rect.y + node.rect.h / 2).int
     h.window.moveMouse(centerX, centerY)
   h.window.pressButton(MouseLeft)
-  discard h.pumpFrame(onFrame, 1)
+  discard h.pumpFrame(onFrame)
   h.window.releaseButton(MouseLeft)
-  return h.pumpFrame(onFrame, 1)
+  return h.pumpFrame(onFrame)
 
 proc clickLabel*(h: var TestHarness, label: string, onFrame: proc(sk: Silky, window: Window)): string =
   ## Clicks a widget by its text label and returns the resulting diff.
@@ -181,9 +181,9 @@ proc clickLabel*(h: var TestHarness, label: string, onFrame: proc(sk: Silky, win
     let centerY = (node.rect.y + node.rect.h / 2).int
     h.window.moveMouse(centerX, centerY)
   h.window.pressButton(MouseLeft)
-  discard h.pumpFrame(onFrame, 1)
+  discard h.pumpFrame(onFrame)
   h.window.releaseButton(MouseLeft)
-  return h.pumpFrame(onFrame, 1)
+  return h.pumpFrame(onFrame)
 
 template mousePos*(w: Window): Vec2 =
   ## Returns the mouse position as a Vec2.
