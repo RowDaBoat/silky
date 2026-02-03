@@ -734,7 +734,7 @@ template h1text*(t: string) =
   let textSize = sk.drawText("H1", t, sk.at, sk.theme.textH1Color)
   sk.advance(textSize)
 
-template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
+template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U, label: string = "") =
   ## Draggable scrubber that spans available width and advances layout.
   let
     minF = minVal.float32
@@ -747,10 +747,21 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
   let scrubState = scrubberStates[id]
 
   let
-    handleSize = sk.getImageSize("scrubber.handle")
+    baseHandleSize = sk.getImageSize("scrubber.handle")
+    buttonHandleSize = sk.getImageSize("button.9patch")
+    labelSize = if label.len > 0: sk.getTextSize(sk.textStyle, label) else: vec2(0, 0)
+    minLabelSize = if label.len > 0: sk.getTextSize(sk.textStyle, "0000") else: vec2(0, 0)
+    knobTextPadding = sk.theme.padding.float32 * 2 + 8f
+    handleWidth =
+      if label.len > 0:
+        max(buttonHandleSize.x, max(labelSize.x, minLabelSize.x) + knobTextPadding)
+      else:
+        baseHandleSize.x
+    handleHeight = if label.len > 0: max(buttonHandleSize.y, baseHandleSize.y) else: baseHandleSize.y
+    handleSize = vec2(handleWidth, handleHeight)
     bodySize = sk.getImageSize("scrubber.body.9patch")
     height = handleSize.y
-    width = sk.size.x - sk.theme.padding.float32 * 3
+    width = sk.size.x
     controlRect = rect(sk.at, vec2(width, height))
     trackStart = controlRect.x + handleSize.x / 2
     trackEnd = controlRect.x + width - handleSize.x / 2
@@ -785,7 +796,15 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U) =
   let norm2 = if range == 0: 0f else: clamp((value.float32 - minF) / range, 0f, 1f)
   let handlePos2 = vec2(trackStart + norm2 * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
 
-  sk.drawImage("scrubber.handle", handlePos2)
+  if label.len > 0:
+    sk.draw9Patch("button.9patch", 8, handlePos2, handleSize)
+    let textPos = vec2(
+      handlePos2.x + (handleSize.x - labelSize.x) * 0.5,
+      handlePos2.y + (handleSize.y - labelSize.y) * 0.5
+    )
+    discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
+  else:
+    sk.drawImage("scrubber.handle", handlePos2)
   sk.advance(vec2(width, height))
 
 template inputText*(id: int, t: var string, enabled: bool = true, error: bool = false) =
