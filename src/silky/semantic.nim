@@ -28,7 +28,6 @@ type
 
   SemanticCapture* = object
     ## Captures the semantic structure of a UI frame.
-    enabled*: bool
     stack*: seq[SemanticNode]
     root*: SemanticNode
     frameNumber*: int
@@ -440,7 +439,6 @@ proc newSilky*(imagePath, jsonPath: string): Silky =
   result.layers[PopupsLayer] = @[]
   result.currentLayer = NormalLayer
   result.layerStack = @[]
-  result.semantic.enabled = true
 
 proc beginUi*(sk: Silky, window: auto, size: IVec2) =
   ## Begins a new UI frame.

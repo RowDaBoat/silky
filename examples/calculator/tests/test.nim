@@ -7,9 +7,6 @@ when not defined(silkyTesting):
 import silky
 import ../calculator {.all.}
 
-# Enable semantic capture on the existing silky instance.
-sk.semantic.enabled = true
-
 proc resetCalculator() =
   ## Resets calculator state to initial values.
   symbols.setLen(0)

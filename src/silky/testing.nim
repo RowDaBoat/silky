@@ -121,7 +121,6 @@ proc newTestHarness*(atlasImg, atlasJson: string, width = 800, height = 600): Te
   result.sk.layers[PopupsLayer] = @[]
   result.sk.currentLayer = NormalLayer
   result.sk.layerStack = @[]
-  result.sk.semantic.enabled = true
 
 proc beginFrame*(h: var TestHarness) =
   ## Begins a new test frame.

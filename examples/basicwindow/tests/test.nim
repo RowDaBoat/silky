@@ -7,9 +7,6 @@ when not defined(silkyTesting):
 import silky
 import ../basicwindow {.all.}
 
-# Enable semantic capture on the existing silky instance.
-sk.semantic.enabled = true
-
 proc resetState() =
   ## Resets all state to initial values.
   showWindow = true
