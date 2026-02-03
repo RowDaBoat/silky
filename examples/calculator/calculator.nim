@@ -114,6 +114,25 @@ let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
 var showWindow = true
 
+template calcLabel(displayText: string) =
+  ## Displays a right-aligned label in a dark background box.
+  let
+    labelSize = vec2(sk.size.x - 24, 60)
+    labelRect = rect(sk.at, labelSize)
+
+  sk.beginWidget("Display", name = "display", text = displayText, rect = labelRect)
+  sk.drawRect(sk.at, labelSize, rgbx(50, 50, 50, 255))
+
+  let oldStyle = sk.textStyle
+  sk.textStyle = "H1"
+  let labelTextSize = sk.getTextSize(sk.textStyle, displayText)
+  let textX = sk.at.x + labelSize.x - labelTextSize.x - 10
+  discard sk.drawText(sk.textStyle, displayText, vec2(textX, sk.at.y + 14), rgbx(255, 255, 255, 255))
+  sk.textStyle = oldStyle
+  sk.endWidget()
+
+  sk.advance(vec2(0, 70))
+
 template calcButton(label: string, body: untyped) =
   let
     btnSize = vec2(60, 50)
@@ -163,22 +182,10 @@ window.onFrame = proc() =
       formula.add(t.number)
       formula.add(t.operator)
     formula = formula.replace("--", "+").replace("+-", "-")
-
-    # Draw display background.
-    sk.drawRect(sk.at, vec2(sk.size.x - 24, 60), rgbx(50, 50, 50, 255))
-
-    # Draw the display text right-aligned.
-    let oldStyle = sk.textStyle
-    sk.textStyle = "H1"
     let displayText = if formula == "": "0" else: formula
-    let textSize = sk.getTextSize(sk.textStyle, displayText)
-    # Calculate right-aligned position.
-    let textX = sk.at.x + (sk.size.x - 24) - textSize.x - 10
-    discard sk.drawText(sk.textStyle, displayText, vec2(textX, sk.at.y + 14), rgbx(255, 255, 255, 255))
-    sk.textStyle = oldStyle
 
-    # Move past the display area.
-    sk.advance(vec2(0, 70))
+    # Draw the calculator display.
+    calcLabel(displayText)
 
     let rowX = sk.at.x
 
