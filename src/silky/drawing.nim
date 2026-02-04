@@ -341,19 +341,18 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
     let glyphStr = $rune
 
     # For subpixel fonts, select the variant based on fractional X position.
-    var entryKey: string
-    if hasSubpixel:
-      let frac = currentPos.x - currentPos.x.floor
-      let variant = (frac * fontData.subpixelSteps.float32).int mod fontData.subpixelSteps
-      entryKey = glyphStr & "_" & $variant
-    else:
-      entryKey = glyphStr
+    let variant =
+      if hasSubpixel:
+        let frac = currentPos.x - currentPos.x.floor
+        (frac * fontData.subpixelSteps.float32).int mod fontData.subpixelSteps
+      else:
+        0
 
     var entry: LetterEntry
-    if entryKey in fontData.entries:
-      entry = fontData.entries[entryKey]
-    elif (if hasSubpixel: "?_0" else: "?") in fontData.entries:
-      entry = fontData.entries[if hasSubpixel: "?_0" else: "?"]
+    if glyphStr in fontData.entries:
+      entry = fontData.entries[glyphStr][variant]
+    elif "?" in fontData.entries:
+      entry = fontData.entries["?"][0]
     else:
       continue
 
@@ -381,14 +380,12 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
 
     currentPos.x += entry.advance
 
-    # Kerning (stored in base glyph entry for subpixel fonts).
+    # Kerning (stored in variant 0 entry).
     if i < runedText.len - 1:
       let nextRune = runedText[i+1]
       let nextGlyphStr = $nextRune
-      # For subpixel fonts, kerning is stored in the _0 variant.
-      let kerningEntry = if hasSubpixel: fontData.entries.getOrDefault(glyphStr & "_0") else: entry
-      if nextGlyphStr in kerningEntry.kerning:
-        currentPos.x += kerningEntry.kerning[nextGlyphStr]
+      if glyphStr in fontData.entries and nextGlyphStr in fontData.entries[glyphStr][0].kerning:
+        currentPos.x += fontData.entries[glyphStr][0].kerning[nextGlyphStr]
 
   return currentPos - pos
 
@@ -410,9 +407,9 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
 
     var entry: LetterEntry
     if glyphStr in fontData.entries:
-      entry = fontData.entries[glyphStr]
+      entry = fontData.entries[glyphStr][0]
     elif "?" in fontData.entries:
-      entry = fontData.entries["?"]
+      entry = fontData.entries["?"][0]
     else:
       continue
 

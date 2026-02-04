@@ -374,9 +374,9 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
     let glyphStr = $rune
     var entry: LetterEntry
     if glyphStr in fontData.entries:
-      entry = fontData.entries[glyphStr]
+      entry = fontData.entries[glyphStr][0]
     elif "?" in fontData.entries:
-      entry = fontData.entries["?"]
+      entry = fontData.entries["?"][0]
     else:
       continue
 

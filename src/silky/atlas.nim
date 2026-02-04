@@ -38,7 +38,7 @@ type
     ascent*: float32
     lineGap*: float32
     subpixelSteps*: int
-    entries*: Table[string, LetterEntry]
+    entries*: Table[string, seq[LetterEntry]]
 
   SilkyAtlas* = ref object
     ## The pixel atlas that gets converted to JSON.
@@ -135,6 +135,7 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
       scaleMat = scale(vec2(scale))
       baseBounds = glyphPath.computeBounds(scaleMat).snapToPixels()
       advance = typeface.getAdvance(rune) * scale
+    fontAtlas.entries[glyphStr] = @[]
     for variant in 0 ..< numVariants:
       let
         subpixelOffset = if subpixelSteps > 0: variant.float32 / subpixelSteps.float32 else: 0.0
@@ -144,7 +145,6 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
           baseBounds.w + (if subpixelOffset > 0: 1.0 else: 0.0),
           baseBounds.h
         )
-        entryKey = if subpixelSteps > 0: glyphStr & "_" & $variant else: glyphStr
       if offsetBounds.w.ceil.int > 0 and offsetBounds.h.ceil.int > 0:
         let glyphImage = newImage(offsetBounds.w.ceil.int, offsetBounds.h.ceil.int)
         glyphImage.fillPath(
@@ -156,7 +156,7 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
         if not allocation.success:
           raise newException(
             ValueError,
-            "Failed to allocate space for glyph: " & entryKey & "\n" &
+            "Failed to allocate space for glyph: " & glyphStr & " variant " & $variant & "\n" &
             "You need to increase the size of the atlas"
           )
         builder.atlasImage.draw(
@@ -164,7 +164,7 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
           translate(vec2(allocation.x.float32, allocation.y.float32)),
           OverwriteBlend
         )
-        fontAtlas.entries[entryKey] = LetterEntry(
+        fontAtlas.entries[glyphStr].add(LetterEntry(
           x: allocation.x,
           y: allocation.y,
           boundsX: baseBounds.x + subpixelOffset.floor,
@@ -172,9 +172,9 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
           boundsWidth: offsetBounds.w.ceil,
           boundsHeight: offsetBounds.h.ceil,
           advance: advance
-        )
+        ))
       else:
-        fontAtlas.entries[entryKey] = LetterEntry(
+        fontAtlas.entries[glyphStr].add(LetterEntry(
           x: 0,
           y: 0,
           boundsX: baseBounds.x,
@@ -182,14 +182,13 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
           boundsWidth: baseBounds.w,
           boundsHeight: baseBounds.h,
           advance: advance
-        )
-    # Kerning only needs to be stored once per base glyph.
-    let baseKey = if subpixelSteps > 0: glyphStr & "_0" else: glyphStr
+        ))
+    # Kerning only needs to be stored once per base glyph (variant 0).
     for glyphStr2 in chars:
       let rune2 = glyphStr2.runeAt(0)
       let kerning = typeface.getKerningAdjustment(rune, rune2)
       if kerning != 0:
-        fontAtlas.entries[baseKey].kerning[glyphStr2] = kerning * scale
+        fontAtlas.entries[glyphStr][0].kerning[glyphStr2] = kerning * scale
   builder.atlas.fonts[name] = fontAtlas
 
 proc write*(builder: AtlasBuilder, outputImagePath, outputJsonPath: string) =
