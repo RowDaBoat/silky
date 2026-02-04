@@ -215,7 +215,11 @@ window.onFrame = proc() =
       tooltip("Cloud")
 
   ribbon(vec2(0, sk.size.y - 64*2), vec2(sk.size.x, 66), ScrubberColor):
-    scrubber("timeline", scrubValue, 0, 1000)
+    # empty ribbon to fill with icons in the future
+    discard
+
+  ribbon(vec2(0, sk.size.y - 97), vec2(sk.size.x, 66), ScrubberColor):
+    scrubber("timeline", scrubValue, 0, 1000, $int(scrubValue + 0.5))
 
   ribbon(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64), RibbonColor):
 
