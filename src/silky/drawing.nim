@@ -1,6 +1,6 @@
 import
   std/[os, strutils, tables, unicode, times],
-  pixie, opengl, jsony, shady, vmath, windy,
+  pixie, opengl, jsony, shady, vmath, windy, bumpy,
   silky/[atlas, shaders]
 
 when defined(profile):
@@ -100,7 +100,7 @@ type
     # Instance Data.
     layers*: array[2, seq[SilkyVertex]]
     currentLayer*: int
-    layerStack: seq[int]
+    layerStack*: seq[int]
 
     clipStack: seq[Rect]
 
@@ -680,3 +680,27 @@ proc endUi*(
   sk.inputRunes.setLen(0)
 
   measurePop()
+
+# Semantic capture API (no-op versions).
+
+proc beginWidget*(sk: Silky, kind: string, name = "", text = "", rect = rect(0f, 0f, 0f, 0f)) {.inline.} =
+  discard
+
+proc endWidget*(sk: Silky) {.inline.} =
+  discard
+
+proc setWidgetState*(sk: Silky, enabled = true, focused = false, pressed = false,
+                     hovered = false, checked = false, value = "") {.inline.} =
+  discard
+
+proc setWidgetRect*(sk: Silky, rect: Rect) {.inline.} =
+  discard
+
+proc semanticSnapshot*(sk: Silky): string =
+  return ""
+
+proc semanticReset*(sk: Silky) =
+  discard
+
+proc semanticEnabled*(sk: Silky): bool =
+  return false

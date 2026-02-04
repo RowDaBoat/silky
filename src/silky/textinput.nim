@@ -1,6 +1,9 @@
-import
-  std/[unicode],
-  windy
+import std/[unicode]
+
+when defined(silkyTesting):
+  import silky/testing
+else:
+  import windy
 
 type
   InputTextState* = ref object

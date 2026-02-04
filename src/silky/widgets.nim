@@ -1,7 +1,12 @@
 import
   std/[tables, unicode, times, strutils, options],
-  vmath, bumpy, chroma, windy,
-  silky/[textinput, drawing]
+  vmath, bumpy, chroma, 
+  silky/textinput
+
+when defined(silkyTesting):
+  import silky/semantic, silky/testing
+else:
+  import silky/drawing, windy
 
 when defined(macos):
   const ScrollSpeed* = 10.0
@@ -93,7 +98,7 @@ proc menuPointInside(rects: seq[Rect], p: Vec2): bool =
   for r in rects:
     if p.overlaps(r):
       return true
-  false
+  return false
 
 proc vec2(v: SomeNumber): Vec2 =
   ## Create a Vec2 from a number.
@@ -233,6 +238,7 @@ proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
 template subWindow*(title: string, show: var bool, body: untyped) =
   ## Create a window frame using default placement and sizing.
   let state = sk.subWindowStart(window, title, show, none(Vec2), none(Vec2))
+  sk.beginWidget("SubWindow", name = title, rect = rect(state.pos, state.size))
   if state.visible:
     try:
       if not state.minimized:
@@ -240,10 +246,12 @@ template subWindow*(title: string, show: var bool, body: untyped) =
           body
     finally:
       sk.subWindowEnd(window, state)
+  sk.endWidget()
 
 template subWindow*(title: string, show: var bool, initialOrigin: Vec2, initialSize: Vec2, body: untyped) =
   ## Create a window frame with explicit initial position and size.
   let state = sk.subWindowStart(window, title, show, some(initialOrigin), some(initialSize))
+  sk.beginWidget("SubWindow", name = title, rect = rect(state.pos, state.size))
   if state.visible:
     try:
       if not state.minimized:
@@ -251,13 +259,13 @@ template subWindow*(title: string, show: var bool, initialOrigin: Vec2, initialS
           body
     finally:
       sk.subWindowEnd(window, state)
+  sk.endWidget()
 
 proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state: FrameState, originPos: Vec2] =
   ## Begin a scrollable frame; returns state and origin for cleanup.
   if id notin frameStates:
     frameStates[id] = FrameState()
   let frameState = frameStates[id]
-
   sk.pushLayout(framePos, frameSize)
   sk.draw9Patch("frame.9patch", 6, sk.pos, sk.size)
   sk.pushClipRect(rect(
@@ -266,12 +274,10 @@ proc frameStart*(sk: Silky, id: string, framePos, frameSize: Vec2): tuple[state:
     sk.size.x - 2,
     sk.size.y - 2
   ))
-
   sk.at = sk.pos + vec2(sk.theme.padding)
   let originPos = sk.at
   sk.at -= frameState.scrollPos
-
-  (frameState, originPos)
+  return (frameState, originPos)
 
 proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec2) =
   ## Finish a scrollable frame and handle scrollbars.
@@ -380,41 +386,47 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
 
 template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   ## Frame with scrollbars similar to a window body.
+  sk.beginWidget("Frame", name = id, rect = rect(framePos, frameSize))
   let frameCtx = sk.frameStart(id, framePos, frameSize)
   try:
     body
   finally:
     sk.frameEnd(window, frameCtx.state, frameCtx.originPos)
+  sk.endWidget()
 
-template button*(label: string, enabled: bool, error: bool, body: untyped) =
+template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
-  let hover = sk.mouseInsideClip(window, rect(sk.at, buttonSize))
+    buttonRect = rect(sk.at, buttonSize)
+  let hover = sk.mouseInsideClip(window, buttonRect)
+  let pressed = hover and window.buttonDown[MouseLeft]
+
+  sk.beginWidget("Button", text = label, rect = buttonRect)
 
   let patch = 
-    if not enabled: 
+    if not isEnabled: 
       "button.disabled.9patch"
-    elif error: 
+    elif isError: 
       "button.error.9patch"
     else: 
       "button.9patch"
 
   let textColor = 
-    if not enabled: 
+    if not isEnabled: 
       sk.theme.disabledTextColor
-    elif error: 
+    elif isError: 
       sk.theme.errorTextColor
     else: 
       sk.theme.defaultTextColor
 
-  if enabled:
+  if isEnabled:
     if hover:
-      let hoverPatch = if error: "button.error.9patch" else: "button.hover.9patch"
+      let hoverPatch = if isError: "button.error.9patch" else: "button.hover.9patch"
       if window.buttonReleased[MouseLeft]:
         body
       elif window.buttonDown[MouseLeft]:
-        let downPatch = if error: "button.error.9patch" else: "button.down.9patch"
+        let downPatch = if isError: "button.error.9patch" else: "button.down.9patch"
         sk.draw9Patch(downPatch, 8, sk.at, buttonSize)
       else:
         sk.draw9Patch(hoverPatch, 8, sk.at, buttonSize)
@@ -424,15 +436,19 @@ template button*(label: string, enabled: bool, error: bool, body: untyped) =
     sk.draw9Patch(patch, 8, sk.at, buttonSize)
 
   discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
+  
+  sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hover)
+  sk.endWidget()
+  
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template button*(label: string, body: untyped) =
   ## Create a button.
   button(label, true, false, body)
 
-template button*(label: string, enabled: bool, body: untyped) =
+template button*(label: string, isEnabled: bool, body: untyped) =
   ## Create a button.
-  button(label, enabled, false, body)
+  button(label, isEnabled, false, body)
 
 template icon*(image: string) =
   ## Draw an icon.
@@ -501,6 +517,8 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
 
+  sk.beginWidget("RadioButton", text = label, rect = hitRect)
+
   if sk.mouseInsideClip(window, hitRect) and window.buttonReleased[MouseLeft]:
     variable = value
 
@@ -513,6 +531,10 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     )
   sk.drawImage(if on: "radio.on" else: "radio.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
+  
+  sk.setWidgetState(checked = on)
+  sk.endWidget()
+  
   sk.advance(vec2(width, height))
 
 template checkBox*(label: string, value: var bool) =
@@ -523,6 +545,8 @@ template checkBox*(label: string, value: var bool) =
     height = max(iconSize.y.float32, textSize.y)
     width = iconSize.x.float32 + sk.theme.spacing.float32 + textSize.x
     hitRect = rect(sk.at, vec2(width, height))
+
+  sk.beginWidget("CheckBox", text = label, rect = hitRect)
 
   if sk.mouseInsideClip(window, hitRect) and window.buttonReleased[MouseLeft]:
     value = not value
@@ -535,6 +559,10 @@ template checkBox*(label: string, value: var bool) =
     )
   sk.drawImage(if value: "check.on" else: "check.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
+  
+  sk.setWidgetState(checked = value)
+  sk.endWidget()
+  
   sk.advance(vec2(width, height))
 
 template dropDown*[T](selected: var T, options: openArray[T]) =
@@ -553,6 +581,8 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
 
   let displayText = $selected
 
+  sk.beginWidget("DropDown", text = displayText, rect = dropRect)
+
   # Toggle open/close on click.
   let hover = sk.mouseInsideClip(window, dropRect)
   if hover and window.buttonReleased[MouseLeft]:
@@ -570,6 +600,8 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
   sk.drawImage("droparrow", arrowPos)
   sk.popLayout()
   sk.advance(vec2(width, height))
+
+  sk.endWidget()
 
   if state.open and options.len > 0:
     sk.pushLayer(PopupsLayer)
@@ -726,7 +758,10 @@ template image*(imageName: string) =
 
 template text*(t: string) =
   ## Draw text.
+  let textRect = rect(sk.at, sk.getTextSize(sk.textStyle, t))
+  sk.beginWidget("Text", text = t, rect = textRect)
   let textSize = sk.drawText(sk.textStyle, t, sk.at, sk.theme.textColor)
+  sk.endWidget()
   sk.advance(textSize)
 
 template h1text*(t: string) =
@@ -1017,8 +1052,8 @@ proc subMenuStart*(sk: Silky, window: Window, label: string, menuWidth = 200): M
     if ctx.open:
       menuPathStack.add(label)
       ctx.popupPos = vec2(itemRect.x + itemRect.w, itemRect.y)
-
-  ctx
+      
+  return ctx
 
 proc subMenuEnd*(sk: Silky, ctx: MenuEntryContext) =
   ## Finish a submenu entry and pop path if open.
@@ -1062,8 +1097,8 @@ proc menuItemStart*(sk: Silky, window: Window, label: string): MenuItemContext =
   if hover and window.buttonReleased[MouseLeft]:
     menuState.openPath.setLen(0)
     clicked = true
-
-  MenuItemContext(
+    
+  return MenuItemContext(
     layout: layout,
     rowH: rowH,
     clicked: clicked

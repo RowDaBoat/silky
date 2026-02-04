@@ -1,7 +1,7 @@
 
 import
   std/[strformat],
-  opengl, windy, bumpy, vmath, chroma,
+  bumpy, vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)
@@ -105,8 +105,9 @@ window.onFrame = proc() =
   sk.endUi()
   window.swapBuffers()
 
-when defined(emscripten):
-  window.run()
-else:
-  while not window.closeRequested:
-    pollEvents()
+when isMainModule:
+  when defined(emscripten):
+    window.run()
+  else:
+    while not window.closeRequested:
+      pollEvents()
