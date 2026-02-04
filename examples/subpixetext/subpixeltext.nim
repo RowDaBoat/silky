@@ -19,7 +19,7 @@ builder.write("dist/atlas.png", "dist/atlas.json")
 
 let window = newWindow(
   "Subpixel Text Example",
-  ivec2(800, 400),
+  ivec2(800, 450),
   vsync = false
 )
 makeContextCurrent(window)
@@ -55,18 +55,23 @@ window.onFrame = proc() =
   scrubber("offset", textOffset, 0.0, 20.0)
   sk.popLayout()
 
-  # Regular font (no subpixel rendering).
-  sk.at = vec2(Margin, 210)
-  text("Regular font:")
-  sk.at = vec2(Margin + textOffset, 235)
+  # Pixel-snapped font (snaps to integer pixels).
+  sk.at = vec2(Margin, 200)
+  text("Pixel-snapped:")
+  sk.at = vec2(Margin + textOffset, 225)
   sk.textStyle = "Regular"
   text("The quick brown fox jumps over the lazy dog.")
 
-  # Subpixel font.
-  sk.at = vec2(Margin, 280)
+  # Bilinear filtered (GPU interpolation causes blur).
+  sk.at = vec2(Margin, 260)
   sk.textStyle = "Default"
-  text("Subpixel font (10 steps):")
-  sk.at = vec2(Margin + textOffset, 305)
+  text("Bilinear filtered:")
+  sk.drawImage("text", vec2(Margin + textOffset, 285))
+
+  # Subpixel rendered font.
+  sk.at = vec2(Margin, 320)
+  text("Subpixel rendered:")
+  sk.at = vec2(Margin + textOffset, 345)
   sk.textStyle = "Subpixel"
   text("The quick brown fox jumps over the lazy dog.")
 
