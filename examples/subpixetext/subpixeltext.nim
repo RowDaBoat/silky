@@ -1,19 +1,20 @@
-## Demonstrates subpixel text positioning.
+## Demonstrates subpixel text rendering.
 ##
-## Subpixel rendering allows text to be positioned at fractional pixel offsets.
-## This is useful for smooth scrolling, animations, and precise text placement.
-## Drag the slider to move the text by 0.1 pixel increments and observe how
-## the text rendering changes at different subpixel positions.
+## Subpixel rendering pre-renders multiple versions of each glyph at fractional
+## pixel offsets. When drawing text at non-integer positions, the correct glyph
+## variant is selected, resulting in smoother text positioning without blur.
+## Compare the regular font (top) with the subpixel font (bottom).
 
 import
   std/[strformat],
   opengl, windy, bumpy, vmath, chroma,
   silky
 
-let builder = newAtlasBuilder(1024, 4)
+let builder = newAtlasBuilder(2048, 4)
 builder.addDir("data/", "data/")
-builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 48.0)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
+builder.addFont("data/IBMPlexSans-Regular.ttf", "Regular", 18.0)
+builder.addFont("data/IBMPlexSans-Regular.ttf", "Subpixel", 18.0, subpixelSteps = 10)
 builder.write("dist/atlas.png", "dist/atlas.json")
 
 let window = newWindow(
@@ -45,25 +46,32 @@ window.onFrame = proc() =
 
   # Explanation.
   sk.at = vec2(Margin, 70)
-  text("Drag the slider to move the text by 0.1 pixel increments.")
-  sk.at = vec2(Margin, 95)
-  text("Notice how subpixel positioning affects text rendering clarity.")
+  text("Drag the slider to move the text. Compare regular vs subpixel rendering.")
 
   # Big slider.
-  sk.at = vec2(Margin, 140)
-  text(&"Offset: {textOffset:>6.1f} px")
-  sk.pushLayout(vec2(Margin, 170), vec2(SliderWidth, 32))
+  sk.at = vec2(Margin, 110)
+  text(&"Offset: {textOffset:>6.2f} px")
+  sk.pushLayout(vec2(Margin, 140), vec2(SliderWidth, 32))
   scrubber("offset", textOffset, 0.0, 20.0)
   sk.popLayout()
 
-  # Display current offset rounded to nearest 0.1.
-  sk.at = vec2(Margin + SliderWidth + 20, 175)
-  let snappedOffset = (textOffset * 10).round / 10
-  text(&"Snapped: {snappedOffset:>4.1f}")
-
-  # Text sample with subpixel offset.
-  sk.at = vec2(Margin + textOffset, 250)
+  # Regular font (no subpixel rendering).
+  sk.at = vec2(Margin, 210)
+  text("Regular font:")
+  sk.at = vec2(Margin + textOffset, 235)
+  sk.textStyle = "Regular"
   text("The quick brown fox jumps over the lazy dog.")
+
+  # Subpixel font.
+  sk.at = vec2(Margin, 280)
+  sk.textStyle = "Default"
+  text("Subpixel font (10 steps):")
+  sk.at = vec2(Margin + textOffset, 305)
+  sk.textStyle = "Subpixel"
+  text("The quick brown fox jumps over the lazy dog.")
+
+  # Reset to default font.
+  sk.textStyle = "Default"
 
   # Frame time display.
   let ms = sk.avgFrameTime * 1000

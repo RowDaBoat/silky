@@ -318,6 +318,7 @@ proc clearScreen*(sk: Silky, color: ColorRGBX) {.measure.} =
 
 proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGBX, maxWidth = float32.high, maxHeight = float32.high): Vec2 =
   ## Draw text using the specified font from the atlas.
+  ## For fonts with subpixel steps, selects the appropriate glyph variant based on fractional X position.
   assert sk.inFrame
   if font notin sk.atlas.fonts:
     echo "[Warning] Font not found in atlas: " & font
@@ -327,6 +328,7 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
   var currentPos = pos + vec2(0, fontData.ascent)
   var maxPos = pos + vec2(maxWidth, maxHeight);
   let runedText = text.toRunes
+  let hasSubpixel = fontData.subpixelSteps > 0
 
   for i in 0 ..< runedText.len:
     let rune = runedText[i]
@@ -338,11 +340,20 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
 
     let glyphStr = $rune
 
+    # For subpixel fonts, select the variant based on fractional X position.
+    var entryKey: string
+    if hasSubpixel:
+      let frac = currentPos.x - currentPos.x.floor
+      let variant = (frac * fontData.subpixelSteps.float32).int mod fontData.subpixelSteps
+      entryKey = glyphStr & "_" & $variant
+    else:
+      entryKey = glyphStr
+
     var entry: LetterEntry
-    if glyphStr in fontData.entries:
-      entry = fontData.entries[glyphStr]
-    elif "?" in fontData.entries:
-      entry = fontData.entries["?"]
+    if entryKey in fontData.entries:
+      entry = fontData.entries[entryKey]
+    elif (if hasSubpixel: "?_0" else: "?") in fontData.entries:
+      entry = fontData.entries[if hasSubpixel: "?_0" else: "?"]
     else:
       continue
 
@@ -354,7 +365,7 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
     # Draw the glyph if it has dimensions.
     if entry.boundsWidth > 0 and entry.boundsHeight > 0:
       let pos = vec2(
-        round(currentPos.x + entry.boundsX),
+        floor(currentPos.x) + entry.boundsX,
         round(currentPos.y + entry.boundsY)
       )
 
@@ -370,12 +381,14 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
 
     currentPos.x += entry.advance
 
-    # Kerning.
+    # Kerning (stored in base glyph entry for subpixel fonts).
     if i < runedText.len - 1:
       let nextRune = runedText[i+1]
       let nextGlyphStr = $nextRune
-      if nextGlyphStr in entry.kerning:
-        currentPos.x += entry.kerning[nextGlyphStr]
+      # For subpixel fonts, kerning is stored in the _0 variant.
+      let kerningEntry = if hasSubpixel: fontData.entries.getOrDefault(glyphStr & "_0") else: entry
+      if nextGlyphStr in kerningEntry.kerning:
+        currentPos.x += kerningEntry.kerning[nextGlyphStr]
 
   return currentPos - pos
 
