@@ -114,8 +114,6 @@ proc addDir*(builder: AtlasBuilder, path: string, removePrefix: string = "") =
 
 proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, chars: seq[string] = AsciiGlyphs, subpixelSteps: int = 0) =
   ## Add a font to the atlas.
-  ## If subpixelSteps > 0, generates multiple versions of each glyph shifted by 1/subpixelSteps pixels.
-  ## For example, subpixelSteps=10 generates 10 versions per glyph at 0.0, 0.1, 0.2, ... 0.9 pixel offsets.
   let fontAtlas = FontAtlas()
   fontAtlas.size = size
   fontAtlas.subpixelSteps = subpixelSteps
@@ -126,7 +124,10 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
   fontAtlas.ascent = typeface.ascent * fontObj.scale
   fontAtlas.descent = typeface.descent * fontObj.scale
   fontAtlas.lineGap = typeface.lineGap * fontObj.scale
+  # If subpixelSteps > 0, generates multiple versions of each glyph shifted by 1/subpixelSteps pixels.
+  # For example, subpixelSteps=10 generates 10 versions per glyph at 0.0, 0.1, 0.2, ... 0.9 pixel offsets.
   let numVariants = if subpixelSteps > 0: subpixelSteps else: 1
+  
   for glyphStr in chars:
     let
       rune = glyphStr.runeAt(0)
@@ -138,7 +139,11 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
     fontAtlas.entries[glyphStr] = @[]
     for variant in 0 ..< numVariants:
       let
-        subpixelOffset = if subpixelSteps > 0: variant.float32 / subpixelSteps.float32 else: 0.0
+        subpixelOffset = 
+          if subpixelSteps > 0: 
+            variant.float32 / subpixelSteps.float32 
+          else: 
+            0.0  # No subpixel support.
         offsetBounds = rect(
           baseBounds.x + subpixelOffset,
           baseBounds.y,

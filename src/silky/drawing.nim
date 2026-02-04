@@ -318,7 +318,6 @@ proc clearScreen*(sk: Silky, color: ColorRGBX) {.measure.} =
 
 proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGBX, maxWidth = float32.high, maxHeight = float32.high): Vec2 =
   ## Draw text using the specified font from the atlas.
-  ## For fonts with subpixel steps, selects the appropriate glyph variant based on fractional X position.
   assert sk.inFrame
   if font notin sk.atlas.fonts:
     echo "[Warning] Font not found in atlas: " & font
