@@ -1,6 +1,6 @@
 import
   std/[tables, unicode, times, strutils, options],
-  vmath, bumpy, chroma, 
+  vmath, bumpy, chroma,
   silky/textinput
 
 when defined(silkyTesting):
@@ -404,20 +404,20 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
 
   sk.beginWidget("Button", text = label, rect = buttonRect)
 
-  let patch = 
-    if not isEnabled: 
+  let patch =
+    if not isEnabled:
       "button.disabled.9patch"
-    elif isError: 
+    elif isError:
       "button.error.9patch"
-    else: 
+    else:
       "button.9patch"
 
-  let textColor = 
-    if not isEnabled: 
+  let textColor =
+    if not isEnabled:
       sk.theme.disabledTextColor
-    elif isError: 
+    elif isError:
       sk.theme.errorTextColor
-    else: 
+    else:
       sk.theme.defaultTextColor
 
   if isEnabled:
@@ -436,10 +436,10 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
     sk.draw9Patch(patch, 8, sk.at, buttonSize)
 
   discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
-  
+
   sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hover)
   sk.endWidget()
-  
+
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template button*(label: string, body: untyped) =
@@ -484,7 +484,6 @@ template clickableIcon*(image: string, on: bool, body) =
     s2 = imageSize
     upColor = sk.theme.iconClickableUpColor
     onColor = sk.theme.iconClickableOnColor
-    hoverColor = sk.theme.iconClickableHoverColor
     offColor = sk.theme.iconClickableOffColor
   var color = upColor
   if sk.mouseInsideClip(window, rect(sk.at, s2)):
@@ -531,10 +530,10 @@ template radioButton*[T](label: string, variable: var T, value: T) =
     )
   sk.drawImage(if on: "radio.on" else: "radio.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
-  
+
   sk.setWidgetState(checked = on)
   sk.endWidget()
-  
+
   sk.advance(vec2(width, height))
 
 template checkBox*(label: string, value: var bool) =
@@ -559,10 +558,10 @@ template checkBox*(label: string, value: var bool) =
     )
   sk.drawImage(if value: "check.on" else: "check.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
-  
+
   sk.setWidgetState(checked = value)
   sk.endWidget()
-  
+
   sk.advance(vec2(width, height))
 
 template dropDown*[T](selected: var T, options: openArray[T]) =
@@ -794,7 +793,6 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U, label: 
         baseHandleSize.x
     handleHeight = if label.len > 0: max(buttonHandleSize.y, baseHandleSize.y) else: baseHandleSize.y
     handleSize = vec2(handleWidth, handleHeight)
-    bodySize = sk.getImageSize("scrubber.body.9patch")
     height = handleSize.y
     width = sk.size.x
     controlRect = rect(sk.at, vec2(width, height))
@@ -867,12 +865,12 @@ template inputText*(id: int, t: var string, enabled: bool = true, error: bool = 
     else:
       textInputState.focused = false
 
-  let patch = 
-    if not enabled: 
+  let patch =
+    if not enabled:
       "input.disabled.9patch"
-    elif error: 
+    elif error:
       "input.error.9patch"
-    else: 
+    else:
       "input.9patch"
 
   # Handle input if focused
@@ -893,12 +891,12 @@ template inputText*(id: int, t: var string, enabled: bool = true, error: bool = 
 
   # Draw text and we should probably clip or scroll text.
   let padding = vec2(sk.theme.padding)
-  let textColor = 
-    if not enabled: 
+  let textColor =
+    if not enabled:
       sk.theme.disabledTextColor
-    elif error: 
+    elif error:
       sk.theme.errorTextColor
-    else: 
+    else:
       sk.theme.defaultTextColor
   discard sk.drawText(sk.textStyle, t, sk.at + padding, textColor)
 
@@ -1052,7 +1050,7 @@ proc subMenuStart*(sk: Silky, window: Window, label: string, menuWidth = 200): M
     if ctx.open:
       menuPathStack.add(label)
       ctx.popupPos = vec2(itemRect.x + itemRect.w, itemRect.y)
-      
+
   return ctx
 
 proc subMenuEnd*(sk: Silky, ctx: MenuEntryContext) =
@@ -1097,7 +1095,7 @@ proc menuItemStart*(sk: Silky, window: Window, label: string): MenuItemContext =
   if hover and window.buttonReleased[MouseLeft]:
     menuState.openPath.setLen(0)
     clicked = true
-    
+
   return MenuItemContext(
     layout: layout,
     rowH: rowH,
