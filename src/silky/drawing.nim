@@ -327,6 +327,7 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
   var currentPos = pos + vec2(0, fontData.ascent)
   var maxPos = pos + vec2(maxWidth, maxHeight);
   let runedText = text.toRunes
+  let hasSubpixel = fontData.subpixelSteps > 0
 
   for i in 0 ..< runedText.len:
     let rune = runedText[i]
@@ -338,11 +339,19 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
 
     let glyphStr = $rune
 
+    # For subpixel fonts, select the variant based on fractional X position.
+    let variant =
+      if hasSubpixel:
+        let frac = currentPos.x - currentPos.x.floor
+        (frac * fontData.subpixelSteps.float32).int mod fontData.subpixelSteps
+      else:
+        0
+
     var entry: LetterEntry
     if glyphStr in fontData.entries:
-      entry = fontData.entries[glyphStr]
+      entry = fontData.entries[glyphStr][variant]
     elif "?" in fontData.entries:
-      entry = fontData.entries["?"]
+      entry = fontData.entries["?"][0]
     else:
       continue
 
@@ -354,7 +363,7 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
     # Draw the glyph if it has dimensions.
     if entry.boundsWidth > 0 and entry.boundsHeight > 0:
       let pos = vec2(
-        round(currentPos.x + entry.boundsX),
+        floor(currentPos.x) + entry.boundsX,
         round(currentPos.y + entry.boundsY)
       )
 
@@ -370,12 +379,12 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
 
     currentPos.x += entry.advance
 
-    # Kerning.
+    # Kerning (stored in variant 0 entry).
     if i < runedText.len - 1:
       let nextRune = runedText[i+1]
       let nextGlyphStr = $nextRune
-      if nextGlyphStr in entry.kerning:
-        currentPos.x += entry.kerning[nextGlyphStr]
+      if glyphStr in fontData.entries and nextGlyphStr in fontData.entries[glyphStr][0].kerning:
+        currentPos.x += fontData.entries[glyphStr][0].kerning[nextGlyphStr]
 
   return currentPos - pos
 
@@ -397,9 +406,9 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
 
     var entry: LetterEntry
     if glyphStr in fontData.entries:
-      entry = fontData.entries[glyphStr]
+      entry = fontData.entries[glyphStr][0]
     elif "?" in fontData.entries:
-      entry = fontData.entries["?"]
+      entry = fontData.entries["?"][0]
     else:
       continue
 
