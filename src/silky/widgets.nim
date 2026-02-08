@@ -796,7 +796,7 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U, label: 
     handleSize = vec2(handleWidth, handleHeight)
     bodySize = sk.getImageSize("scrubber.body.9patch")
     height = handleSize.y
-    width = sk.size.x
+    width = sk.size.x - sk.theme.padding.float32 * 3
     controlRect = rect(sk.at, vec2(width, height))
     trackStart = controlRect.x + handleSize.x / 2
     trackEnd = controlRect.x + width - handleSize.x / 2
