@@ -10,10 +10,10 @@ import
   silky
 
 let builder = newAtlasBuilder(1024, 4)
-builder.addDir("data/", "data/")
-builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0)
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.addDir("tests/data/", "tests/data/")
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "H1", 32.0)
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
+builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 let window = newWindow(
   "Word Wrap Example",
@@ -35,7 +35,7 @@ Hi.
 Supercalifragilisticexpialidocious is a very long word that tests character-level fallback wrapping.
 Done."""
 
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+let sk = newSilky("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 var
   wrapWidth = 300.0f

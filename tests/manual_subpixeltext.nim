@@ -11,11 +11,11 @@ import
   silky
 
 let builder = newAtlasBuilder(2048, 4)
-builder.addDir("data/", "data/")
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Regular", 18.0)
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Subpixel", 18.0, subpixelSteps = 10)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.addDir("tests/data/", "tests/data/")
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0)
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Regular", 18.0)
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Subpixel", 18.0, subpixelSteps = 10)
+builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 let window = newWindow(
   "Subpixel Text Example",
@@ -28,7 +28,7 @@ loadExtensions()
 const
   BackgroundColor = parseHtmlColor("#1a1a2e").rgbx
 
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+let sk = newSilky("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 var textOffset = 0.0f
 
