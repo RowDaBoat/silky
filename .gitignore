@@ -32,3 +32,5 @@ tmp
 # silky specific ignores:
 examples/*/dist/*.json
 examples/*/dist/*.png
+tests/dist/*.json
+tests/dist/*.png

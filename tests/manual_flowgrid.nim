@@ -6,10 +6,10 @@ import
   silky
 
 let builder = newAtlasBuilder(1024, 4)
-builder.addDir("data/", "data/")
-builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0)
-builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.addDir("tests/data/", "tests/data/")
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "H1", 32.0)
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0)
+builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 let window = newWindow(
   "Flow Grid Example",
@@ -23,7 +23,7 @@ const
   BackgroundColor = parseHtmlColor("#1a1a2e").rgbx
   NumItems = 50
 
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+let sk = newSilky("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 # Track which items have been clicked.
 var
