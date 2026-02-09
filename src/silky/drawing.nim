@@ -316,26 +316,70 @@ proc clearScreen*(sk: Silky, color: ColorRGBX) {.measure.} =
   glClearColor(c.r, c.g, c.b, c.a)
   glClear(GL_COLOR_BUFFER_BIT)
 
-proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGBX, maxWidth = float32.high, maxHeight = float32.high): Vec2 =
+proc drawText*(
+  sk: Silky,
+  font: string,
+  text: string,
+  pos: Vec2,
+  color: ColorRGBX,
+  maxWidth = float32.high,
+  maxHeight = float32.high,
+  clip = true,
+  wordWrap = false
+): Vec2 =
   ## Draw text using the specified font from the atlas.
   assert sk.inFrame
   if font notin sk.atlas.fonts:
     echo "[Warning] Font not found in atlas: " & font
     return
+  if clip and (maxWidth <= 0 or maxHeight <= 0):
+    return
 
   let fontData = sk.atlas.fonts[font]
   var currentPos = pos + vec2(0, fontData.ascent)
-  var maxPos = pos + vec2(maxWidth, maxHeight);
+  let maxPos = pos + vec2(maxWidth, maxHeight)
   let runedText = text.toRunes
   let hasSubpixel = fontData.subpixelSteps > 0
 
-  for i in 0 ..< runedText.len:
+  # Per-char clip rect: when clip is on, intersect parent clip rect with text bounds.
+  let parentClip = sk.clipRect
+  let (textClipPos, textClipSize) =
+    if clip:
+      let
+        cx1 = max(pos.x, parentClip.x)
+        cy1 = max(pos.y, parentClip.y)
+        cx2 = min(maxPos.x, parentClip.x + parentClip.w)
+        cy2 = min(maxPos.y, parentClip.y + parentClip.h)
+      (vec2(cx1, cy1), vec2(max(0.0f, cx2 - cx1), max(0.0f, cy2 - cy1)))
+    else:
+      (parentClip.xy, parentClip.wh)
+
+  var i = 0
+  while i < runedText.len:
     let rune = runedText[i]
 
     if rune == Rune(10): # Newline.
       currentPos.x = pos.x
       currentPos.y += fontData.lineHeight
+      inc i
       continue
+
+    # Word wrap: at the start of a word, check if the whole word fits on this line.
+    if wordWrap and currentPos.x > pos.x and rune != Rune(32):
+      let isWordStart = (i == 0) or runedText[i-1] == Rune(32) or runedText[i-1] == Rune(10)
+      if isWordStart:
+        var wordW = 0.0f
+        var j = i
+        while j < runedText.len and runedText[j] != Rune(32) and runedText[j] != Rune(10):
+          let gs = $runedText[j]
+          if gs in fontData.entries:
+            wordW += fontData.entries[gs][0].advance
+          elif "?" in fontData.entries:
+            wordW += fontData.entries["?"][0].advance
+          inc j
+        if currentPos.x + wordW > pos.x + maxWidth:
+          currentPos.x = pos.x
+          currentPos.y += fontData.lineHeight
 
     let glyphStr = $rune
 
@@ -353,28 +397,39 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
     elif "?" in fontData.entries:
       entry = fontData.entries["?"][0]
     else:
+      inc i
       continue
 
-    if currentPos.x + entry.advance > maxPos.x:
-      break
-    if currentPos.y + fontData.lineHeight > maxPos.y:
+    if currentPos.x >= maxPos.x:
+      if wordWrap:
+        # Character-level fallback for words wider than maxWidth.
+        currentPos.x = pos.x
+        currentPos.y += fontData.lineHeight
+      elif clip:
+        # Skip chars until the next newline, then start a new line.
+        while i < runedText.len and runedText[i] != Rune(10):
+          inc i
+        continue
+
+    # Stop when the glyph starts below the clip area.
+    if clip and currentPos.y + entry.boundsY >= maxPos.y:
       break
 
     # Draw the glyph if it has dimensions.
     if entry.boundsWidth > 0 and entry.boundsHeight > 0:
-      let pos = vec2(
+      let glyphPos = vec2(
         floor(currentPos.x) + entry.boundsX,
         round(currentPos.y + entry.boundsY)
       )
 
       sk.layers[sk.currentLayer].add(SilkyVertex(
-        pos: pos,
+        pos: glyphPos,
         size: vec2(entry.boundsWidth, entry.boundsHeight),
         uvPos: [entry.x.uint16, entry.y.uint16],
         uvSize: [entry.boundsWidth.uint16, entry.boundsHeight.uint16],
         color: color,
-        clipPos: sk.clipRect.xy,
-        clipSize: sk.clipRect.wh
+        clipPos: textClipPos,
+        clipSize: textClipSize
       ))
 
     currentPos.x += entry.advance
@@ -385,6 +440,8 @@ proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGB
       let nextGlyphStr = $nextRune
       if glyphStr in fontData.entries and nextGlyphStr in fontData.entries[glyphStr][0].kerning:
         currentPos.x += fontData.entries[glyphStr][0].kerning[nextGlyphStr]
+
+    inc i
 
   return currentPos - pos
 
