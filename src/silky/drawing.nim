@@ -479,7 +479,7 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
 
   return currentPos
 
-proc newSilky*(imagePath, jsonPath: string): Silky =
+proc newSilky*(imagePath, jsonPath: string): Silky {.measure.} =
   ## Create a new Silky.
   result = Silky()
   result.image = readImage(imagePath)
