@@ -5,6 +5,7 @@ import
 
 when defined(profile):
   import fluffy/measure
+  export measure
 else:
   macro measure*(fn: untyped) =
     return fn
@@ -280,7 +281,7 @@ proc beginUi*(sk: Silky, window: Window, size: IVec2) =
         traceActive = false
         endTrace()
         createDir("tmp")
-        dumpMeasures(0, "tmp/trace.json")
+        dumpMeasures("tmp/trace.json")
 
   # Reset showTooltip at the start of each frame.
   sk.showTooltip = false
@@ -302,9 +303,7 @@ proc beginUi*(sk: Silky, window: Window, size: IVec2) =
   # Reset showTooltip at the start of each frame.
   sk.showTooltip = false
 
-  measurePush("glViewport")
   glViewport(0, 0, sk.size.x.int32, sk.size.y.int32)
-  measurePop()
 
   measurePush("frame")
 
