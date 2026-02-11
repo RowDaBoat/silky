@@ -115,7 +115,7 @@ var
   atlasSize: Uniform[Vec2]
   atlasSampler: Uniform[Sampler2D]
 
-  traceActive: bool = false
+  traceActive*: bool = false
 
 proc pushLayer*(sk: Silky, layer: int) =
   ## Push a new layer onto the stack.
