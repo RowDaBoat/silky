@@ -228,6 +228,7 @@ proc undo*(state: TextBoxState) =
     state.selector = state.cursor
     state.dirty = true
     state.resetBlink()
+
 proc redo*(state: TextBoxState) =
   ## Goes forward in history.
   if state.redoStack.len > 0:
@@ -557,8 +558,13 @@ proc scrollBy*(state: TextBoxState, amount, viewportHeight: float32) =
   let maxScroll = max(0.0f, state.innerHeight - viewportHeight)
   state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScroll)
 
-proc handleKeyboard*(state: TextBoxState, window: Window,
-    inputRunes: seq[Rune], ctrl, shift: bool) =
+proc handleKeyboard*(
+  state: TextBoxState,
+  window: Window,
+  inputRunes: seq[Rune],
+  ctrl, shift: bool,
+  wordWrap: bool
+) =
   ## Processes keyboard input for the text box.
   for r in inputRunes:
     state.typeCharacter(r)
@@ -789,6 +795,7 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
     state.scrollBy(
       window.scrollDelta.y * TextBoxScrollSpeed, innerRect.h)
   sk.advance(vec2(boxWidth, boxHeight))
+
 template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
     wrapWords = true) =
   ## Multi-line text box widget.
