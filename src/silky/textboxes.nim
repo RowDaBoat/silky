@@ -557,259 +557,239 @@ proc scrollBy*(state: TextBoxState, amount, viewportHeight: float32) =
   let maxScroll = max(0.0f, state.innerHeight - viewportHeight)
   state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScroll)
 
-template textBox*(
-  id: string,
-  t: var string,
-  boxWidth, boxHeight: float32,
-  wrapWords = true
-) =
-  ## Multi-line text box widget with editing, selection, and scroll.
-  ## Expects `sk: Silky` and `window: Window` in scope.
-  block:
-    # State management.
-    if id notin textBoxStates:
-      let newState = TextBoxState(dirty: true, wordWrap: wrapWords)
-      newState.setText(t)
-      textBoxStates[id] = newState
-    let tbState = textBoxStates[id]
-    # Update word wrap flag if it changed.
-    if tbState.wordWrap != wrapWords:
-      tbState.wordWrap = wrapWords
-      tbState.dirty = true
-    # Sync external changes when not focused.
-    if not tbState.focused and tbState.getText() != t:
-      tbState.setText(t)
-    # Dimensions.
-    let tbFontData = sk.atlas.fonts[sk.textStyle]
-    let tbPadding = sk.theme.padding.float32
-    let tbOuterRect = rect(sk.at, vec2(boxWidth, boxHeight))
-    let tbInnerRect = rect(
-      sk.at.x + tbPadding,
-      sk.at.y + tbPadding,
-      boxWidth - tbPadding * 2,
-      boxHeight - tbPadding * 2
+proc handleKeyboard*(state: TextBoxState, window: Window,
+    inputRunes: seq[Rune], ctrl, shift: bool) =
+  ## Processes keyboard input for the text box.
+  for r in inputRunes:
+    state.typeCharacter(r)
+  if window.buttonPressed[KeyBackspace]:
+    if ctrl: state.backspaceWord()
+    else: state.backspace()
+  elif window.buttonPressed[KeyDelete]:
+    if ctrl: state.deleteWord()
+    else: state.delete()
+  elif window.buttonPressed[KeyLeft]:
+    if ctrl: state.leftWord(shift)
+    else: state.left(shift)
+  elif window.buttonPressed[KeyRight]:
+    if ctrl: state.rightWord(shift)
+    else: state.right(shift)
+  elif window.buttonPressed[KeyUp]:
+    state.up(shift)
+  elif window.buttonPressed[KeyDown]:
+    state.down(shift)
+  elif window.buttonPressed[KeyHome]:
+    state.startOfLine(shift)
+  elif window.buttonPressed[KeyEnd]:
+    state.endOfLine(shift)
+  elif window.buttonPressed[KeyPageUp]:
+    state.pageUp(shift)
+  elif window.buttonPressed[KeyPageDown]:
+    state.pageDown(shift)
+  elif window.buttonPressed[KeyEnter]:
+    state.typeCharacter(LF)
+  elif ctrl:
+    if window.buttonPressed[KeyA]:
+      state.selectAll()
+    elif window.buttonPressed[KeyC]:
+      let copied = state.copyText()
+      if copied.len > 0:
+        setClipboardString(copied)
+    elif window.buttonPressed[KeyX]:
+      let cut = state.cutText()
+      if cut.len > 0:
+        setClipboardString(cut)
+    elif window.buttonPressed[KeyV]:
+      let clip = getClipboardString()
+      if clip.len > 0:
+        state.pasteText(clip)
+    elif window.buttonPressed[KeyZ]:
+      if shift: state.redo()
+      else: state.undo()
+    elif window.buttonPressed[KeyY]:
+      state.redo()
+
+proc drawScrollbars*(sk: Silky, state: TextBoxState, window: Window,
+    outerRect, innerRect: Rect, mouseVec: Vec2, clipRect: Rect) =
+  ## Draws scrollbar tracks and handles, and processes drag interaction.
+  let contentH = state.innerHeight
+  let contentW = state.innerWidth
+  let scrollMaxY = max(0.0f, contentH - innerRect.h)
+  let scrollMaxX = max(0.0f, contentW - innerRect.w)
+  let hasScrollY = contentH > innerRect.h
+  let hasScrollX = contentW > innerRect.w
+  # Release scrollbar drag when mouse released.
+  if state.scrollingY and
+      (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+    state.scrollingY = false
+  if state.scrollingX and
+      (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+    state.scrollingX = false
+  # Y scrollbar.
+  if hasScrollY:
+    let trackRect = rect(
+      outerRect.x + outerRect.w - 10,
+      innerRect.y + 2,
+      8,
+      innerRect.h - 4 - (if hasScrollX: 10.0f else: 0.0f)
     )
-    tbState.boxSize = vec2(tbInnerRect.w, tbInnerRect.h)
-    # Recompute layout when dirty or width changed.
-    if tbState.dirty or tbState.layout.len == 0 or
-        tbState.lastMaxWidth != tbInnerRect.w:
-      tbState.computeLayout(tbFontData, tbInnerRect.w)
-    # Modifier key state.
-    let tbCtrl = window.buttonDown[KeyLeftControl] or
-      window.buttonDown[KeyRightControl] or
-      window.buttonDown[KeyLeftSuper] or
-      window.buttonDown[KeyRightSuper]
-    let tbShift = window.buttonDown[KeyLeftShift] or
-      window.buttonDown[KeyRightShift]
-    # Focus and mouse click handling.
-    let tbMouseVec = vec2(window.mousePos.x.float32, window.mousePos.y.float32)
-    let tbMouseInside = tbMouseVec.overlaps(tbOuterRect) and
-      tbMouseVec.overlaps(sk.clipRect)
-    # Check if mouse is over a scrollbar area so text interactions are skipped.
-    let tbOnScrollbar = tbMouseInside and not tbMouseVec.overlaps(tbInnerRect)
-    if window.buttonPressed[MouseLeft]:
-      if tbMouseInside and not tbOnScrollbar:
-        tbState.focused = true
-        let tbLocalMouse = tbMouseVec - tbInnerRect.xy + tbState.scrollPos
-        let tbNow = epochTime()
-        if tbNow - tbState.lastClickTime < DoubleClickTime:
-          inc tbState.clickCount
-        else:
-          tbState.clickCount = 1
-        tbState.lastClickTime = tbNow
-        case tbState.clickCount:
-        of 1:
-          tbState.mouseAction(tbLocalMouse, click = true, shift = tbShift)
-          tbState.dragging = true
-        of 2:
-          tbState.selectWord(tbLocalMouse)
-        of 3:
-          tbState.selectParagraph(tbLocalMouse)
-        else:
-          tbState.selectAll()
-      elif not tbMouseInside:
-        tbState.focused = false
-    # Mouse drag (disabled while scrollbar is being dragged).
-    if tbState.dragging and not tbState.scrollingX and not tbState.scrollingY:
-      if window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
-        let tbLocalMouse = tbMouseVec - tbInnerRect.xy + tbState.scrollPos
-        tbState.mouseAction(tbLocalMouse, click = false, shift = true)
-      if window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]:
-        tbState.dragging = false
-    # Keyboard input when focused.
-    if tbState.focused:
-      for tbRune in sk.inputRunes:
-        tbState.typeCharacter(tbRune)
-      if window.buttonPressed[KeyBackspace]:
-        if tbCtrl:
-          tbState.backspaceWord()
-        else:
-          tbState.backspace()
-      elif window.buttonPressed[KeyDelete]:
-        if tbCtrl:
-          tbState.deleteWord()
-        else:
-          tbState.delete()
-      elif window.buttonPressed[KeyLeft]:
-        if tbCtrl: tbState.leftWord(tbShift)
-        else: tbState.left(tbShift)
-      elif window.buttonPressed[KeyRight]:
-        if tbCtrl: tbState.rightWord(tbShift)
-        else: tbState.right(tbShift)
-      elif window.buttonPressed[KeyUp]:
-        tbState.up(tbShift)
-      elif window.buttonPressed[KeyDown]:
-        tbState.down(tbShift)
-      elif window.buttonPressed[KeyHome]:
-        tbState.startOfLine(tbShift)
-      elif window.buttonPressed[KeyEnd]:
-        tbState.endOfLine(tbShift)
-      elif window.buttonPressed[KeyPageUp]:
-        tbState.pageUp(tbShift)
-      elif window.buttonPressed[KeyPageDown]:
-        tbState.pageDown(tbShift)
-      elif window.buttonPressed[KeyEnter]:
-        tbState.typeCharacter(LF)
-      elif tbCtrl:
-        if window.buttonPressed[KeyA]:
-          tbState.selectAll()
-        elif window.buttonPressed[KeyC]:
-          let tbCopied = tbState.copyText()
-          if tbCopied.len > 0:
-            setClipboardString(tbCopied)
-        elif window.buttonPressed[KeyX]:
-          let tbCut = tbState.cutText()
-          if tbCut.len > 0:
-            setClipboardString(tbCut)
-        elif window.buttonPressed[KeyV]:
-          let tbClip = getClipboardString()
-          if tbClip.len > 0:
-            tbState.pasteText(tbClip)
-        elif window.buttonPressed[KeyZ]:
-          if tbShift:
-            tbState.redo()
-          else:
-            tbState.undo()
-        elif window.buttonPressed[KeyY]:
-          tbState.redo()
-      # Sync text back to caller variable.
-      t = tbState.getText()
-    # Recompute layout after edits.
-    if tbState.dirty:
-      tbState.computeLayout(tbFontData, tbInnerRect.w)
-    # Clamp scroll position.
-    let tbMaxScrollY = max(0.0f, tbState.innerHeight - tbInnerRect.h)
-    tbState.scrollPos.y = clamp(tbState.scrollPos.y, 0.0f, tbMaxScrollY)
-    tbState.scrollPos.x = max(0.0f, tbState.scrollPos.x)
-    # Draw background.
-    if tbState.focused:
-      sk.draw9Patch("input.9patch", 6, tbOuterRect.xy, tbOuterRect.wh,
-        sk.theme.frameFocusColor)
-    else:
-      sk.draw9Patch("input.9patch", 6, tbOuterRect.xy, tbOuterRect.wh)
-    # Clip to inner area.
-    sk.pushClipRect(tbInnerRect)
-    let tbTextOrigin = tbInnerRect.xy - tbState.scrollPos
-    # Draw selection highlight.
-    if tbState.cursor != tbState.selector:
-      let tbSel = tbState.selection
-      let tbSelRects = getSelectionRects(tbState.layout, tbSel.a, tbSel.b)
-      for tbR in tbSelRects:
-        sk.drawRect(
-          vec2(tbTextOrigin.x + tbR.x, tbTextOrigin.y + tbR.y),
-          vec2(tbR.w, tbR.h),
-          SelectionColor
-        )
-    # Draw text.
-    let tbText = $tbState.runes
-    discard sk.drawText(sk.textStyle, tbText, tbTextOrigin, sk.theme.textColor,
-      maxWidth = tbInnerRect.w, wordWrap = tbState.wordWrap, clip = false)
-    # Draw cursor when focused and blink is on.
-    if tbState.focused and tbState.cursorVisible:
-      let tbCursorRect = tbState.locationRect(tbState.cursor)
+    sk.draw9Patch("scrollbar.track.9patch", 4, trackRect.xy, trackRect.wh)
+    let posPct = if scrollMaxY > 0: state.scrollPos.y / scrollMaxY else: 0.0f
+    let sizePct = innerRect.h / contentH
+    let handleRect = rect(
+      trackRect.x,
+      trackRect.y + (trackRect.h - trackRect.h * sizePct) * posPct,
+      8,
+      trackRect.h * sizePct
+    )
+    if state.scrollingY:
+      let relY = mouseVec.y - state.scrollDragOffset.y - trackRect.y
+      let availH = trackRect.h - handleRect.h
+      if availH > 0:
+        state.scrollPos.y = clamp(relY / availH, 0.0f, 1.0f) * scrollMaxY
+    elif mouseVec.overlaps(handleRect) and mouseVec.overlaps(clipRect):
+      if window.buttonPressed[MouseLeft]:
+        state.scrollingY = true
+        state.scrollDragOffset.y = mouseVec.y - handleRect.y
+    sk.draw9Patch("scrollbar.9patch", 4, handleRect.xy, handleRect.wh)
+  # X scrollbar.
+  if hasScrollX:
+    let trackRect = rect(
+      innerRect.x + 2,
+      outerRect.y + outerRect.h - 10,
+      innerRect.w - 4 - (if hasScrollY: 10.0f else: 0.0f),
+      8
+    )
+    sk.draw9Patch("scrollbar.track.9patch", 4, trackRect.xy, trackRect.wh)
+    let posPct = if scrollMaxX > 0: state.scrollPos.x / scrollMaxX else: 0.0f
+    let sizePct = innerRect.w / contentW
+    let handleRect = rect(
+      trackRect.x + (trackRect.w - trackRect.w * sizePct) * posPct,
+      trackRect.y,
+      trackRect.w * sizePct,
+      8
+    )
+    if state.scrollingX:
+      let relX = mouseVec.x - state.scrollDragOffset.x - trackRect.x
+      let availW = trackRect.w - handleRect.w
+      if availW > 0:
+        state.scrollPos.x = clamp(relX / availW, 0.0f, 1.0f) * scrollMaxX
+    elif mouseVec.overlaps(handleRect) and mouseVec.overlaps(clipRect):
+      if window.buttonPressed[MouseLeft]:
+        state.scrollingX = true
+        state.scrollDragOffset.x = mouseVec.x - handleRect.x
+    sk.draw9Patch("scrollbar.9patch", 4, handleRect.xy, handleRect.wh)
+
+proc textBox*(sk: Silky, window: Window, id: string, t: var string,
+    boxWidth, boxHeight: float32, wrapWords: bool) =
+  ## Multi-line text box widget with editing, selection, and scroll.
+  # State management.
+  if id notin textBoxStates:
+    let newState = TextBoxState(dirty: true, wordWrap: wrapWords)
+    newState.setText(t)
+    textBoxStates[id] = newState
+  let state = textBoxStates[id]
+  if state.wordWrap != wrapWords:
+    state.wordWrap = wrapWords
+    state.dirty = true
+  if not state.focused and state.getText() != t:
+    state.setText(t)
+  # Dimensions.
+  let fontData = sk.atlas.fonts[sk.textStyle]
+  let padding = sk.theme.padding.float32
+  let outerRect = rect(sk.at, vec2(boxWidth, boxHeight))
+  let innerRect = rect(
+    sk.at.x + padding, sk.at.y + padding,
+    boxWidth - padding * 2, boxHeight - padding * 2
+  )
+  state.boxSize = vec2(innerRect.w, innerRect.h)
+  if state.dirty or state.layout.len == 0 or
+      state.lastMaxWidth != innerRect.w:
+    state.computeLayout(fontData, innerRect.w)
+  # Modifier keys.
+  let ctrl = window.buttonDown[KeyLeftControl] or
+    window.buttonDown[KeyRightControl] or
+    window.buttonDown[KeyLeftSuper] or
+    window.buttonDown[KeyRightSuper]
+  let shift = window.buttonDown[KeyLeftShift] or
+    window.buttonDown[KeyRightShift]
+  # Mouse state.
+  let mouseVec = vec2(window.mousePos.x.float32, window.mousePos.y.float32)
+  let mouseInside = mouseVec.overlaps(outerRect) and
+    mouseVec.overlaps(sk.clipRect)
+  let onScrollbar = mouseInside and not mouseVec.overlaps(innerRect)
+  # Focus and click handling.
+  if window.buttonPressed[MouseLeft]:
+    if mouseInside and not onScrollbar:
+      state.focused = true
+      let localMouse = mouseVec - innerRect.xy + state.scrollPos
+      let now = epochTime()
+      if now - state.lastClickTime < DoubleClickTime:
+        inc state.clickCount
+      else:
+        state.clickCount = 1
+      state.lastClickTime = now
+      case state.clickCount:
+      of 1:
+        state.mouseAction(localMouse, click = true, shift = shift)
+        state.dragging = true
+      of 2: state.selectWord(localMouse)
+      of 3: state.selectParagraph(localMouse)
+      else: state.selectAll()
+    elif not mouseInside:
+      state.focused = false
+  # Mouse drag.
+  if state.dragging and not state.scrollingX and not state.scrollingY:
+    if window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
+      let localMouse = mouseVec - innerRect.xy + state.scrollPos
+      state.mouseAction(localMouse, click = false, shift = true)
+    if window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]:
+      state.dragging = false
+  # Keyboard input.
+  if state.focused:
+    state.handleKeyboard(window, sk.inputRunes, ctrl, shift)
+    t = state.getText()
+  # Recompute layout after edits.
+  if state.dirty:
+    state.computeLayout(fontData, innerRect.w)
+  # Clamp scroll.
+  let maxScrollY = max(0.0f, state.innerHeight - innerRect.h)
+  state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScrollY)
+  state.scrollPos.x = max(0.0f, state.scrollPos.x)
+  # Draw background.
+  if state.focused:
+    sk.draw9Patch("input.9patch", 6, outerRect.xy, outerRect.wh,
+      sk.theme.frameFocusColor)
+  else:
+    sk.draw9Patch("input.9patch", 6, outerRect.xy, outerRect.wh)
+  # Draw text content.
+  sk.pushClipRect(innerRect)
+  let textOrigin = innerRect.xy - state.scrollPos
+  if state.cursor != state.selector:
+    let sel = state.selection
+    let selRects = getSelectionRects(state.layout, sel.a, sel.b)
+    for r in selRects:
       sk.drawRect(
-        vec2(tbTextOrigin.x + tbCursorRect.x,
-          tbTextOrigin.y + tbCursorRect.y),
-        vec2(CursorWidth, tbCursorRect.h),
-        sk.theme.textColor
-      )
-    sk.popClipRect()
-    # Content size for scrollbars.
-    let tbContentH = tbState.innerHeight
-    let tbContentW = tbState.innerWidth
-    let tbScrollMaxY = max(0.0f, tbContentH - tbInnerRect.h)
-    let tbScrollMaxX = max(0.0f, tbContentW - tbInnerRect.w)
-    # Release scrollbar drag when mouse released.
-    if tbState.scrollingY and
-        (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
-      tbState.scrollingY = false
-    if tbState.scrollingX and
-        (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
-      tbState.scrollingX = false
-    # Draw Y scrollbar when content overflows vertically.
-    if tbContentH > tbInnerRect.h:
-      let tbTrackY = rect(
-        tbOuterRect.x + tbOuterRect.w - 10,
-        tbInnerRect.y + 2,
-        8,
-        tbInnerRect.h - 4 - (if tbContentW > tbInnerRect.w: 10.0f else: 0.0f)
-      )
-      sk.draw9Patch("scrollbar.track.9patch", 4, tbTrackY.xy, tbTrackY.wh)
-      let tbYPct = if tbScrollMaxY > 0: tbState.scrollPos.y / tbScrollMaxY
-                   else: 0.0f
-      let tbYSize = tbInnerRect.h / tbContentH
-      let tbHandleY = rect(
-        tbTrackY.x,
-        tbTrackY.y + (tbTrackY.h - tbTrackY.h * tbYSize) * tbYPct,
-        8,
-        tbTrackY.h * tbYSize
-      )
-      # Handle Y scrollbar dragging.
-      if tbState.scrollingY:
-        let tbRelY = tbMouseVec.y - tbState.scrollDragOffset.y - tbTrackY.y
-        let tbAvailY = tbTrackY.h - tbHandleY.h
-        if tbAvailY > 0:
-          tbState.scrollPos.y = clamp(tbRelY / tbAvailY, 0.0f, 1.0f) *
-            tbScrollMaxY
-      elif tbMouseVec.overlaps(tbHandleY) and tbMouseVec.overlaps(sk.clipRect):
-        if window.buttonPressed[MouseLeft]:
-          tbState.scrollingY = true
-          tbState.scrollDragOffset.y = tbMouseVec.y - tbHandleY.y
-      sk.draw9Patch("scrollbar.9patch", 4, tbHandleY.xy, tbHandleY.wh)
-    # Draw X scrollbar when content overflows horizontally.
-    if tbContentW > tbInnerRect.w:
-      let tbTrackX = rect(
-        tbInnerRect.x + 2,
-        tbOuterRect.y + tbOuterRect.h - 10,
-        tbInnerRect.w - 4 - (if tbContentH > tbInnerRect.h: 10.0f else: 0.0f),
-        8
-      )
-      sk.draw9Patch("scrollbar.track.9patch", 4, tbTrackX.xy, tbTrackX.wh)
-      let tbXPct = if tbScrollMaxX > 0: tbState.scrollPos.x / tbScrollMaxX
-                   else: 0.0f
-      let tbXSize = tbInnerRect.w / tbContentW
-      let tbHandleX = rect(
-        tbTrackX.x + (tbTrackX.w - tbTrackX.w * tbXSize) * tbXPct,
-        tbTrackX.y,
-        tbTrackX.w * tbXSize,
-        8
-      )
-      # Handle X scrollbar dragging.
-      if tbState.scrollingX:
-        let tbRelX = tbMouseVec.x - tbState.scrollDragOffset.x - tbTrackX.x
-        let tbAvailX = tbTrackX.w - tbHandleX.w
-        if tbAvailX > 0:
-          tbState.scrollPos.x = clamp(tbRelX / tbAvailX, 0.0f, 1.0f) *
-            tbScrollMaxX
-      elif tbMouseVec.overlaps(tbHandleX) and tbMouseVec.overlaps(sk.clipRect):
-        if window.buttonPressed[MouseLeft]:
-          tbState.scrollingX = true
-          tbState.scrollDragOffset.x = tbMouseVec.x - tbHandleX.x
-      sk.draw9Patch("scrollbar.9patch", 4, tbHandleX.xy, tbHandleX.wh)
-    # Scroll wheel handling.
-    if tbMouseInside:
-      if window.scrollDelta.y != 0:
-        tbState.scrollBy(
-          window.scrollDelta.y * TextBoxScrollSpeed, tbInnerRect.h)
-    # Advance layout.
-    sk.advance(vec2(boxWidth, boxHeight))
+        vec2(textOrigin.x + r.x, textOrigin.y + r.y),
+        vec2(r.w, r.h), SelectionColor)
+  discard sk.drawText(sk.textStyle, $state.runes, textOrigin,
+    sk.theme.textColor, maxWidth = innerRect.w,
+    wordWrap = state.wordWrap, clip = false)
+  if state.focused and state.cursorVisible:
+    let cr = state.locationRect(state.cursor)
+    sk.drawRect(
+      vec2(textOrigin.x + cr.x, textOrigin.y + cr.y),
+      vec2(CursorWidth, cr.h), sk.theme.textColor)
+  sk.popClipRect()
+  # Scrollbars.
+  sk.drawScrollbars(state, window, outerRect, innerRect,
+    mouseVec, sk.clipRect)
+  # Scroll wheel.
+  if mouseInside and window.scrollDelta.y != 0:
+    state.scrollBy(
+      window.scrollDelta.y * TextBoxScrollSpeed, innerRect.h)
+  sk.advance(vec2(boxWidth, boxHeight))
+template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
+    wrapWords = true) =
+  ## Multi-line text box widget.
+  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords)
