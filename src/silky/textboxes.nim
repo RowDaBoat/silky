@@ -776,7 +776,7 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
       state.dragging = false
   # Keyboard input.
   if state.focused:
-    state.handleKeyboard(window, sk.inputRunes, ctrl, shift)
+    state.handleKeyboard(window, sk.inputRunes, ctrl, shift, state.wordWrap)
     t = state.getText()
   # Recompute layout after edits.
   if state.dirty:
@@ -825,6 +825,5 @@ template textBox*(
   boxWidth, boxHeight: float32,
   wrapWords: bool = true
 ) =
-    wrapWords = true) =
   ## Multi-line text box widget.
   sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords)
