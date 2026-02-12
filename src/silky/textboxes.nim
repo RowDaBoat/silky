@@ -1,10 +1,33 @@
-## Multi-line text box widget with selection, cursor navigation, clipboard,
-## undo/redo, and scroll. Modeled after fidget2's textboxes.nim but adapted
-## for silky's atlas-based font rendering.
 import
   std/[tables, unicode, times],
   vmath, bumpy, chroma,
   silky/atlas
+
+## Multi-line text box widget.
+##
+## Features:
+## * Typing at location of cursor.
+## * Cursor going left and right.
+## * Backspace and delete.
+## * Cursor going up and down must take into account font and line wrap.
+## * Clicking should select a character edge. Closest edge wins.
+## * Click and drag should select text, selected text will be between text cursor and select cursor.
+## * Any insert when typing or copy pasting and have selected text, it should get removed and then do normal action.
+## * Copy text should set it to system clipboard.
+## * Cut text should copy and remove selected text.
+## * Paste text should paste at current text cursor, if there is selection it needs to be removed.
+## * Clicking before text should select first character.
+## * Clicking at the end of text should select last character.
+## * Click at the end of the end of the line should select character before the new line.
+## * Click at the end of the start of the line should select character first character and not the newline.
+## * Double click should select current word and space (TODO: stop on non-word characters, TODO: enter word selection mode).
+## * Double click again should select current paragraph.
+## * Double click again should select everything.
+## * TODO: Selecting during word selection mode should select whole words.
+## * Text area needs to be able to have margins that can be clicked.
+## * There should be a scroll bar and a scroll window.
+## * Scroll window should stay with the text cursor.
+## * Backspace and delete with selected text remove selected text and don't perform their normal action.
 
 when defined(silkyTesting):
   import silky/semantic, silky/testing
@@ -796,7 +819,12 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
       window.scrollDelta.y * TextBoxScrollSpeed, innerRect.h)
   sk.advance(vec2(boxWidth, boxHeight))
 
-template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
+template textBox*(
+  id: string,
+  t: var string,
+  boxWidth, boxHeight: float32,
+  wrapWords: bool = true
+) =
     wrapWords = true) =
   ## Multi-line text box widget.
   sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords)
