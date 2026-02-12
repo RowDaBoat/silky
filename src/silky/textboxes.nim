@@ -46,6 +46,7 @@ type
     boxSize*: Vec2
     lastMaxWidth*: float32
     blinkTime*: float64
+    wordWrap*: bool
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -101,7 +102,8 @@ proc computeLayout*(state: TextBoxState, fontData: FontAtlas, maxWidth: float32)
       inc i
       continue
     # Word wrap: at the start of a word check if it fits on this line.
-    if maxWidth < float32.high and currentPos.x > 0 and rune != Rune(32):
+    if state.wordWrap and maxWidth < float32.high and
+        currentPos.x > 0 and rune != Rune(32):
       let isWordStart = (i == 0) or
         state.runes[i - 1] == Rune(32) or
         state.runes[i - 1] == LF
@@ -131,7 +133,8 @@ proc computeLayout*(state: TextBoxState, fontData: FontAtlas, maxWidth: float32)
       inc i
       continue
     # Character-level wrap fallback for words wider than maxWidth.
-    if maxWidth < float32.high and currentPos.x >= maxWidth:
+    if state.wordWrap and maxWidth < float32.high and
+        currentPos.x >= maxWidth:
       currentPos.x = 0
       currentPos.y += fontData.lineHeight
     state.layout.add rect(
@@ -532,16 +535,21 @@ proc scrollBy*(state: TextBoxState, amount, viewportHeight: float32) =
   let maxScroll = max(0.0f, state.innerHeight - viewportHeight)
   state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScroll)
 
-template textBox*(id: string, t: var string, boxWidth, boxHeight: float32) =
+template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
+    wrapWords = true) =
   ## Multi-line text box widget with editing, selection, and scroll.
   ## Expects `sk: Silky` and `window: Window` in scope.
   block:
     # State management.
     if id notin textBoxStates:
-      let newState = TextBoxState(dirty: true)
+      let newState = TextBoxState(dirty: true, wordWrap: wrapWords)
       newState.setText(t)
       textBoxStates[id] = newState
     let tbState = textBoxStates[id]
+    # Update word wrap flag if it changed.
+    if tbState.wordWrap != wrapWords:
+      tbState.wordWrap = wrapWords
+      tbState.dirty = true
     # Sync external changes when not focused.
     if not tbState.focused and tbState.getText() != t:
       tbState.setText(t)
@@ -687,7 +695,7 @@ template textBox*(id: string, t: var string, boxWidth, boxHeight: float32) =
     # Draw text.
     let tbText = $tbState.runes
     discard sk.drawText(sk.textStyle, tbText, tbTextOrigin, sk.theme.textColor,
-      maxWidth = tbInnerRect.w, wordWrap = true, clip = false)
+      maxWidth = tbInnerRect.w, wordWrap = tbState.wordWrap, clip = false)
     # Draw cursor when focused and blink is on.
     if tbState.focused and tbState.cursorVisible:
       let tbCursorRect = tbState.locationRect(tbState.cursor)

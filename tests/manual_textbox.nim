@@ -44,6 +44,7 @@ window.onRune = proc(rune: Rune) =
 var
   boxWidth = 500.0f
   boxHeight = 400.0f
+  wordWrapOn = true
   sampleText = SampleText
 
 window.onFrame = proc() =
@@ -61,8 +62,11 @@ window.onFrame = proc() =
   scrubber("width", boxWidth, 100.0, 800.0, &"{boxWidth:.0f} px")
   scrubber("height", boxHeight, 50.0, 700.0, &"{boxHeight:.0f} px")
 
+  # Word wrap checkbox.
+  checkBox("Word wrap", wordWrapOn)
+
   # Text box.
-  textBox("main", sampleText, boxWidth, boxHeight)
+  textBox("main", sampleText, boxWidth, boxHeight, wrapWords = wordWrapOn)
 
   # Frame time display.
   let ms = sk.avgFrameTime * 1000
