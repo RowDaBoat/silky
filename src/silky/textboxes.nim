@@ -75,6 +75,7 @@ type
     scrollingX*: bool
     scrollDragOffset*: Vec2
     singleLine*: bool
+    enabled*: bool = true
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -298,7 +299,9 @@ proc scrollToCursor*(state: TextBoxState) =
 
 proc typeCharacter*(state: TextBoxState, rune: Rune) =
   ## Adds a character at the cursor position.
-  ## In single-line mode, newlines are ignored.
+  ## In single-line mode, newlines are ignored. Disabled state blocks edits.
+  if not state.enabled:
+    return
   if state.singleLine and (rune == LF or rune == CR):
     return
   state.removeSelection()
@@ -314,7 +317,9 @@ proc typeCharacter*(state: TextBoxState, rune: Rune) =
   state.resetBlink()
 proc typeCharacters*(state: TextBoxState, s: string) =
   ## Adds multiple characters at the cursor position.
-  ## In single-line mode, newlines are converted to spaces.
+  ## In single-line mode, newlines are converted to spaces. Disabled blocks edits.
+  if not state.enabled:
+    return
   state.removeSelection()
   state.undoSave()
   for rune in runes(s):
@@ -340,21 +345,25 @@ proc copyText*(state: TextBoxState): string =
     return $state.runes[sel.a ..< sel.b]
 
 proc pasteText*(state: TextBoxState, s: string) =
-  ## Pastes a string at the cursor.
+  ## Pastes a string at the cursor. Disabled state blocks edits.
+  if not state.enabled:
+    return
   state.typeCharacters(s)
   state.savedX = state.cursorPos.x
 
 proc cutText*(state: TextBoxState): string =
-  ## Cuts selected text and returns it.
+  ## Cuts selected text and returns it. Disabled state returns copy only.
   result = state.copyText()
-  if result == "":
+  if not state.enabled or result == "":
     return
   state.removeSelection()
   state.savedX = state.cursorPos.x
   state.resetBlink()
 
 proc backspace*(state: TextBoxState) =
-  ## Deletes the character before the cursor.
+  ## Deletes the character before the cursor. Disabled state blocks edits.
+  if not state.enabled:
+    return
   if state.removedSelection():
     state.resetBlink()
     return
@@ -367,7 +376,9 @@ proc backspace*(state: TextBoxState) =
   state.resetBlink()
 
 proc delete*(state: TextBoxState) =
-  ## Deletes the character after the cursor.
+  ## Deletes the character after the cursor. Disabled state blocks edits.
+  if not state.enabled:
+    return
   if state.removedSelection():
     state.resetBlink()
     return
@@ -378,7 +389,9 @@ proc delete*(state: TextBoxState) =
   state.resetBlink()
 
 proc backspaceWord*(state: TextBoxState) =
-  ## Deletes the word before the cursor.
+  ## Deletes the word before the cursor. Disabled state blocks edits.
+  if not state.enabled:
+    return
   if state.removedSelection():
     state.resetBlink()
     return
@@ -393,7 +406,9 @@ proc backspaceWord*(state: TextBoxState) =
   state.resetBlink()
 
 proc deleteWord*(state: TextBoxState) =
-  ## Deletes the word after the cursor.
+  ## Deletes the word after the cursor. Disabled state blocks edits.
+  if not state.enabled:
+    return
   if state.removedSelection():
     state.resetBlink()
     return
@@ -726,9 +741,11 @@ proc drawScrollbars*(sk: Silky, state: TextBoxState, window: Window,
 
 proc textBox*(sk: Silky, window: Window, id: string, t: var string,
     boxWidth, boxHeight: float32, wrapWords: bool,
-    singleLine: bool = false) =
+    singleLine: bool = false, enabled: bool = true,
+    error: bool = false) =
   ## Text box widget with editing, selection, and scroll.
-  ## When singleLine is true, newlines are forbidden and word wrap is off.
+  ## When disabled, text can be selected and copied but not modified.
+  ## Error is a visual-only state that changes the border and text color.
   # State management.
   let effectiveWrap = if singleLine: false else: wrapWords
   if id notin textBoxStates:
@@ -737,6 +754,7 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
     newState.setText(t)
     textBoxStates[id] = newState
   let state = textBoxStates[id]
+  state.enabled = enabled
   if state.singleLine != singleLine:
     state.singleLine = singleLine
     state.dirty = true
@@ -796,7 +814,7 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
       state.mouseAction(localMouse, click = false, shift = true)
     if window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]:
       state.dragging = false
-  # Keyboard input.
+  # Keyboard input. Editing procs check state.enabled internally.
   if state.focused:
     state.handleKeyboard(window, sk.inputRunes, ctrl, shift, state.wordWrap)
     t = state.getText()
@@ -808,11 +826,19 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
   state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScrollY)
   state.scrollPos.x = max(0.0f, state.scrollPos.x)
   # Draw background.
-  if state.focused:
-    sk.draw9Patch("input.9patch", 6, outerRect.xy, outerRect.wh,
+  let patch =
+    if not enabled: "input.9patch"
+    elif error: "input.9patch"
+    else: "input.9patch"
+  let textColor =
+    if not enabled: sk.theme.disabledTextColor
+    elif error: sk.theme.errorTextColor
+    else: sk.theme.textColor
+  if state.focused and enabled:
+    sk.draw9Patch(patch, 6, outerRect.xy, outerRect.wh,
       sk.theme.frameFocusColor)
   else:
-    sk.draw9Patch("input.9patch", 6, outerRect.xy, outerRect.wh)
+    sk.draw9Patch(patch, 6, outerRect.xy, outerRect.wh)
   # Draw text content.
   sk.pushClipRect(innerRect)
   let textOrigin = innerRect.xy - state.scrollPos
@@ -824,13 +850,13 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
         vec2(textOrigin.x + r.x, textOrigin.y + r.y),
         vec2(r.w, r.h), SelectionColor)
   discard sk.drawText(sk.textStyle, $state.runes, textOrigin,
-    sk.theme.textColor, maxWidth = innerRect.w,
+    textColor, maxWidth = innerRect.w,
     wordWrap = state.wordWrap, clip = false)
   if state.focused and state.cursorVisible:
     let cr = state.locationRect(state.cursor)
     sk.drawRect(
       vec2(textOrigin.x + cr.x, textOrigin.y + cr.y),
-      vec2(CursorWidth, cr.h), sk.theme.textColor)
+      vec2(CursorWidth, cr.h), textColor)
   sk.popClipRect()
   # Scrollbars.
   sk.drawScrollbars(state, window, outerRect, innerRect,
@@ -846,20 +872,23 @@ template textBox*(
   t: var string,
   boxWidth, boxHeight: float32,
   wrapWords = true,
-  singleLine = false
+  singleLine = false,
+  isEnabled = true,
+  isError = false
 ) =
   ## Text box widget. Set singleLine for a single-line input.
-  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords, singleLine)
+  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords, singleLine,
+    isEnabled, isError)
 
 template inputText*(
   id: int,
   t: var string,
-  enabled: bool = true,
-  error: bool = false
+  isEnabled: bool = true,
+  isError: bool = false
 ) =
   ## Single-line text input widget.
   let itFont = sk.atlas.fonts[sk.textStyle]
   let itHeight = itFont.lineHeight + sk.theme.padding.float32 * 2
   let itWidth = sk.size.x - sk.theme.padding.float32 * 3
   sk.textBox(window, $id, t, itWidth, itHeight,
-    wrapWords = false, singleLine = true)
+    wrapWords = false, singleLine = true, enabled = isEnabled, error = isError)

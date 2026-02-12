@@ -1048,4 +1048,87 @@ block:
   s3.setText("x\ny")
   doAssert s3.getText() == "x\ny", "Multi-line setText should keep LF"
 
+block:
+  echo "Testing disabled state: text cannot be modified"
+  let s = newState("hello")
+  s.enabled = false
+  # Typing is blocked.
+  s.typeCharacter(Rune('x'))
+  doAssert s.getText() == "hello", "typeCharacter should be blocked when disabled"
+  # Pasting is blocked.
+  s.typeCharacters("world")
+  doAssert s.getText() == "hello", "typeCharacters should be blocked when disabled"
+  s.pasteText("world")
+  doAssert s.getText() == "hello", "pasteText should be blocked when disabled"
+  # Backspace is blocked.
+  s.cursor = 3
+  s.selector = 3
+  s.backspace()
+  doAssert s.getText() == "hello", "backspace should be blocked when disabled"
+  doAssert s.cursor == 3
+  # Delete is blocked.
+  s.delete()
+  doAssert s.getText() == "hello", "delete should be blocked when disabled"
+  # BackspaceWord is blocked.
+  s.backspaceWord()
+  doAssert s.getText() == "hello", "backspaceWord should be blocked when disabled"
+  # DeleteWord is blocked.
+  s.deleteWord()
+  doAssert s.getText() == "hello", "deleteWord should be blocked when disabled"
+  # Cut returns text but does not remove it.
+  s.cursor = 1
+  s.selector = 4
+  let cutResult = s.cutText()
+  doAssert cutResult == "ell", "cutText should return selection text when disabled"
+  doAssert s.getText() == "hello", "cutText should not remove text when disabled"
+  # Copy still works.
+  doAssert s.copyText() == "ell", "copyText should work when disabled"
+  # Navigation still works.
+  s.cursor = 2
+  s.selector = 2
+  s.left()
+  doAssert s.cursor == 1, "left should work when disabled"
+  s.right()
+  doAssert s.cursor == 2, "right should work when disabled"
+  s.selectAll()
+  doAssert s.cursor == 0
+  doAssert s.selector == 5
+  # Disabled empty state.
+  let s2 = newState("")
+  s2.enabled = false
+  s2.typeCharacter(Rune('a'))
+  doAssert s2.getText() == "", "typeCharacter on disabled empty should do nothing"
+  s2.backspace()
+  doAssert s2.getText() == ""
+  s2.delete()
+  doAssert s2.getText() == ""
+  doAssert s2.copyText() == ""
+  # Re-enable should allow edits again.
+  s2.enabled = true
+  s2.typeCharacter(Rune('a'))
+  doAssert s2.getText() == "a", "Re-enabled state should allow typing"
+
+block:
+  echo "Testing error state: purely visual, does not affect behavior"
+  # Error state is visual only. All operations should work normally.
+  let s = newState("hello")
+  s.typeCharacter(Rune('!'))
+  doAssert s.getText() == "hello!"
+  s.backspace()
+  doAssert s.getText() == "hello"
+  s.cursor = 1
+  s.selector = 3
+  doAssert s.copyText() == "el"
+  doAssert s.cutText() == "el"
+  doAssert s.getText() == "hlo"
+  s.pasteText("EL")
+  doAssert s.getText() == "hELlo"
+  s.selectAll()
+  doAssert s.cursor == 0
+  doAssert s.selector == 5
+  # Error on empty.
+  let s2 = newState("")
+  s2.typeCharacter(Rune('x'))
+  doAssert s2.getText() == "x"
+
 echo "All tests passed."
