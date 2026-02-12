@@ -24,6 +24,12 @@ proc newStateNoWrap(text: string, maxWidth = 500.0f): TextBoxState =
   result = TextBoxState(dirty: true, wordWrap: false, boxSize: vec2(maxWidth, 300))
   result.setText(text)
   result.computeLayout(fontData, maxWidth)
+proc newStateSingleLine(text: string, maxWidth = 500.0f): TextBoxState =
+  ## Creates a single-line TextBoxState with computed layout.
+  result = TextBoxState(dirty: true, wordWrap: false, singleLine: true,
+    boxSize: vec2(maxWidth, 300))
+  result.setText(text)
+  result.computeLayout(fontData, maxWidth)
 
 block:
   echo "Testing getText / setText"
@@ -941,5 +947,105 @@ block:
   doAssert s25.dirty == false, "selectAll on empty should not set dirty"
   doAssert s25.removedSelection() == false
   doAssert s25.dirty == false, "removedSelection on empty should not set dirty"
+
+block:
+  echo "Testing single-line mode: typeCharacter ignores LF"
+  let s = newStateSingleLine("")
+  s.typeCharacter(Rune('a'))
+  doAssert s.getText() == "a"
+  s.typeCharacter(Rune(10))
+  doAssert s.getText() == "a", "LF should be ignored in single-line"
+  doAssert s.cursor == 1
+  s.typeCharacter(Rune(13))
+  doAssert s.getText() == "a", "CR should be ignored in single-line"
+  s.typeCharacter(Rune('b'))
+  doAssert s.getText() == "ab"
+block:
+  echo "Testing single-line mode: typeCharacters converts newlines to spaces"
+  let s = newStateSingleLine("")
+  s.typeCharacters("hello\nworld")
+  doAssert s.getText() == "hello world", "LF should become space"
+  let s2 = newStateSingleLine("")
+  s2.typeCharacters("a\r\nb")
+  doAssert s2.getText() == "a b", "CRLF should become one space (CR skipped, LF to space)"
+  let s3 = newStateSingleLine("")
+  s3.typeCharacters("x\ry")
+  doAssert s3.getText() == "xy", "CR alone should be skipped"
+  let s4 = newStateSingleLine("")
+  s4.typeCharacters("line1\nline2\nline3")
+  doAssert s4.getText() == "line1 line2 line3"
+  # Empty string paste.
+  let s5 = newStateSingleLine("abc")
+  s5.typeCharacters("")
+  doAssert s5.getText() == "abc"
+block:
+  echo "Testing single-line mode: setText converts newlines to spaces"
+  let s = newStateSingleLine("")
+  s.setText("hello\nworld")
+  doAssert s.getText() == "hello world"
+  s.setText("a\r\nb")
+  doAssert s.getText() == "a  b", "CR and LF each become space"
+  s.setText("\n")
+  doAssert s.getText() == " ", "Single LF becomes space"
+  s.setText("")
+  doAssert s.getText() == ""
+  s.setText("no newlines")
+  doAssert s.getText() == "no newlines"
+block:
+  echo "Testing single-line mode: paste multi-line text"
+  let s = newStateSingleLine("start ")
+  s.pasteText("line1\nline2\nline3")
+  doAssert s.getText() == "start line1 line2 line3"
+block:
+  echo "Testing single-line mode: computeLayout stays on one line"
+  let s = newStateSingleLine("abcdef")
+  doAssert s.layout.len == 6
+  for r in s.layout:
+    doAssert r.y == 0, "All chars should be on line 0"
+  # Even a space does not cause wrapping in single-line.
+  let s2 = newStateSingleLine("hello world this is a test", 60)
+  for r in s2.layout:
+    doAssert r.y == 0, "Single-line should never wrap"
+block:
+  echo "Testing single-line mode: empty string operations"
+  let s = newStateSingleLine("")
+  s.typeCharacter(Rune(10))
+  doAssert s.getText() == ""
+  s.backspace()
+  doAssert s.getText() == ""
+  s.delete()
+  doAssert s.getText() == ""
+  s.left()
+  doAssert s.cursor == 0
+  s.right()
+  doAssert s.cursor == 0
+  s.selectAll()
+  doAssert s.cursor == 0
+  doAssert s.selector == 0
+block:
+  echo "Testing single-line mode: up/down are no-ops"
+  let s = newStateSingleLine("hello world")
+  s.cursor = 3
+  s.selector = 3
+  s.savedX = 0
+  s.computeLayout(fontData, 500)
+  s.down()
+  doAssert s.cursor == 11, "Down on single line goes to end"
+  s.up()
+  doAssert s.cursor == 0, "Up on single line goes to start"
+block:
+  echo "Testing single-line mode: multi-line not affected"
+  # Verify multi-line mode still allows newlines.
+  let s = newState("abc")
+  s.cursor = 3
+  s.selector = 3
+  s.typeCharacter(Rune(10))
+  doAssert s.getText() == "abc\n", "Multi-line should allow LF"
+  let s2 = newState("")
+  s2.typeCharacters("a\nb")
+  doAssert s2.getText() == "a\nb", "Multi-line should keep LF"
+  let s3 = newState("")
+  s3.setText("x\ny")
+  doAssert s3.getText() == "x\ny", "Multi-line setText should keep LF"
 
 echo "All tests passed."

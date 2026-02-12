@@ -40,6 +40,7 @@ else:
 const
   LF = Rune(10)
   CR = Rune(13)
+  Space = Rune(32)
   CursorWidth* = 2.0f
   DoubleClickTime = 0.4
   SelectionColor = rgbx(30, 60, 130, 128)
@@ -73,6 +74,7 @@ type
     scrollingY*: bool
     scrollingX*: bool
     scrollDragOffset*: Vec2
+    singleLine*: bool
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -100,7 +102,12 @@ proc getText*(state: TextBoxState): string =
 
 proc setText*(state: TextBoxState, text: string) =
   ## Sets the text content and resets cursor to end.
+  ## In single-line mode, newlines are converted to spaces.
   state.runes = text.toRunes
+  if state.singleLine:
+    for i in 0 ..< state.runes.len:
+      if state.runes[i] == LF or state.runes[i] == CR:
+        state.runes[i] = Space
   state.cursor = state.runes.len
   state.selector = state.cursor
   state.dirty = true
@@ -291,6 +298,9 @@ proc scrollToCursor*(state: TextBoxState) =
 
 proc typeCharacter*(state: TextBoxState, rune: Rune) =
   ## Adds a character at the cursor position.
+  ## In single-line mode, newlines are ignored.
+  if state.singleLine and (rune == LF or rune == CR):
+    return
   state.removeSelection()
   state.undoSave()
   if state.cursor >= state.runes.len:
@@ -304,15 +314,19 @@ proc typeCharacter*(state: TextBoxState, rune: Rune) =
   state.resetBlink()
 proc typeCharacters*(state: TextBoxState, s: string) =
   ## Adds multiple characters at the cursor position.
+  ## In single-line mode, newlines are converted to spaces.
   state.removeSelection()
   state.undoSave()
   for rune in runes(s):
     if rune == CR:
       continue
+    var r = rune
+    if state.singleLine and r == LF:
+      r = Space
     if state.cursor >= state.runes.len:
-      state.runes.add(rune)
+      state.runes.add(r)
     else:
-      state.runes.insert(rune, state.cursor)
+      state.runes.insert(r, state.cursor)
     inc state.cursor
   state.selector = state.cursor
   state.dirty = true
@@ -616,7 +630,8 @@ proc handleKeyboard*(
   elif window.buttonPressed[KeyPageDown]:
     state.pageDown(shift)
   elif window.buttonPressed[KeyEnter]:
-    state.typeCharacter(LF)
+    if not state.singleLine:
+      state.typeCharacter(LF)
   elif ctrl:
     if window.buttonPressed[KeyA]:
       state.selectAll()
@@ -710,16 +725,23 @@ proc drawScrollbars*(sk: Silky, state: TextBoxState, window: Window,
     sk.draw9Patch("scrollbar.9patch", 4, handleRect.xy, handleRect.wh)
 
 proc textBox*(sk: Silky, window: Window, id: string, t: var string,
-    boxWidth, boxHeight: float32, wrapWords: bool) =
-  ## Multi-line text box widget with editing, selection, and scroll.
+    boxWidth, boxHeight: float32, wrapWords: bool,
+    singleLine: bool = false) =
+  ## Text box widget with editing, selection, and scroll.
+  ## When singleLine is true, newlines are forbidden and word wrap is off.
   # State management.
+  let effectiveWrap = if singleLine: false else: wrapWords
   if id notin textBoxStates:
-    let newState = TextBoxState(dirty: true, wordWrap: wrapWords)
+    let newState = TextBoxState(
+      dirty: true, wordWrap: effectiveWrap, singleLine: singleLine)
     newState.setText(t)
     textBoxStates[id] = newState
   let state = textBoxStates[id]
-  if state.wordWrap != wrapWords:
-    state.wordWrap = wrapWords
+  if state.singleLine != singleLine:
+    state.singleLine = singleLine
+    state.dirty = true
+  if state.wordWrap != effectiveWrap:
+    state.wordWrap = effectiveWrap
     state.dirty = true
   if not state.focused and state.getText() != t:
     state.setText(t)
@@ -823,7 +845,21 @@ template textBox*(
   id: string,
   t: var string,
   boxWidth, boxHeight: float32,
-  wrapWords: bool = true
+  wrapWords = true,
+  singleLine = false
 ) =
-  ## Multi-line text box widget.
-  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords)
+  ## Text box widget. Set singleLine for a single-line input.
+  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords, singleLine)
+
+template inputText*(
+  id: int,
+  t: var string,
+  enabled: bool = true,
+  error: bool = false
+) =
+  ## Single-line text input widget.
+  let itFont = sk.atlas.fonts[sk.textStyle]
+  let itHeight = itFont.lineHeight + sk.theme.padding.float32 * 2
+  let itWidth = sk.size.x - sk.theme.padding.float32 * 3
+  sk.textBox(window, $id, t, itWidth, itHeight,
+    wrapWords = false, singleLine = true)

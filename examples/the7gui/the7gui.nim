@@ -132,8 +132,8 @@ window.onFrame = proc() =
         let c = parseFloat(celsius)
         let f = c * (9.0 / 5.0) + 32.0
         fahrenheit = fmt"{f:.1f}"
-        if 2 in textInputStates:
-           textInputStates[2].setText(fahrenheit)
+        if "2" in textBoxStates:
+           textBoxStates["2"].setText(fahrenheit)
       except ValueError:
         discard
 
@@ -146,8 +146,8 @@ window.onFrame = proc() =
         let f = parseFloat(fahrenheit)
         let c = (f - 32.0) * (5.0 / 9.0)
         celsius = fmt"{c:.1f}"
-        if 1 in textInputStates:
-           textInputStates[1].setText(celsius)
+        if "1" in textBoxStates:
+           textBoxStates["1"].setText(celsius)
       except ValueError:
         discard
 
@@ -223,8 +223,8 @@ window.onFrame = proc() =
         crudSurname = ""
 
       # Sync back to input text states to update display immediately.
-      if 6 in textInputStates: textInputStates[6].setText(crudName)
-      if 7 in textInputStates: textInputStates[7].setText(crudSurname)
+      if "6" in textBoxStates: textBoxStates["6"].setText(crudName)
+      if "7" in textBoxStates: textBoxStates["7"].setText(crudSurname)
       oldCrudSelected = crudSelected
 
     text("Name:")
@@ -251,8 +251,8 @@ window.onFrame = proc() =
         crudSelected = -1
         crudName = ""
         crudSurname = ""
-        if 6 in textInputStates: textInputStates[6].setText("")
-        if 7 in textInputStates: textInputStates[7].setText("")
+        if "6" in textBoxStates: textBoxStates["6"].setText("")
+        if "7" in textBoxStates: textBoxStates["7"].setText("")
 
   subWindow("Circle Drawer", showCircleDrawer, vec2(160, 160), vec2(400, 400)):
     text("Coming soon...")
