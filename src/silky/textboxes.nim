@@ -187,6 +187,7 @@ proc innerHeight*(state: TextBoxState): float32 =
     let lastPos = state.layout[^1]
     return lastPos.y + lastPos.h
   return state.lineHeight
+
 proc innerWidth*(state: TextBoxState): float32 =
   ## Returns the widest line in the content.
   for r in state.layout:
@@ -326,6 +327,7 @@ proc backspace*(state: TextBoxState) =
     state.dirty = true
   state.scrollToCursor()
   state.resetBlink()
+
 proc delete*(state: TextBoxState) =
   ## Deletes the character after the cursor.
   if state.removedSelection():
@@ -336,6 +338,7 @@ proc delete*(state: TextBoxState) =
     state.dirty = true
   state.scrollToCursor()
   state.resetBlink()
+
 proc backspaceWord*(state: TextBoxState) =
   ## Deletes the word before the cursor.
   if state.removedSelection():
@@ -350,6 +353,7 @@ proc backspaceWord*(state: TextBoxState) =
     state.dirty = true
   state.scrollToCursor()
   state.resetBlink()
+
 proc deleteWord*(state: TextBoxState) =
   ## Deletes the word after the cursor.
   if state.removedSelection():
@@ -372,6 +376,7 @@ proc left*(state: TextBoxState, shift = false) =
     state.savedX = state.cursorPos.x
   state.scrollToCursor()
   state.resetBlink()
+
 proc right*(state: TextBoxState, shift = false) =
   ## Moves the cursor right by one character.
   if state.cursor < state.runes.len:
@@ -381,6 +386,7 @@ proc right*(state: TextBoxState, shift = false) =
     state.savedX = state.cursorPos.x
   state.scrollToCursor()
   state.resetBlink()
+
 proc down*(state: TextBoxState, shift = false) =
   ## Moves the cursor down one line.
   if state.layout.len > 0:
@@ -397,6 +403,7 @@ proc down*(state: TextBoxState, shift = false) =
         state.selector = state.cursor
   state.scrollToCursor()
   state.resetBlink()
+
 proc up*(state: TextBoxState, shift = false) =
   ## Moves the cursor up one line.
   if state.layout.len > 0:
@@ -413,6 +420,7 @@ proc up*(state: TextBoxState, shift = false) =
         state.selector = state.cursor
   state.scrollToCursor()
   state.resetBlink()
+
 proc leftWord*(state: TextBoxState, shift = false) =
   ## Moves the cursor left by one word.
   if state.cursor > 0:
@@ -425,6 +433,7 @@ proc leftWord*(state: TextBoxState, shift = false) =
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
   state.resetBlink()
+
 proc rightWord*(state: TextBoxState, shift = false) =
   ## Moves the cursor right by one word.
   if state.cursor < state.runes.len:
@@ -437,6 +446,7 @@ proc rightWord*(state: TextBoxState, shift = false) =
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
   state.resetBlink()
+
 proc startOfLine*(state: TextBoxState, shift = false) =
   ## Moves the cursor to the start of the current line.
   while state.cursor > 0 and state.runes[state.cursor - 1] != LF:
@@ -446,6 +456,7 @@ proc startOfLine*(state: TextBoxState, shift = false) =
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
   state.resetBlink()
+
 proc endOfLine*(state: TextBoxState, shift = false) =
   ## Moves the cursor to the end of the current line.
   while state.cursor < state.runes.len and state.runes[state.cursor] != LF:
@@ -455,6 +466,7 @@ proc endOfLine*(state: TextBoxState, shift = false) =
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
   state.resetBlink()
+
 proc pageUp*(state: TextBoxState, shift = false) =
   ## Moves the cursor up by half the box height.
   if state.layout.len == 0:
@@ -473,6 +485,7 @@ proc pageUp*(state: TextBoxState, shift = false) =
       state.selector = state.cursor
   state.scrollToCursor()
   state.resetBlink()
+
 proc pageDown*(state: TextBoxState, shift = false) =
   ## Moves the cursor down by half the box height.
   if state.layout.len == 0:
@@ -544,8 +557,12 @@ proc scrollBy*(state: TextBoxState, amount, viewportHeight: float32) =
   let maxScroll = max(0.0f, state.innerHeight - viewportHeight)
   state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScroll)
 
-template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
-    wrapWords = true) =
+template textBox*(
+  id: string,
+  t: var string,
+  boxWidth, boxHeight: float32,
+  wrapWords = true
+) =
   ## Multi-line text box widget with editing, selection, and scroll.
   ## Expects `sk: Silky` and `window: Window` in scope.
   block:
