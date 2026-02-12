@@ -827,9 +827,9 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
   state.scrollPos.x = max(0.0f, state.scrollPos.x)
   # Draw background.
   let patch =
-    if not enabled: "input.9patch"
-    elif error: "input.9patch"
-    else: "input.9patch"
+    if not enabled: "textbox.disabled.9patch"
+    elif error: "textbox.error.9patch"
+    else: "textbox.9patch"
   let textColor =
     if not enabled: sk.theme.disabledTextColor
     elif error: sk.theme.errorTextColor
