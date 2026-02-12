@@ -47,6 +47,9 @@ type
     lastMaxWidth*: float32
     blinkTime*: float64
     wordWrap*: bool
+    scrollingY*: bool
+    scrollingX*: bool
+    scrollDragOffset*: Vec2
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -184,6 +187,12 @@ proc innerHeight*(state: TextBoxState): float32 =
     let lastPos = state.layout[^1]
     return lastPos.y + lastPos.h
   return state.lineHeight
+proc innerWidth*(state: TextBoxState): float32 =
+  ## Returns the widest line in the content.
+  for r in state.layout:
+    let lineEnd = r.x + r.w
+    if lineEnd > result:
+      result = lineEnd
 
 proc locationRect*(state: TextBoxState, loc: int): Rect =
   ## Returns the rectangle where the cursor should be drawn.
@@ -579,8 +588,10 @@ template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
     let tbMouseVec = vec2(window.mousePos.x.float32, window.mousePos.y.float32)
     let tbMouseInside = tbMouseVec.overlaps(tbOuterRect) and
       tbMouseVec.overlaps(sk.clipRect)
+    # Check if mouse is over a scrollbar area so text interactions are skipped.
+    let tbOnScrollbar = tbMouseInside and not tbMouseVec.overlaps(tbInnerRect)
     if window.buttonPressed[MouseLeft]:
-      if tbMouseInside:
+      if tbMouseInside and not tbOnScrollbar:
         tbState.focused = true
         let tbLocalMouse = tbMouseVec - tbInnerRect.xy + tbState.scrollPos
         let tbNow = epochTime()
@@ -599,10 +610,10 @@ template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
           tbState.selectParagraph(tbLocalMouse)
         else:
           tbState.selectAll()
-      else:
+      elif not tbMouseInside:
         tbState.focused = false
-    # Mouse drag.
-    if tbState.dragging:
+    # Mouse drag (disabled while scrollbar is being dragged).
+    if tbState.dragging and not tbState.scrollingX and not tbState.scrollingY:
       if window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
         let tbLocalMouse = tbMouseVec - tbInnerRect.xy + tbState.scrollPos
         tbState.mouseAction(tbLocalMouse, click = false, shift = true)
@@ -706,6 +717,78 @@ template textBox*(id: string, t: var string, boxWidth, boxHeight: float32,
         sk.theme.textColor
       )
     sk.popClipRect()
+    # Content size for scrollbars.
+    let tbContentH = tbState.innerHeight
+    let tbContentW = tbState.innerWidth
+    let tbScrollMaxY = max(0.0f, tbContentH - tbInnerRect.h)
+    let tbScrollMaxX = max(0.0f, tbContentW - tbInnerRect.w)
+    # Release scrollbar drag when mouse released.
+    if tbState.scrollingY and
+        (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+      tbState.scrollingY = false
+    if tbState.scrollingX and
+        (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+      tbState.scrollingX = false
+    # Draw Y scrollbar when content overflows vertically.
+    if tbContentH > tbInnerRect.h:
+      let tbTrackY = rect(
+        tbOuterRect.x + tbOuterRect.w - 10,
+        tbInnerRect.y + 2,
+        8,
+        tbInnerRect.h - 4 - (if tbContentW > tbInnerRect.w: 10.0f else: 0.0f)
+      )
+      sk.draw9Patch("scrollbar.track.9patch", 4, tbTrackY.xy, tbTrackY.wh)
+      let tbYPct = if tbScrollMaxY > 0: tbState.scrollPos.y / tbScrollMaxY
+                   else: 0.0f
+      let tbYSize = tbInnerRect.h / tbContentH
+      let tbHandleY = rect(
+        tbTrackY.x,
+        tbTrackY.y + (tbTrackY.h - tbTrackY.h * tbYSize) * tbYPct,
+        8,
+        tbTrackY.h * tbYSize
+      )
+      # Handle Y scrollbar dragging.
+      if tbState.scrollingY:
+        let tbRelY = tbMouseVec.y - tbState.scrollDragOffset.y - tbTrackY.y
+        let tbAvailY = tbTrackY.h - tbHandleY.h
+        if tbAvailY > 0:
+          tbState.scrollPos.y = clamp(tbRelY / tbAvailY, 0.0f, 1.0f) *
+            tbScrollMaxY
+      elif tbMouseVec.overlaps(tbHandleY) and tbMouseVec.overlaps(sk.clipRect):
+        if window.buttonPressed[MouseLeft]:
+          tbState.scrollingY = true
+          tbState.scrollDragOffset.y = tbMouseVec.y - tbHandleY.y
+      sk.draw9Patch("scrollbar.9patch", 4, tbHandleY.xy, tbHandleY.wh)
+    # Draw X scrollbar when content overflows horizontally.
+    if tbContentW > tbInnerRect.w:
+      let tbTrackX = rect(
+        tbInnerRect.x + 2,
+        tbOuterRect.y + tbOuterRect.h - 10,
+        tbInnerRect.w - 4 - (if tbContentH > tbInnerRect.h: 10.0f else: 0.0f),
+        8
+      )
+      sk.draw9Patch("scrollbar.track.9patch", 4, tbTrackX.xy, tbTrackX.wh)
+      let tbXPct = if tbScrollMaxX > 0: tbState.scrollPos.x / tbScrollMaxX
+                   else: 0.0f
+      let tbXSize = tbInnerRect.w / tbContentW
+      let tbHandleX = rect(
+        tbTrackX.x + (tbTrackX.w - tbTrackX.w * tbXSize) * tbXPct,
+        tbTrackX.y,
+        tbTrackX.w * tbXSize,
+        8
+      )
+      # Handle X scrollbar dragging.
+      if tbState.scrollingX:
+        let tbRelX = tbMouseVec.x - tbState.scrollDragOffset.x - tbTrackX.x
+        let tbAvailX = tbTrackX.w - tbHandleX.w
+        if tbAvailX > 0:
+          tbState.scrollPos.x = clamp(tbRelX / tbAvailX, 0.0f, 1.0f) *
+            tbScrollMaxX
+      elif tbMouseVec.overlaps(tbHandleX) and tbMouseVec.overlaps(sk.clipRect):
+        if window.buttonPressed[MouseLeft]:
+          tbState.scrollingX = true
+          tbState.scrollDragOffset.x = tbMouseVec.x - tbHandleX.x
+      sk.draw9Patch("scrollbar.9patch", 4, tbHandleX.xy, tbHandleX.wh)
     # Scroll wheel handling.
     if tbMouseInside:
       if window.scrollDelta.y != 0:
