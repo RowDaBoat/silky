@@ -5,6 +5,7 @@ import
 
 when defined(profile):
   import fluffy/measure
+  export measure
 else:
   macro measure*(fn: untyped) =
     return fn
@@ -114,7 +115,7 @@ var
   atlasSize: Uniform[Vec2]
   atlasSampler: Uniform[Sampler2D]
 
-  traceActive: bool = false
+  traceActive*: bool = false
 
 proc pushLayer*(sk: Silky, layer: int) =
   ## Push a new layer onto the stack.
@@ -280,7 +281,7 @@ proc beginUi*(sk: Silky, window: Window, size: IVec2) =
         traceActive = false
         endTrace()
         createDir("tmp")
-        dumpMeasures(0, "tmp/trace.json")
+        dumpMeasures("tmp/trace.json")
 
   # Reset showTooltip at the start of each frame.
   sk.showTooltip = false
@@ -302,9 +303,7 @@ proc beginUi*(sk: Silky, window: Window, size: IVec2) =
   # Reset showTooltip at the start of each frame.
   sk.showTooltip = false
 
-  measurePush("glViewport")
   glViewport(0, 0, sk.size.x.int32, sk.size.y.int32)
-  measurePop()
 
   measurePush("frame")
 
@@ -480,7 +479,7 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
 
   return currentPos
 
-proc newSilky*(imagePath, jsonPath: string): Silky =
+proc newSilky*(imagePath, jsonPath: string): Silky {.measure.} =
   ## Create a new Silky.
   result = Silky()
   result.image = readImage(imagePath)
