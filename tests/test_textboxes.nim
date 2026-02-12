@@ -1,0 +1,945 @@
+## Tests for TextBoxState procs in silky/textboxes.
+
+import
+  std/[tables, unicode],
+  vmath, bumpy, jsony,
+  silky/atlas, silky/textboxes
+
+# Build a real atlas with font metrics.
+let builder = newAtlasBuilder(1024, 4)
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0)
+builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
+let silkyAtlas = readFile("tests/dist/atlas.json").fromJson(SilkyAtlas)
+let fontData = silkyAtlas.fonts["Default"]
+let lh = fontData.lineHeight
+
+proc newState(text: string, maxWidth = 500.0f): TextBoxState =
+  ## Creates a TextBoxState with word wrap on and computed layout.
+  result = TextBoxState(dirty: true, wordWrap: true, boxSize: vec2(maxWidth, 300))
+  result.setText(text)
+  result.computeLayout(fontData, maxWidth)
+
+proc newStateNoWrap(text: string, maxWidth = 500.0f): TextBoxState =
+  ## Creates a TextBoxState with word wrap off and computed layout.
+  result = TextBoxState(dirty: true, wordWrap: false, boxSize: vec2(maxWidth, 300))
+  result.setText(text)
+  result.computeLayout(fontData, maxWidth)
+
+block:
+  echo "Testing getText / setText"
+  let s = newState("")
+  doAssert s.getText() == ""
+  doAssert s.cursor == 0
+  doAssert s.selector == 0
+  let s2 = newState("\n")
+  doAssert s2.getText() == "\n"
+  doAssert s2.cursor == 1
+  doAssert s2.selector == 1
+  let s3 = newState("hello")
+  doAssert s3.getText() == "hello"
+  doAssert s3.cursor == 5
+  doAssert s3.selector == 5
+  s3.setText("ab")
+  doAssert s3.getText() == "ab"
+  doAssert s3.cursor == 2
+  s3.setText("")
+  doAssert s3.getText() == ""
+  doAssert s3.cursor == 0
+
+block:
+  echo "Testing selection"
+  let s = newState("")
+  doAssert s.selection.a == 0
+  doAssert s.selection.b == 0
+  let s2 = newState("hello")
+  s2.cursor = 1
+  s2.selector = 4
+  doAssert s2.selection.a == 1
+  doAssert s2.selection.b == 4
+  s2.cursor = 4
+  s2.selector = 1
+  doAssert s2.selection.a == 1
+  doAssert s2.selection.b == 4
+
+block:
+  echo "Testing typeCharacter"
+  let s = newState("")
+  s.typeCharacter(Rune('a'))
+  doAssert s.getText() == "a"
+  doAssert s.cursor == 1
+  let s2 = newState("\n")
+  s2.cursor = 0
+  s2.selector = 0
+  s2.typeCharacter(Rune('x'))
+  doAssert s2.getText() == "x\n"
+  doAssert s2.cursor == 1
+  let s3 = newState("bc")
+  s3.cursor = 0
+  s3.selector = 0
+  s3.typeCharacter(Rune('a'))
+  doAssert s3.getText() == "abc"
+  doAssert s3.cursor == 1
+  let s4 = newState("ab")
+  s4.typeCharacter(Rune('c'))
+  doAssert s4.getText() == "abc"
+  doAssert s4.cursor == 3
+  let s5 = newState("ac")
+  s5.cursor = 1
+  s5.selector = 1
+  s5.typeCharacter(Rune('b'))
+  doAssert s5.getText() == "abc"
+  doAssert s5.cursor == 2
+
+block:
+  echo "Testing typeCharacters"
+  let s = newState("")
+  s.typeCharacters("")
+  doAssert s.getText() == ""
+  doAssert s.cursor == 0
+  let s2 = newState("")
+  s2.typeCharacters("hello")
+  doAssert s2.getText() == "hello"
+  doAssert s2.cursor == 5
+  let s3 = newState("")
+  s3.typeCharacters("a\r\nb")
+  doAssert s3.getText() == "a\nb", "CR should be stripped"
+  let s4 = newState("\n")
+  s4.cursor = 0
+  s4.selector = 0
+  s4.typeCharacters("hi")
+  doAssert s4.getText() == "hi\n"
+  doAssert s4.cursor == 2
+
+block:
+  echo "Testing backspace"
+  let s = newState("")
+  s.backspace()
+  doAssert s.getText() == ""
+  doAssert s.cursor == 0
+  let s2 = newState("\n")
+  s2.cursor = 0
+  s2.selector = 0
+  s2.backspace()
+  doAssert s2.getText() == "\n", "Backspace at 0 should not change text"
+  doAssert s2.cursor == 0
+  let s3 = newState("\n")
+  s3.backspace()
+  doAssert s3.getText() == ""
+  doAssert s3.cursor == 0
+  let s4 = newState("abc")
+  s4.backspace()
+  doAssert s4.getText() == "ab"
+  doAssert s4.cursor == 2
+  let s5 = newState("abc")
+  s5.cursor = 1
+  s5.selector = 1
+  s5.backspace()
+  doAssert s5.getText() == "bc"
+  doAssert s5.cursor == 0
+  # With selection: removes selection only.
+  let s6 = newState("abcd")
+  s6.cursor = 1
+  s6.selector = 3
+  s6.backspace()
+  doAssert s6.getText() == "ad"
+  doAssert s6.cursor == 1
+
+block:
+  echo "Testing delete"
+  let s = newState("")
+  s.delete()
+  doAssert s.getText() == ""
+  doAssert s.cursor == 0
+  let s2 = newState("\n")
+  s2.cursor = 0
+  s2.selector = 0
+  s2.delete()
+  doAssert s2.getText() == ""
+  doAssert s2.cursor == 0
+  let s3 = newState("\n")
+  s3.delete()
+  doAssert s3.getText() == "\n", "Delete at end should not change text"
+  doAssert s3.cursor == 1
+  let s4 = newState("abc")
+  s4.cursor = 3
+  s4.selector = 3
+  s4.delete()
+  doAssert s4.getText() == "abc", "Delete at end should not change text"
+  let s5 = newState("abc")
+  s5.cursor = 0
+  s5.selector = 0
+  s5.delete()
+  doAssert s5.getText() == "bc"
+  doAssert s5.cursor == 0
+  # With selection: removes selection only.
+  let s6 = newState("abcd")
+  s6.cursor = 1
+  s6.selector = 3
+  s6.delete()
+  doAssert s6.getText() == "ad"
+  doAssert s6.cursor == 1
+
+block:
+  echo "Testing backspaceWord"
+  let s = newState("")
+  s.backspaceWord()
+  doAssert s.getText() == ""
+  doAssert s.cursor == 0
+  let s2 = newState("\n")
+  s2.cursor = 0
+  s2.selector = 0
+  s2.backspaceWord()
+  doAssert s2.getText() == "\n", "backspaceWord at 0 should not change text"
+  let s3 = newState("hello world")
+  s3.backspaceWord()
+  doAssert s3.getText() == "hello "
+  doAssert s3.cursor == 6
+  # With selection: removes selection, no word delete.
+  let s4 = newState("hello world")
+  s4.cursor = 2
+  s4.selector = 4
+  s4.backspaceWord()
+  doAssert s4.getText() == "heo world"
+  doAssert s4.cursor == 2
+
+block:
+  echo "Testing deleteWord"
+  let s = newState("")
+  s.deleteWord()
+  doAssert s.getText() == ""
+  doAssert s.cursor == 0
+  let s2 = newState("hello world")
+  s2.cursor = 0
+  s2.selector = 0
+  s2.deleteWord()
+  doAssert s2.getText() == " world"
+  doAssert s2.cursor == 0
+  let s3 = newState("hello world")
+  s3.deleteWord()
+  doAssert s3.getText() == "hello world", "deleteWord at end should not change text"
+
+block:
+  echo "Testing left / right"
+  let s = newState("")
+  s.left()
+  doAssert s.cursor == 0, "Left on empty should stay at 0"
+  s.right()
+  doAssert s.cursor == 0, "Right on empty should stay at 0"
+  let s2 = newState("\n")
+  s2.cursor = 0
+  s2.selector = 0
+  s2.left()
+  doAssert s2.cursor == 0, "Left at 0 on newline should stay"
+  s2.right()
+  doAssert s2.cursor == 1
+  s2.right()
+  doAssert s2.cursor == 1, "Right at end on newline should stay"
+  let s3 = newState("abc")
+  s3.cursor = 0
+  s3.selector = 0
+  s3.left()
+  doAssert s3.cursor == 0
+  s3.right()
+  doAssert s3.cursor == 1
+  doAssert s3.selector == 1
+  s3.right()
+  doAssert s3.cursor == 2
+  s3.cursor = 3
+  s3.selector = 3
+  s3.right()
+  doAssert s3.cursor == 3
+  # Shift extends selection.
+  let s4 = newState("abc")
+  s4.cursor = 1
+  s4.selector = 1
+  s4.right(shift = true)
+  doAssert s4.cursor == 2
+  doAssert s4.selector == 1, "Shift+right should not move selector"
+  s4.left(shift = true)
+  doAssert s4.cursor == 1
+  doAssert s4.selector == 1
+
+block:
+  echo "Testing leftWord / rightWord"
+  let s = newState("")
+  s.leftWord()
+  doAssert s.cursor == 0
+  s.rightWord()
+  doAssert s.cursor == 0
+  let s2 = newState("\n")
+  s2.leftWord()
+  doAssert s2.cursor == 0
+  let s3 = newState("hello world")
+  s3.cursor = 8
+  s3.selector = 8
+  s3.leftWord()
+  doAssert s3.cursor == 6, "leftWord should jump to start of word"
+  let s4 = newState("hello world")
+  s4.cursor = 0
+  s4.selector = 0
+  s4.leftWord()
+  doAssert s4.cursor == 0, "leftWord at 0 should stay"
+  let s5 = newState("hello world")
+  s5.cursor = 4
+  s5.selector = 4
+  s5.rightWord()
+  doAssert s5.cursor == 5, "rightWord should jump past word end"
+  let s6 = newState("hello world")
+  s6.rightWord()
+  doAssert s6.cursor == 11, "rightWord at end should stay"
+
+block:
+  echo "Testing startOfLine / endOfLine"
+  let s = newState("")
+  s.startOfLine()
+  doAssert s.cursor == 0
+  s.endOfLine()
+  doAssert s.cursor == 0
+  let s2 = newState("\n")
+  s2.cursor = 1
+  s2.selector = 1
+  s2.startOfLine()
+  doAssert s2.cursor == 0 or s2.cursor == 1, "startOfLine on second line of \\n"
+  let s3 = newState("abc")
+  s3.cursor = 1
+  s3.selector = 1
+  s3.startOfLine()
+  doAssert s3.cursor == 0
+  s3.endOfLine()
+  doAssert s3.cursor == 3
+  let s4 = newState("ab\ncd")
+  s4.cursor = 4
+  s4.selector = 4
+  s4.startOfLine()
+  doAssert s4.cursor == 3, "startOfLine on second line should go to after newline"
+  s4.endOfLine()
+  doAssert s4.cursor == 5
+
+block:
+  echo "Testing selectAll"
+  let s = newState("")
+  s.selectAll()
+  doAssert s.cursor == 0
+  doAssert s.selector == 0
+  let s2 = newState("\n")
+  s2.selectAll()
+  doAssert s2.cursor == 0
+  doAssert s2.selector == 1
+  let s3 = newState("hello")
+  s3.selectAll()
+  doAssert s3.cursor == 0
+  doAssert s3.selector == 5
+
+block:
+  echo "Testing copyText / cutText"
+  let s = newState("")
+  doAssert s.copyText() == ""
+  doAssert s.cutText() == ""
+  let s2 = newState("hello")
+  doAssert s2.copyText() == "", "No selection means empty copy"
+  s2.cursor = 1
+  s2.selector = 4
+  doAssert s2.copyText() == "ell"
+  doAssert s2.getText() == "hello", "Copy should not change text"
+  let s3 = newState("hello")
+  s3.cursor = 1
+  s3.selector = 4
+  doAssert s3.cutText() == "ell"
+  doAssert s3.getText() == "ho"
+  doAssert s3.cursor == 1
+  let s4 = newState("")
+  doAssert s4.cutText() == ""
+  doAssert s4.getText() == ""
+
+block:
+  echo "Testing pasteText"
+  let s = newState("")
+  s.pasteText("hello")
+  doAssert s.getText() == "hello"
+  doAssert s.cursor == 5
+  let s2 = newState("abcd")
+  s2.cursor = 1
+  s2.selector = 3
+  s2.pasteText("XY")
+  doAssert s2.getText() == "aXYd", "Paste should replace selection"
+  doAssert s2.cursor == 3
+  let s3 = newState("abc")
+  s3.pasteText("")
+  doAssert s3.getText() == "abc", "Paste empty should not change text"
+
+block:
+  echo "Testing undo / redo"
+  let s = newState("")
+  s.undo()
+  doAssert s.getText() == "", "Undo on empty stack should not crash"
+  s.redo()
+  doAssert s.getText() == "", "Redo on empty stack should not crash"
+  let s2 = newState("")
+  s2.typeCharacter(Rune('a'))
+  doAssert s2.getText() == "a"
+  s2.undo()
+  doAssert s2.getText() == ""
+  doAssert s2.cursor == 0
+  s2.redo()
+  doAssert s2.getText() == "a"
+  doAssert s2.cursor == 1
+  # Undo then type clears redo stack.
+  s2.undo()
+  s2.typeCharacter(Rune('b'))
+  s2.redo()
+  doAssert s2.getText() == "b", "Redo after new edit should do nothing"
+
+block:
+  echo "Testing removedSelection"
+  let s = newState("")
+  doAssert s.removedSelection() == false
+  let s2 = newState("hello")
+  s2.cursor = 5
+  s2.selector = 5
+  doAssert s2.removedSelection() == false
+  doAssert s2.getText() == "hello"
+  let s3 = newState("hello")
+  s3.cursor = 1
+  s3.selector = 4
+  doAssert s3.removedSelection() == true
+  doAssert s3.getText() == "ho"
+  doAssert s3.cursor == 1
+  # Select all of "\n" and remove.
+  let s4 = newState("\n")
+  s4.cursor = 0
+  s4.selector = 1
+  doAssert s4.removedSelection() == true
+  doAssert s4.getText() == ""
+
+block:
+  echo "Testing computeLayout"
+  let s = newState("")
+  doAssert s.layout.len == 0
+  let s2 = newState("abc")
+  doAssert s2.layout.len == 3
+  doAssert s2.layout[0].y == 0
+  doAssert s2.layout[1].y == 0
+  doAssert s2.layout[2].y == 0
+  doAssert s2.layout[0].w > 0
+  doAssert s2.layout[1].w > 0
+  doAssert s2.layout[1].x > s2.layout[0].x
+  doAssert s2.layout[2].x > s2.layout[1].x
+  # Single newline.
+  let s3 = newState("\n")
+  doAssert s3.layout.len == 1
+  doAssert s3.layout[0].w == 0, "Newline should have zero width"
+  doAssert s3.layout[0].y == 0
+  # Multi-line.
+  let s4 = newState("a\nb")
+  doAssert s4.layout.len == 3
+  doAssert s4.layout[0].y == 0, "'a' on first line"
+  doAssert s4.layout[1].w == 0, "newline has zero width"
+  doAssert s4.layout[2].y > 0, "'b' on second line"
+  doAssert s4.layout[2].y == lh, "'b' y should be lineHeight"
+
+block:
+  echo "Testing pickGlyphAt"
+  let s = newState("")
+  doAssert s.pickGlyphAt(vec2(0, 0)) == -1, "Empty layout returns -1"
+  # Single newline: click on line 0.
+  let s2 = newState("\n")
+  doAssert s2.pickGlyphAt(vec2(0, lh * 0.5)) == 0
+  let s3 = newState("abc")
+  doAssert s3.pickGlyphAt(vec2(0, lh * 0.5)) == 0
+  # Click near second char.
+  let x1 = s3.layout[1].x
+  doAssert s3.pickGlyphAt(vec2(x1 + 1, lh * 0.5)) == 1
+  # Click below all lines.
+  doAssert s3.pickGlyphAt(vec2(0, lh * 5)) == -1
+  # Multi-line: click on second line.
+  let s4 = newState("a\nb")
+  doAssert s4.pickGlyphAt(vec2(0, lh * 1.5)) == 2, "Click on second line"
+
+block:
+  echo "Testing getSelectionRects"
+  doAssert getSelectionRects(@[], 0, 0).len == 0
+  let s = newState("abc")
+  doAssert getSelectionRects(s.layout, 0, 0).len == 0, "start == stop"
+  doAssert getSelectionRects(s.layout, 0, 1).len == 1
+  # Same line: merged into one rect.
+  let rects = getSelectionRects(s.layout, 0, 3)
+  doAssert rects.len == 1, "Same line chars should merge"
+  # Multi-line: one rect per line.
+  let s2 = newState("ab\ncd")
+  let rects2 = getSelectionRects(s2.layout, 0, 4)
+  doAssert rects2.len >= 2, "Multi-line selection should have multiple rects"
+
+block:
+  echo "Testing innerHeight / innerWidth"
+  let s = newState("")
+  doAssert s.innerHeight == lh, "Empty text should have lineHeight"
+  doAssert s.innerWidth == 0
+  let s2 = newState("\n")
+  doAssert s2.innerHeight == lh, "Single newline char is on line 0"
+  doAssert s2.innerWidth == 0, "Single newline has zero width"
+  let s3 = newState("abc")
+  doAssert s3.innerHeight == lh
+  doAssert s3.innerWidth > 0
+  let s4 = newState("a\nb")
+  doAssert s4.innerHeight == lh * 2
+
+block:
+  echo "Testing locationRect"
+  let s = newState("")
+  let r = s.locationRect(0)
+  doAssert r.w == CursorWidth
+  doAssert r.h == lh
+  # Single newline at loc 0.
+  let s2 = newState("\n")
+  let r2 = s2.locationRect(0)
+  doAssert r2.x == 0
+  doAssert r2.y == 0
+  # Single newline at loc 1: should be on the next line.
+  let r3 = s2.locationRect(1)
+  doAssert r3.x == 0
+  doAssert r3.y == lh, "Cursor after newline should be on next line"
+  let s3 = newState("abc")
+  let r4 = s3.locationRect(0)
+  doAssert r4.x == s3.layout[0].x
+  # At end: past last char.
+  let r5 = s3.locationRect(3)
+  doAssert r5.x > s3.layout[2].x, "Cursor at end should be past last char"
+
+block:
+  echo "Testing scrollToCursor / scrollBy"
+  let s = newState("")
+  s.scrollBy(100, 300)
+  doAssert s.scrollPos.y == 0, "scrollBy on empty should clamp to 0"
+  s.scrollBy(-50, 300)
+  doAssert s.scrollPos.y == 0, "scrollBy negative should clamp to 0"
+  # Create state with enough content to overflow.
+  let s2 = newState("a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\nm\nn\no\np")
+  s2.boxSize = vec2(500, 50)
+  s2.scrollBy(1000, 50)
+  let maxScroll = max(0.0f, s2.innerHeight - 50)
+  doAssert s2.scrollPos.y <= maxScroll + 0.01
+  doAssert s2.scrollPos.y >= maxScroll - 0.01
+  # scrollToCursor: cursor at end should scroll down.
+  let s3 = newState("a\nb\nc\nd\ne\nf\ng\nh\ni\nj")
+  s3.boxSize = vec2(500, 40)
+  s3.scrollPos = vec2(0, 0)
+  s3.scrollToCursor()
+  doAssert s3.scrollPos.y > 0, "scrollToCursor should scroll down when cursor at end"
+
+block:
+  echo "Testing mouseAction"
+  let s = newState("")
+  s.mouseAction(vec2(0, 0))
+  doAssert s.cursor == 0
+  let s2 = newState("hello")
+  s2.mouseAction(vec2(0, -10))
+  doAssert s2.cursor == 0, "Click above text should go to 0"
+  s2.mouseAction(vec2(0, lh * 10))
+  doAssert s2.cursor == 5, "Click below text should go to end"
+
+block:
+  echo "Testing selectWord"
+  let s = newState("")
+  s.mouseAction(vec2(0, 0))
+  s.selectWord(vec2(0, 0))
+  doAssert s.cursor == 0
+  doAssert s.selector == 0
+  let s2 = newState("hello world")
+  let x = s2.layout[1].x
+  s2.selectWord(vec2(x, lh * 0.5))
+  doAssert s2.cursor == 0, "Word start of 'hello'"
+  doAssert s2.selector == 5, "Word end of 'hello'"
+
+block:
+  echo "Testing selectParagraph"
+  let s = newState("")
+  s.mouseAction(vec2(0, 0))
+  s.selectParagraph(vec2(0, 0))
+  doAssert s.cursor == 0
+  doAssert s.selector == 0
+  let s2 = newState("ab\ncd")
+  let x = s2.layout[3].x
+  s2.selectParagraph(vec2(x, lh * 1.5))
+  doAssert s2.cursor == 3, "Paragraph start on second line"
+  doAssert s2.selector == 5, "Paragraph end on second line"
+  let s3 = newState("\n")
+  s3.selectParagraph(vec2(0, lh * 0.5))
+  doAssert s3.cursor == 0
+  doAssert s3.selector <= 1
+
+block:
+  echo "Testing up / down"
+  let s = newState("ab\ncd")
+  s.cursor = 0
+  s.selector = 0
+  s.savedX = s.cursorPos.x
+  s.down()
+  doAssert s.cursor >= 2, "Down from first line should go to second"
+  s.up()
+  doAssert s.cursor <= 1, "Up from second line should go back to first"
+  # Down on last line goes to end.
+  let s2 = newState("abc")
+  s2.cursor = 1
+  s2.selector = 1
+  s2.savedX = s2.cursorPos.x
+  s2.down()
+  doAssert s2.cursor == 3, "Down on single line should go to end"
+  # Up on first line goes to start.
+  let s3 = newState("abc")
+  s3.cursor = 2
+  s3.selector = 2
+  s3.savedX = s3.cursorPos.x
+  s3.up()
+  doAssert s3.cursor == 0, "Up on single line should go to start"
+
+block:
+  echo "Testing computeLayout with word wrap vs no wrap"
+  # Use a narrow width so "hello world" wraps.
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # With wrap: "world" should be on a second line.
+  doAssert sw.layout.len == 11
+  let lastCharY = sw.layout[^1].y
+  doAssert lastCharY > 0, "Word wrap should push 'world' to second line"
+  # Without wrap: all on one line.
+  let snw = newStateNoWrap("hello world", narrow)
+  doAssert snw.layout.len == 11
+  for r in snw.layout:
+    doAssert r.y == 0, "No wrap should keep all chars on line 0"
+  # Empty string: both modes produce empty layout.
+  let swe = newState("", narrow)
+  doAssert swe.layout.len == 0
+  let snwe = newStateNoWrap("", narrow)
+  doAssert snwe.layout.len == 0
+  # Single newline: same in both modes.
+  let swn = newState("\n", narrow)
+  doAssert swn.layout.len == 1
+  doAssert swn.layout[0].w == 0
+  let snwn = newStateNoWrap("\n", narrow)
+  doAssert snwn.layout.len == 1
+  doAssert snwn.layout[0].w == 0
+
+block:
+  echo "Testing innerHeight / innerWidth with word wrap vs no wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  doAssert sw.innerHeight > lh, "Wrapped text should be taller than one line"
+  let snw = newStateNoWrap("hello world", narrow)
+  doAssert snw.innerHeight == lh, "Unwrapped text should be one line tall"
+  doAssert snw.innerWidth > narrow, "Unwrapped text should overflow the width"
+  doAssert sw.innerWidth <= narrow, "Wrapped text should fit within maxWidth"
+
+block:
+  echo "Testing pickGlyphAt with word wrap vs no wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # In wrapped mode, clicking on second line should find chars from "world".
+  let wrappedSecondLineIdx = sw.pickGlyphAt(vec2(5, lh * 1.5))
+  doAssert wrappedSecondLineIdx >= 5, "Wrapped: click on line 2 should find char >= 5"
+  # In no-wrap mode, all chars are on line 0, no second line.
+  let snw = newStateNoWrap("hello world", narrow)
+  let noWrapSecondLine = snw.pickGlyphAt(vec2(5, lh * 1.5))
+  doAssert noWrapSecondLine == -1, "No wrap: no chars on second line"
+  let noWrapFirstLine = snw.pickGlyphAt(vec2(5, lh * 0.5))
+  doAssert noWrapFirstLine >= 0, "No wrap: chars on first line"
+
+block:
+  echo "Testing locationRect with word wrap vs no wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # Cursor at the start of "world" (index 6) should be on the second line.
+  let wIdx = 6
+  let wr = sw.locationRect(wIdx)
+  doAssert wr.y > 0, "Wrapped: 'w' of 'world' should be on second line"
+  # No wrap: same index should be on line 0.
+  let snw = newStateNoWrap("hello world", narrow)
+  let nwr = snw.locationRect(wIdx)
+  doAssert nwr.y == 0, "No wrap: 'w' of 'world' should stay on line 0"
+
+block:
+  echo "Testing up / down with word wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # Cursor at start, go down should land on the wrapped second line.
+  sw.cursor = 0
+  sw.selector = 0
+  sw.savedX = sw.cursorPos.x
+  sw.down()
+  doAssert sw.cursor >= 5, "Down from first wrapped line should land on second"
+  # Go back up.
+  sw.savedX = sw.cursorPos.x
+  sw.up()
+  doAssert sw.cursor <= 1, "Up from second wrapped line should go back to first"
+
+block:
+  echo "Testing up / down without word wrap"
+  let narrow = 60.0f
+  let snw = newStateNoWrap("hello world", narrow)
+  # No wrap: single line, down goes to end.
+  snw.cursor = 0
+  snw.selector = 0
+  snw.savedX = snw.cursorPos.x
+  snw.down()
+  doAssert snw.cursor == 11, "No wrap: down on single line goes to end"
+  # Up goes to start.
+  snw.savedX = snw.cursorPos.x
+  snw.up()
+  doAssert snw.cursor == 0, "No wrap: up on single line goes to start"
+
+block:
+  echo "Testing up / down with word wrap and newlines"
+  let narrow = 60.0f
+  let sw = newState("hello world\nfoo bar", narrow)
+  # Cursor at start, go down.
+  sw.cursor = 0
+  sw.selector = 0
+  sw.savedX = sw.cursorPos.x
+  sw.down()
+  let afterDown = sw.cursor
+  doAssert afterDown > 0, "Down should move cursor"
+  # Keep going down until we are past the newline.
+  sw.savedX = sw.cursorPos.x
+  sw.down()
+  sw.savedX = sw.cursorPos.x
+  sw.down()
+  sw.savedX = sw.cursorPos.x
+  sw.down()
+  doAssert sw.cursor >= 12, "Multiple downs should reach second paragraph"
+
+block:
+  echo "Testing getSelectionRects with word wrap vs no wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # Select all in wrapped mode: should have multiple rects (one per wrapped line).
+  let wrects = getSelectionRects(sw.layout, 0, 11)
+  doAssert wrects.len >= 2, "Wrapped: select-all should span multiple lines"
+  # No wrap: select all should be one rect.
+  let snw = newStateNoWrap("hello world", narrow)
+  let nwrects = getSelectionRects(snw.layout, 0, 11)
+  doAssert nwrects.len == 1, "No wrap: select-all on one line is one rect"
+
+block:
+  echo "Testing mouseAction with word wrap vs no wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # Click on second wrapped line.
+  sw.mouseAction(vec2(5, lh * 1.5))
+  doAssert sw.cursor >= 5, "Wrapped: click on second line should place cursor there"
+  # No wrap: same y is below the single line.
+  let snw = newStateNoWrap("hello world", narrow)
+  snw.mouseAction(vec2(5, lh * 1.5))
+  doAssert snw.cursor == 11, "No wrap: click below single line goes to end"
+
+block:
+  echo "Testing selectWord with word wrap"
+  let narrow = 60.0f
+  let sw = newState("hello world", narrow)
+  # Click on "world" which is on the wrapped second line.
+  let wCharX = sw.layout[7].x
+  sw.selectWord(vec2(wCharX, sw.layout[7].y + lh * 0.5))
+  doAssert sw.cursor == 6, "Wrapped: word start of 'world'"
+  doAssert sw.selector == 11, "Wrapped: word end of 'world'"
+
+block:
+  echo "Testing dirty flag"
+  # computeLayout clears dirty.
+  let s = newState("abc")
+  doAssert s.dirty == false, "computeLayout should clear dirty"
+  # setText sets dirty.
+  s.setText("xyz")
+  doAssert s.dirty == true, "setText should set dirty"
+  s.computeLayout(fontData, 500)
+  doAssert s.dirty == false, "computeLayout should clear dirty again"
+  # typeCharacter sets dirty.
+  s.typeCharacter(Rune('a'))
+  doAssert s.dirty == true, "typeCharacter should set dirty"
+  s.computeLayout(fontData, 500)
+  doAssert s.dirty == false
+  # typeCharacters sets dirty.
+  s.typeCharacters("hi")
+  doAssert s.dirty == true, "typeCharacters should set dirty"
+  s.computeLayout(fontData, 500)
+  doAssert s.dirty == false
+  # backspace sets dirty when it deletes.
+  let s2 = newState("ab")
+  s2.backspace()
+  doAssert s2.dirty == true, "backspace should set dirty when deleting"
+  s2.computeLayout(fontData, 500)
+  doAssert s2.dirty == false
+  # backspace at 0 should not set dirty.
+  let s3 = newState("ab")
+  s3.cursor = 0
+  s3.selector = 0
+  s3.computeLayout(fontData, 500)
+  s3.backspace()
+  doAssert s3.dirty == false, "backspace at 0 should not set dirty"
+  # delete sets dirty when it deletes.
+  let s4 = newState("ab")
+  s4.cursor = 0
+  s4.selector = 0
+  s4.delete()
+  doAssert s4.dirty == true, "delete should set dirty when deleting"
+  s4.computeLayout(fontData, 500)
+  doAssert s4.dirty == false
+  # delete at end should not set dirty.
+  let s5 = newState("ab")
+  s5.computeLayout(fontData, 500)
+  s5.delete()
+  doAssert s5.dirty == false, "delete at end should not set dirty"
+  # backspaceWord sets dirty.
+  let s6 = newState("hello world")
+  s6.backspaceWord()
+  doAssert s6.dirty == true, "backspaceWord should set dirty"
+  s6.computeLayout(fontData, 500)
+  doAssert s6.dirty == false
+  # backspaceWord at 0 should not set dirty.
+  let s7 = newState("hello")
+  s7.cursor = 0
+  s7.selector = 0
+  s7.computeLayout(fontData, 500)
+  s7.backspaceWord()
+  doAssert s7.dirty == false, "backspaceWord at 0 should not set dirty"
+  # deleteWord sets dirty.
+  let s8 = newState("hello world")
+  s8.cursor = 0
+  s8.selector = 0
+  s8.deleteWord()
+  doAssert s8.dirty == true, "deleteWord should set dirty"
+  s8.computeLayout(fontData, 500)
+  doAssert s8.dirty == false
+  # deleteWord at end should not set dirty.
+  let s9 = newState("hello")
+  s9.computeLayout(fontData, 500)
+  s9.deleteWord()
+  doAssert s9.dirty == false, "deleteWord at end should not set dirty"
+  # removedSelection sets dirty when there is a selection.
+  let s10 = newState("abcd")
+  s10.cursor = 1
+  s10.selector = 3
+  doAssert s10.removedSelection() == true
+  doAssert s10.dirty == true, "removedSelection should set dirty"
+  s10.computeLayout(fontData, 500)
+  doAssert s10.dirty == false
+  # removedSelection with no selection should not set dirty.
+  let s11 = newState("abcd")
+  s11.computeLayout(fontData, 500)
+  doAssert s11.removedSelection() == false
+  doAssert s11.dirty == false, "removedSelection with no selection should not set dirty"
+  # undo sets dirty.
+  let s12 = newState("")
+  s12.typeCharacter(Rune('a'))
+  s12.computeLayout(fontData, 500)
+  s12.undo()
+  doAssert s12.dirty == true, "undo should set dirty"
+  s12.computeLayout(fontData, 500)
+  doAssert s12.dirty == false
+  # undo on empty stack should not set dirty.
+  let s13 = newState("abc")
+  s13.computeLayout(fontData, 500)
+  s13.undo()
+  doAssert s13.dirty == false, "undo on empty stack should not set dirty"
+  # redo sets dirty.
+  let s14 = newState("")
+  s14.typeCharacter(Rune('a'))
+  s14.computeLayout(fontData, 500)
+  s14.undo()
+  s14.computeLayout(fontData, 500)
+  s14.redo()
+  doAssert s14.dirty == true, "redo should set dirty"
+  s14.computeLayout(fontData, 500)
+  doAssert s14.dirty == false
+  # redo on empty stack should not set dirty.
+  let s15 = newState("abc")
+  s15.computeLayout(fontData, 500)
+  s15.redo()
+  doAssert s15.dirty == false, "redo on empty stack should not set dirty"
+  # Navigation procs should NOT set dirty.
+  let s16 = newState("abc")
+  s16.computeLayout(fontData, 500)
+  s16.cursor = 1
+  s16.selector = 1
+  s16.left()
+  doAssert s16.dirty == false, "left should not set dirty"
+  s16.right()
+  doAssert s16.dirty == false, "right should not set dirty"
+  s16.startOfLine()
+  doAssert s16.dirty == false, "startOfLine should not set dirty"
+  s16.endOfLine()
+  doAssert s16.dirty == false, "endOfLine should not set dirty"
+  let s17 = newState("hello world")
+  s17.computeLayout(fontData, 500)
+  s17.cursor = 3
+  s17.selector = 3
+  s17.leftWord()
+  doAssert s17.dirty == false, "leftWord should not set dirty"
+  s17.rightWord()
+  doAssert s17.dirty == false, "rightWord should not set dirty"
+  # selectAll should not set dirty.
+  let s18 = newState("abc")
+  s18.computeLayout(fontData, 500)
+  s18.selectAll()
+  doAssert s18.dirty == false, "selectAll should not set dirty"
+  # copyText should not set dirty.
+  let s19 = newState("abc")
+  s19.cursor = 0
+  s19.selector = 3
+  s19.computeLayout(fontData, 500)
+  discard s19.copyText()
+  doAssert s19.dirty == false, "copyText should not set dirty"
+  # cutText should set dirty (it removes selection).
+  let s20 = newState("abc")
+  s20.cursor = 0
+  s20.selector = 3
+  s20.computeLayout(fontData, 500)
+  discard s20.cutText()
+  doAssert s20.dirty == true, "cutText should set dirty"
+  # pasteText should set dirty.
+  let s21 = newState("")
+  s21.computeLayout(fontData, 500)
+  s21.pasteText("hi")
+  doAssert s21.dirty == true, "pasteText should set dirty"
+  # backspace with selection sets dirty.
+  let s22 = newState("abcd")
+  s22.cursor = 1
+  s22.selector = 3
+  s22.computeLayout(fontData, 500)
+  s22.backspace()
+  doAssert s22.dirty == true, "backspace with selection should set dirty"
+  # delete with selection sets dirty.
+  let s23 = newState("abcd")
+  s23.cursor = 1
+  s23.selector = 3
+  s23.computeLayout(fontData, 500)
+  s23.delete()
+  doAssert s23.dirty == true, "delete with selection should set dirty"
+  # up/down should not set dirty.
+  let s24 = newState("ab\ncd")
+  s24.cursor = 0
+  s24.selector = 0
+  s24.savedX = 0
+  s24.computeLayout(fontData, 500)
+  s24.down()
+  doAssert s24.dirty == false, "down should not set dirty"
+  s24.up()
+  doAssert s24.dirty == false, "up should not set dirty"
+  # Empty string operations should not set dirty spuriously.
+  let s25 = newState("")
+  s25.computeLayout(fontData, 500)
+  s25.backspace()
+  doAssert s25.dirty == false, "backspace on empty should not set dirty"
+  s25.delete()
+  doAssert s25.dirty == false, "delete on empty should not set dirty"
+  s25.left()
+  doAssert s25.dirty == false, "left on empty should not set dirty"
+  s25.right()
+  doAssert s25.dirty == false, "right on empty should not set dirty"
+  s25.undo()
+  doAssert s25.dirty == false, "undo on empty should not set dirty"
+  s25.redo()
+  doAssert s25.dirty == false, "redo on empty should not set dirty"
+  s25.selectAll()
+  doAssert s25.dirty == false, "selectAll on empty should not set dirty"
+  doAssert s25.removedSelection() == false
+  doAssert s25.dirty == false, "removedSelection on empty should not set dirty"
+
+echo "All tests passed."
