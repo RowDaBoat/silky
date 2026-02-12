@@ -45,6 +45,7 @@ type
     lineHeight*: float32
     boxSize*: Vec2
     lastMaxWidth*: float32
+    blinkTime*: float64
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -56,6 +57,15 @@ proc vec2(v: SomeNumber): Vec2 =
 proc vec2[A, B](x: A, y: B): Vec2 =
   ## Create a Vec2 from two numbers.
   vec2(x.float32, y.float32)
+
+proc resetBlink*(state: TextBoxState) =
+  ## Resets the cursor blink timer so the cursor is immediately visible.
+  state.blinkTime = epochTime()
+
+proc cursorVisible*(state: TextBoxState): bool =
+  ## Returns true when the blinking cursor should be drawn.
+  ## Blinks 0.5s on, 0.5s off, always starting visible after a reset.
+  ((epochTime() - state.blinkTime) * 2).int mod 2 == 0
 
 proc getText*(state: TextBoxState): string =
   ## Returns the current text content.
@@ -204,7 +214,7 @@ proc undo*(state: TextBoxState) =
     (state.runes, state.cursor) = state.undoStack.pop()
     state.selector = state.cursor
     state.dirty = true
-
+    state.resetBlink()
 proc redo*(state: TextBoxState) =
   ## Goes forward in history.
   if state.redoStack.len > 0:
@@ -212,6 +222,7 @@ proc redo*(state: TextBoxState) =
     (state.runes, state.cursor) = state.redoStack.pop()
     state.selector = state.cursor
     state.dirty = true
+    state.resetBlink()
 
 proc removedSelection*(state: TextBoxState): bool =
   ## Removes selected runes and returns true if anything was removed.
@@ -253,7 +264,7 @@ proc typeCharacter*(state: TextBoxState, rune: Rune) =
   state.selector = state.cursor
   state.dirty = true
   state.scrollToCursor()
-
+  state.resetBlink()
 proc typeCharacters*(state: TextBoxState, s: string) =
   ## Adds multiple characters at the cursor position.
   state.removeSelection()
@@ -269,6 +280,7 @@ proc typeCharacters*(state: TextBoxState, s: string) =
   state.selector = state.cursor
   state.dirty = true
   state.scrollToCursor()
+  state.resetBlink()
 
 proc copyText*(state: TextBoxState): string =
   ## Returns the text in the current selection.
@@ -288,10 +300,12 @@ proc cutText*(state: TextBoxState): string =
     return
   state.removeSelection()
   state.savedX = state.cursorPos.x
+  state.resetBlink()
 
 proc backspace*(state: TextBoxState) =
   ## Deletes the character before the cursor.
   if state.removedSelection():
+    state.resetBlink()
     return
   if state.cursor > 0:
     state.runes.delete(state.cursor - 1)
@@ -299,19 +313,21 @@ proc backspace*(state: TextBoxState) =
     state.selector = state.cursor
     state.dirty = true
   state.scrollToCursor()
-
+  state.resetBlink()
 proc delete*(state: TextBoxState) =
   ## Deletes the character after the cursor.
   if state.removedSelection():
+    state.resetBlink()
     return
   if state.cursor < state.runes.len:
     state.runes.delete(state.cursor)
     state.dirty = true
   state.scrollToCursor()
-
+  state.resetBlink()
 proc backspaceWord*(state: TextBoxState) =
   ## Deletes the word before the cursor.
   if state.removedSelection():
+    state.resetBlink()
     return
   if state.cursor > 0:
     while state.cursor > 0 and
@@ -321,10 +337,11 @@ proc backspaceWord*(state: TextBoxState) =
     state.selector = state.cursor
     state.dirty = true
   state.scrollToCursor()
-
+  state.resetBlink()
 proc deleteWord*(state: TextBoxState) =
   ## Deletes the word after the cursor.
   if state.removedSelection():
+    state.resetBlink()
     return
   if state.cursor < state.runes.len:
     while state.cursor < state.runes.len and
@@ -332,6 +349,7 @@ proc deleteWord*(state: TextBoxState) =
       state.runes.delete(state.cursor)
     state.dirty = true
   state.scrollToCursor()
+  state.resetBlink()
 
 proc left*(state: TextBoxState, shift = false) =
   ## Moves the cursor left by one character.
@@ -341,7 +359,7 @@ proc left*(state: TextBoxState, shift = false) =
       state.selector = state.cursor
     state.savedX = state.cursorPos.x
   state.scrollToCursor()
-
+  state.resetBlink()
 proc right*(state: TextBoxState, shift = false) =
   ## Moves the cursor right by one character.
   if state.cursor < state.runes.len:
@@ -350,7 +368,7 @@ proc right*(state: TextBoxState, shift = false) =
       state.selector = state.cursor
     state.savedX = state.cursorPos.x
   state.scrollToCursor()
-
+  state.resetBlink()
 proc down*(state: TextBoxState, shift = false) =
   ## Moves the cursor down one line.
   if state.layout.len > 0:
@@ -366,7 +384,7 @@ proc down*(state: TextBoxState, shift = false) =
       if not shift:
         state.selector = state.cursor
   state.scrollToCursor()
-
+  state.resetBlink()
 proc up*(state: TextBoxState, shift = false) =
   ## Moves the cursor up one line.
   if state.layout.len > 0:
@@ -382,7 +400,7 @@ proc up*(state: TextBoxState, shift = false) =
       if not shift:
         state.selector = state.cursor
   state.scrollToCursor()
-
+  state.resetBlink()
 proc leftWord*(state: TextBoxState, shift = false) =
   ## Moves the cursor left by one word.
   if state.cursor > 0:
@@ -394,7 +412,7 @@ proc leftWord*(state: TextBoxState, shift = false) =
     state.selector = state.cursor
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
-
+  state.resetBlink()
 proc rightWord*(state: TextBoxState, shift = false) =
   ## Moves the cursor right by one word.
   if state.cursor < state.runes.len:
@@ -406,7 +424,7 @@ proc rightWord*(state: TextBoxState, shift = false) =
     state.selector = state.cursor
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
-
+  state.resetBlink()
 proc startOfLine*(state: TextBoxState, shift = false) =
   ## Moves the cursor to the start of the current line.
   while state.cursor > 0 and state.runes[state.cursor - 1] != LF:
@@ -415,7 +433,7 @@ proc startOfLine*(state: TextBoxState, shift = false) =
     state.selector = state.cursor
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
-
+  state.resetBlink()
 proc endOfLine*(state: TextBoxState, shift = false) =
   ## Moves the cursor to the end of the current line.
   while state.cursor < state.runes.len and state.runes[state.cursor] != LF:
@@ -424,7 +442,7 @@ proc endOfLine*(state: TextBoxState, shift = false) =
     state.selector = state.cursor
   state.savedX = state.cursorPos.x
   state.scrollToCursor()
-
+  state.resetBlink()
 proc pageUp*(state: TextBoxState, shift = false) =
   ## Moves the cursor up by half the box height.
   if state.layout.len == 0:
@@ -442,7 +460,7 @@ proc pageUp*(state: TextBoxState, shift = false) =
     if not shift:
       state.selector = state.cursor
   state.scrollToCursor()
-
+  state.resetBlink()
 proc pageDown*(state: TextBoxState, shift = false) =
   ## Moves the cursor down by half the box height.
   if state.layout.len == 0:
@@ -460,6 +478,7 @@ proc pageDown*(state: TextBoxState, shift = false) =
     if not shift:
       state.selector = state.cursor
   state.scrollToCursor()
+  state.resetBlink()
 
 proc mouseAction*(state: TextBoxState, mousePos: Vec2, click = true,
     shift = false) =
@@ -481,6 +500,7 @@ proc mouseAction*(state: TextBoxState, mousePos: Vec2, click = true,
   if not shift and click:
     state.selector = state.cursor
   state.scrollToCursor()
+  state.resetBlink()
 
 proc selectAll*(state: TextBoxState) =
   ## Selects all text.
@@ -669,7 +689,7 @@ template textBox*(id: string, t: var string, boxWidth, boxHeight: float32) =
     discard sk.drawText(sk.textStyle, tbText, tbTextOrigin, sk.theme.textColor,
       maxWidth = tbInnerRect.w, wordWrap = true, clip = false)
     # Draw cursor when focused and blink is on.
-    if tbState.focused and (epochTime() * 2).int mod 2 == 0:
+    if tbState.focused and tbState.cursorVisible:
       let tbCursorRect = tbState.locationRect(tbState.cursor)
       sk.drawRect(
         vec2(tbTextOrigin.x + tbCursorRect.x,
