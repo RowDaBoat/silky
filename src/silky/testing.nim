@@ -3,35 +3,7 @@
 import std/unicode
 import vmath, bumpy, jsony
 import silky/[semantic, atlas]
-
-type
-  Button* = enum
-    ## Mouse and special button types.
-    MouseLeft
-    MouseRight
-    MouseMiddle
-    MouseButton4
-    MouseButton5
-    DoubleClick
-    TripleClick
-    QuadrupleClick
-    KeyUnknown
-    # Keyboard keys for text input.
-    KeyBackspace
-    KeyDelete
-    KeyLeft
-    KeyRight
-    KeyHome
-    KeyEnd
-    KeyA
-    KeyC
-    KeyV
-    KeyLeftShift
-    KeyRightShift
-    KeyLeftControl
-    KeyRightControl
-    KeyLeftSuper
-    KeyRightSuper
+from windy/common import Button
 
 export Button, unicode
 
@@ -139,13 +111,13 @@ proc endFrame*(h: var TestHarness) =
 proc pumpFrame*(h: var TestHarness, onFrame: proc(sk: Silky, window: Window), count = 1): string =
   ## Runs one or more frames and returns the diff from the previous snapshot.
   let previousSnapshot = h.lastSnapshot
-  
+
   for i in 0 ..< count:
     h.beginFrame()
     onFrame(h.sk, h.window)
     h.endFrame()
     h.window.resetInputState()
-  
+
   result = diff(previousSnapshot, h.lastSnapshot)
 
 proc snapshot*(h: TestHarness): string =
@@ -213,7 +185,7 @@ proc click*(w: Window, sk: Silky, node: SemanticNode) =
     let centerX = (node.rect.x + node.rect.w / 2).int
     let centerY = (node.rect.y + node.rect.h / 2).int
     w.moveMouse(centerX, centerY)
-  
+
   w.pressButton(MouseLeft)
   w.pumpFrame(sk)
   w.releaseButton(MouseLeft)

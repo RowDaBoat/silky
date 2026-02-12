@@ -72,24 +72,24 @@ proc toText*(node: SemanticNode, indent: int = 0): string =
   ## Converts a semantic node tree to indented text format.
   let prefix = "  ".repeat(indent)
   let id = if node.name.len > 0: node.name else: $node.childIndex
-  
+
   if node.kind == "Root":
     result = ""
     for child in node.children:
       result.add(child.toText(indent))
     return
-  
+
   result.add(prefix & id & ":\n")
   result.add(prefix & "  type: " & node.kind & "\n")
-  
+
   if node.text.len > 0:
     result.add(prefix & "  text: " & node.text & "\n")
-  
+
   if node.rect.w > 0 or node.rect.h > 0:
-    result.add(prefix & "  rect: " & 
-      $node.rect.x.int & " " & $node.rect.y.int & " " & 
+    result.add(prefix & "  rect: " &
+      $node.rect.x.int & " " & $node.rect.y.int & " " &
       $node.rect.w.int & " " & $node.rect.h.int & "\n")
-  
+
   var stateStr = ""
   if node.state.enabled: stateStr.add("enabled ")
   if node.state.focused: stateStr.add("focused ")
@@ -97,10 +97,10 @@ proc toText*(node: SemanticNode, indent: int = 0): string =
   if node.state.hovered: stateStr.add("hovered ")
   if node.state.checked: stateStr.add("checked ")
   if node.state.value.len > 0: stateStr.add("value:" & node.state.value & " ")
-  
+
   if stateStr.len > 0:
     result.add(prefix & "  state: " & stateStr.strip() & "\n")
-  
+
   if node.children.len > 0:
     result.add(prefix & "  children:\n")
     for child in node.children:
@@ -168,7 +168,7 @@ proc findAllByText*(node: SemanticNode, text: string, kind = ""): seq[SemanticNo
   if node.text == text:
     if kind.len == 0 or node.kind == kind:
       result.add(node)
-  
+
   for child in node.children:
     result.add(child.findAllByText(text, kind))
 
@@ -176,10 +176,10 @@ proc diff*(old, new: string): string =
   ## Computes a simple line-by-line diff between two strings.
   let oldLines = old.splitLines()
   let newLines = new.splitLines()
-  
+
   var output: seq[string] = @[]
   var i, j = 0
-  
+
   while i < oldLines.len or j < newLines.len:
     if i >= oldLines.len:
       output.add("+ " & newLines[j])
@@ -195,10 +195,10 @@ proc diff*(old, new: string): string =
       output.add("+ " & newLines[j])
       inc i
       inc j
-  
+
   if output.len == 0:
     return ""
-  
+
   return output.join("\n")
 
 const
@@ -412,7 +412,17 @@ proc draw9Patch*(sk: Silky, name: string, patch: int, pos: Vec2, size: Vec2, col
   ## Stub for drawing a 9-patch image.
   discard
 
-proc drawText*(sk: Silky, font: string, text: string, pos: Vec2, color: ColorRGBX, maxWidth = float32.high, maxHeight = float32.high): Vec2 =
+proc drawText*(
+  sk: Silky,
+  font: string,
+  text: string,
+  pos: Vec2,
+  color: ColorRGBX,
+  maxWidth = float32.high,
+  maxHeight = float32.high,
+  clip = true,
+  wordWrap = false
+): Vec2 =
   ## Stub for drawing text that returns the text size.
   sk.getTextSize(font, text)
 
@@ -469,7 +479,7 @@ proc endWidget*(sk: Silky) {.inline.} =
   ## Ends the current semantic widget node.
   sk.semantic.popNode()
 
-proc setWidgetState*(sk: Silky, enabled = true, focused = false, pressed = false, 
+proc setWidgetState*(sk: Silky, enabled = true, focused = false, pressed = false,
                      hovered = false, checked = false, value = "") {.inline.} =
   ## Sets the state of the current widget node.
   let node = sk.semantic.currentNode()
