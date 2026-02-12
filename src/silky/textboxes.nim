@@ -584,13 +584,13 @@ template textBox*(id: string, t: var string, boxWidth, boxHeight: float32) =
         case tbState.clickCount:
         of 1:
           tbState.mouseAction(tbLocalMouse, click = true, shift = tbShift)
+          tbState.dragging = true
         of 2:
           tbState.selectWord(tbLocalMouse)
         of 3:
           tbState.selectParagraph(tbLocalMouse)
         else:
           tbState.selectAll()
-        tbState.dragging = true
       else:
         tbState.focused = false
     # Mouse drag.
