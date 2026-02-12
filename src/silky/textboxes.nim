@@ -827,12 +827,12 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
   state.scrollPos.x = max(0.0f, state.scrollPos.x)
   # Draw background.
   let patch =
-    if not enabled: "textbox.disabled.9patch"
-    elif error: "textbox.error.9patch"
+    if error: "textbox.error.9patch"
+    elif not enabled: "textbox.disabled.9patch"
     else: "textbox.9patch"
   let textColor =
-    if not enabled: sk.theme.disabledTextColor
-    elif error: sk.theme.errorTextColor
+    if error: sk.theme.errorTextColor
+    elif not enabled: sk.theme.disabledTextColor
     else: sk.theme.textColor
   if state.focused and enabled:
     sk.draw9Patch(patch, 6, outerRect.xy, outerRect.wh,
@@ -880,8 +880,8 @@ template textBox*(
   sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords, singleLine,
     isEnabled, isError)
 
-template inputText*(
-  id: int,
+template textInput*(
+  id: string,
   t: var string,
   isEnabled: bool = true,
   isError: bool = false
@@ -890,5 +890,5 @@ template inputText*(
   let itFont = sk.atlas.fonts[sk.textStyle]
   let itHeight = itFont.lineHeight + sk.theme.padding.float32 * 2
   let itWidth = sk.size.x - sk.theme.padding.float32 * 3
-  sk.textBox(window, $id, t, itWidth, itHeight,
+  sk.textBox(window, id, t, itWidth, itHeight,
     wrapWords = false, singleLine = true, enabled = isEnabled, error = isError)

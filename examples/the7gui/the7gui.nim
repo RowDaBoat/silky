@@ -126,28 +126,28 @@ window.onFrame = proc() =
     let cValid = isValidFloat(celsius)
     let oldCelsius = celsius
     text("Celsius")
-    inputText(1, celsius, true, not cValid)
+    textInput("celsius", celsius, true, not cValid)
     if celsius != oldCelsius:
       try:
         let c = parseFloat(celsius)
         let f = c * (9.0 / 5.0) + 32.0
         fahrenheit = fmt"{f:.1f}"
-        if "2" in textBoxStates:
-           textBoxStates["2"].setText(fahrenheit)
+        if "fahrenheit" in textBoxStates:
+           textBoxStates["fahrenheit"].setText(fahrenheit)
       except ValueError:
         discard
 
     let fValid = isValidFloat(fahrenheit)
     let oldFahrenheit = fahrenheit
     text("Fahrenheit")
-    inputText(2, fahrenheit, true, not fValid)
+    textInput("fahrenheit", fahrenheit, true, not fValid)
     if fahrenheit != oldFahrenheit:
       try:
         let f = parseFloat(fahrenheit)
         let c = (f - 32.0) * (5.0 / 9.0)
         celsius = fmt"{c:.1f}"
-        if "1" in textBoxStates:
-           textBoxStates["1"].setText(celsius)
+        if "celsius" in textBoxStates:
+           textBoxStates["celsius"].setText(celsius)
       except ValueError:
         discard
 
@@ -156,12 +156,12 @@ window.onFrame = proc() =
 
     let startValid = isValidDate(startDateStr)
     text("Start Date")
-    inputText(3, startDateStr, true, not startValid)
+    textInput("startDate", startDateStr, true, not startValid)
 
     let isReturn = flightType == "return flight"
     let returnValid = isValidDate(returnDateStr)
     text("Return Date")
-    inputText(4, returnDateStr, isReturn, isReturn and not returnValid)
+    textInput("returnDate", returnDateStr, isReturn, isReturn and not returnValid)
 
     var dateOrderError = false
     if isReturn and startValid and returnValid:
@@ -193,7 +193,7 @@ window.onFrame = proc() =
 
   subWindow("CRUD", showCRUD, vec2(150, 150), vec2(400, 450)):
     text("Filter prefix:")
-    inputText(5, crudPrefix)
+    textInput("crudPrefix", crudPrefix)
 
     # Filter database based on prefix using case insensitive comparison.
     var filteredItems: seq[string]
@@ -223,14 +223,14 @@ window.onFrame = proc() =
         crudSurname = ""
 
       # Sync back to input text states to update display immediately.
-      if "6" in textBoxStates: textBoxStates["6"].setText(crudName)
-      if "7" in textBoxStates: textBoxStates["7"].setText(crudSurname)
+      if "crudName" in textBoxStates: textBoxStates["crudName"].setText(crudName)
+      if "crudSurname" in textBoxStates: textBoxStates["crudSurname"].setText(crudSurname)
       oldCrudSelected = crudSelected
 
     text("Name:")
-    inputText(6, crudName)
+    textInput("crudName", crudName)
     text("Surname:")
-    inputText(7, crudSurname)
+    textInput("crudSurname", crudSurname)
 
     let canUpdateDelete = crudSelected != -1
     let originalIdx = if canUpdateDelete: originalIndices[crudSelected] else: -1
@@ -251,8 +251,8 @@ window.onFrame = proc() =
         crudSelected = -1
         crudName = ""
         crudSurname = ""
-        if "6" in textBoxStates: textBoxStates["6"].setText("")
-        if "7" in textBoxStates: textBoxStates["7"].setText("")
+        if "crudName" in textBoxStates: textBoxStates["crudName"].setText("")
+        if "crudSurname" in textBoxStates: textBoxStates["crudSurname"].setText("")
 
   subWindow("Circle Drawer", showCircleDrawer, vec2(160, 160), vec2(400, 400)):
     text("Coming soon...")
