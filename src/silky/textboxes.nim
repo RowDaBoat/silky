@@ -292,10 +292,11 @@ proc scrollToCursor*(state: TextBoxState) =
     state.scrollPos.y = r.y
   if r.y + r.h > state.scrollPos.y + state.boxSize.y:
     state.scrollPos.y = r.y + r.h - state.boxSize.y
-  if r.x < state.scrollPos.x:
-    state.scrollPos.x = r.x
-  if r.x + CursorWidth > state.scrollPos.x + state.boxSize.x:
-    state.scrollPos.x = r.x + CursorWidth - state.boxSize.x
+  if not state.wordWrap:
+    if r.x < state.scrollPos.x:
+      state.scrollPos.x = r.x
+    if r.x + CursorWidth > state.scrollPos.x + state.boxSize.x:
+      state.scrollPos.x = r.x + CursorWidth - state.boxSize.x
 
 proc typeCharacter*(state: TextBoxState, rune: Rune) =
   ## Adds a character at the cursor position.
@@ -676,7 +677,7 @@ proc drawScrollbars*(sk: Silky, state: TextBoxState, window: Window,
   let scrollMaxY = max(0.0f, contentH - innerRect.h)
   let scrollMaxX = max(0.0f, contentW - innerRect.w)
   let hasScrollY = contentH > innerRect.h
-  let hasScrollX = contentW > innerRect.w
+  let hasScrollX = not state.wordWrap and contentW > innerRect.w
   # Release scrollbar drag when mouse released.
   if state.scrollingY and
       (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
@@ -824,7 +825,10 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
   # Clamp scroll.
   let maxScrollY = max(0.0f, state.innerHeight - innerRect.h)
   state.scrollPos.y = clamp(state.scrollPos.y, 0.0f, maxScrollY)
-  state.scrollPos.x = max(0.0f, state.scrollPos.x)
+  if state.wordWrap:
+    state.scrollPos.x = 0
+  else:
+    state.scrollPos.x = max(0.0f, state.scrollPos.x)
   # Draw background.
   let patch =
     if error: "textbox.error.9patch"
