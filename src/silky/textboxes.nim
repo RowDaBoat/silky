@@ -305,8 +305,8 @@ proc typeCharacter*(state: TextBoxState, rune: Rune) =
     return
   if state.singleLine and (rune == LF or rune == CR):
     return
-  state.removeSelection()
   state.undoSave()
+  state.removeSelection()
   if state.cursor >= state.runes.len:
     state.runes.add(rune)
   else:
@@ -321,8 +321,8 @@ proc typeCharacters*(state: TextBoxState, s: string) =
   ## In single-line mode, newlines are converted to spaces. Disabled blocks edits.
   if not state.enabled:
     return
-  state.removeSelection()
   state.undoSave()
+  state.removeSelection()
   for rune in runes(s):
     if rune == CR:
       continue
@@ -357,6 +357,7 @@ proc cutText*(state: TextBoxState): string =
   result = state.copyText()
   if not state.enabled or result == "":
     return
+  state.undoSave()
   state.removeSelection()
   state.savedX = state.cursorPos.x
   state.resetBlink()
@@ -365,10 +366,13 @@ proc backspace*(state: TextBoxState) =
   ## Deletes the character before the cursor. Disabled state blocks edits.
   if not state.enabled:
     return
-  if state.removedSelection():
+  if state.cursor != state.selector:
+    state.undoSave()
+    discard state.removedSelection()
     state.resetBlink()
     return
   if state.cursor > 0:
+    state.undoSave()
     state.runes.delete(state.cursor - 1)
     dec state.cursor
     state.selector = state.cursor
@@ -380,10 +384,13 @@ proc delete*(state: TextBoxState) =
   ## Deletes the character after the cursor. Disabled state blocks edits.
   if not state.enabled:
     return
-  if state.removedSelection():
+  if state.cursor != state.selector:
+    state.undoSave()
+    discard state.removedSelection()
     state.resetBlink()
     return
   if state.cursor < state.runes.len:
+    state.undoSave()
     state.runes.delete(state.cursor)
     state.dirty = true
   state.scrollToCursor()
@@ -394,10 +401,13 @@ proc backspaceWord*(state: TextBoxState) =
   ## first then the word. Otherwise just eats the word.
   if not state.enabled:
     return
-  if state.removedSelection():
+  if state.cursor != state.selector:
+    state.undoSave()
+    discard state.removedSelection()
     state.resetBlink()
     return
   if state.cursor > 0:
+    state.undoSave()
     if state.runes[state.cursor - 1].isWhiteSpace():
       while state.cursor > 0 and
           state.runes[state.cursor - 1].isWhiteSpace():
@@ -416,10 +426,13 @@ proc deleteWord*(state: TextBoxState) =
   ## Deletes the word after the cursor, then any trailing spaces.
   if not state.enabled:
     return
-  if state.removedSelection():
+  if state.cursor != state.selector:
+    state.undoSave()
+    discard state.removedSelection()
     state.resetBlink()
     return
   if state.cursor < state.runes.len:
+    state.undoSave()
     while state.cursor < state.runes.len and
         not state.runes[state.cursor].isWhiteSpace():
       state.runes.delete(state.cursor)

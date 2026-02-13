@@ -448,6 +448,116 @@ block:
   s2.typeCharacter(Rune('b'))
   s2.redo()
   doAssert s2.getText() == "b", "Redo after new edit should do nothing"
+block:
+  echo "Testing undo: type multiple chars then undo all"
+  let s = newState("")
+  s.typeCharacter(Rune('a'))
+  s.typeCharacter(Rune('b'))
+  s.typeCharacter(Rune('c'))
+  doAssert s.getText() == "abc"
+  s.undo()
+  doAssert s.getText() == "ab"
+  s.undo()
+  doAssert s.getText() == "a"
+  s.undo()
+  doAssert s.getText() == ""
+  # Extra undo on empty stack does nothing.
+  s.undo()
+  doAssert s.getText() == ""
+  # Redo all.
+  s.redo()
+  doAssert s.getText() == "a"
+  s.redo()
+  doAssert s.getText() == "ab"
+  s.redo()
+  doAssert s.getText() == "abc"
+block:
+  echo "Testing undo: select word, type replacement, then undo"
+  let s = newState("hello world foo")
+  # Select "world" (indices 6..10).
+  s.cursor = 6
+  s.selector = 11
+  doAssert s.copyText() == "world"
+  # Type 'x' to replace the selection.
+  s.typeCharacter(Rune('x'))
+  doAssert s.getText() == "hello x foo"
+  # Undo should restore "world".
+  s.undo()
+  doAssert s.getText() == "hello world foo", "Undo should restore the deleted word"
+  doAssert s.cursor == 6
+  # Redo should re-apply the replacement.
+  s.redo()
+  doAssert s.getText() == "hello x foo"
+block:
+  echo "Testing undo: select and paste over selection"
+  let s = newState("aaa bbb ccc")
+  s.cursor = 4
+  s.selector = 7
+  doAssert s.copyText() == "bbb"
+  s.pasteText("XXX")
+  doAssert s.getText() == "aaa XXX ccc"
+  s.undo()
+  doAssert s.getText() == "aaa bbb ccc", "Undo paste over selection should restore"
+block:
+  echo "Testing undo: backspace with selection"
+  let s = newState("abcdef")
+  s.cursor = 1
+  s.selector = 4
+  s.backspace()
+  doAssert s.getText() == "aef"
+  s.undo()
+  doAssert s.getText() == "abcdef", "Undo backspace-selection should restore"
+block:
+  echo "Testing undo: delete with selection"
+  let s = newState("abcdef")
+  s.cursor = 1
+  s.selector = 4
+  s.delete()
+  doAssert s.getText() == "aef"
+  s.undo()
+  doAssert s.getText() == "abcdef", "Undo delete-selection should restore"
+block:
+  echo "Testing undo: backspace single char"
+  let s = newState("abc")
+  s.backspace()
+  doAssert s.getText() == "ab"
+  s.undo()
+  doAssert s.getText() == "abc", "Undo backspace should restore char"
+block:
+  echo "Testing undo: delete single char"
+  let s = newState("abc")
+  s.cursor = 0
+  s.selector = 0
+  s.delete()
+  doAssert s.getText() == "bc"
+  s.undo()
+  doAssert s.getText() == "abc", "Undo delete should restore char"
+block:
+  echo "Testing undo: cutText"
+  let s = newState("hello world")
+  s.cursor = 0
+  s.selector = 5
+  let cut = s.cutText()
+  doAssert cut == "hello"
+  doAssert s.getText() == " world"
+  s.undo()
+  doAssert s.getText() == "hello world", "Undo cut should restore"
+block:
+  echo "Testing undo: backspaceWord"
+  let s = newState("hello world")
+  s.backspaceWord()
+  doAssert s.getText() == "hello "
+  s.undo()
+  doAssert s.getText() == "hello world", "Undo backspaceWord should restore"
+block:
+  echo "Testing undo: deleteWord"
+  let s = newState("hello world")
+  s.cursor = 0
+  s.selector = 0
+  s.deleteWord()
+  doAssert s.getText() == "world"
+  s.undo()
+  doAssert s.getText() == "hello world", "Undo deleteWord should restore"
 
 block:
   echo "Testing removedSelection"
