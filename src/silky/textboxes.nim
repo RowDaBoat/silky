@@ -78,6 +78,7 @@ type
     enabled*: bool = true
     password*: bool
     passwordChar*: Rune = Rune('*')
+    allowedChars*: seq[Rune]
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -89,6 +90,11 @@ proc vec2(v: SomeNumber): Vec2 =
 proc vec2[A, B](x: A, y: B): Vec2 =
   ## Create a Vec2 from two numbers.
   vec2(x.float32, y.float32)
+
+proc isAllowed*(state: TextBoxState, rune: Rune): bool =
+  ## Returns true if the rune is allowed in this text box.
+  ## Empty allowedChars means all characters are allowed.
+  state.allowedChars.len == 0 or rune in state.allowedChars
 
 proc resetBlink*(state: TextBoxState) =
   ## Resets the cursor blink timer so the cursor is immediately visible.
@@ -115,11 +121,18 @@ proc displayText*(state: TextBoxState): string =
 proc setText*(state: TextBoxState, text: string) =
   ## Sets the text content and resets cursor to end.
   ## In single-line mode, newlines are converted to spaces.
+  ## Disallowed characters are removed.
   state.runes = text.toRunes
   if state.singleLine:
     for i in 0 ..< state.runes.len:
       if state.runes[i] == LF or state.runes[i] == CR:
         state.runes[i] = Space
+  if state.allowedChars.len > 0:
+    var filtered: seq[Rune]
+    for r in state.runes:
+      if r in state.allowedChars:
+        filtered.add(r)
+    state.runes = filtered
   state.cursor = state.runes.len
   state.selector = state.cursor
   state.dirty = true
@@ -316,10 +329,12 @@ proc scrollToCursor*(state: TextBoxState) =
 
 proc typeCharacter*(state: TextBoxState, rune: Rune) =
   ## Adds a character at the cursor position.
-  ## In single-line mode, newlines are ignored. Disabled state blocks edits.
+  ## Blocked by: disabled, single-line newlines, and allowedChars filter.
   if not state.enabled:
     return
   if state.singleLine and (rune == LF or rune == CR):
+    return
+  if not state.isAllowed(rune):
     return
   state.undoSave()
   state.removeSelection()
@@ -332,6 +347,7 @@ proc typeCharacter*(state: TextBoxState, rune: Rune) =
   state.dirty = true
   state.scrollToCursor()
   state.resetBlink()
+
 proc typeCharacters*(state: TextBoxState, s: string) =
   ## Adds multiple characters at the cursor position.
   ## In single-line mode, newlines are converted to spaces. Disabled blocks edits.
@@ -345,6 +361,8 @@ proc typeCharacters*(state: TextBoxState, s: string) =
     var r = rune
     if state.singleLine and r == LF:
       r = Space
+    if not state.isAllowed(r):
+      continue
     if state.cursor >= state.runes.len:
       state.runes.add(r)
     else:
@@ -789,22 +807,26 @@ proc textBox*(
   enabled: bool = true,
   error: bool = false,
   password: bool = false,
-  passwordChar: Rune = Rune('*')
+  passwordChar: Rune = Rune('*'),
+  allowedChars: seq[Rune] = @[]
 ) =
   ## Text box widget with editing, selection, and scroll.
   ## When disabled, text can be selected and copied but not modified.
   ## Error is a visual-only state that changes the border and text color.
   ## Password mode masks displayed characters with the given char.
+  ## allowedChars filters which characters can be typed or pasted.
   # State management.
   let effectiveWrap = if singleLine: false else: wrapWords
   if id notin textBoxStates:
     let newState = TextBoxState(
       dirty: true, wordWrap: effectiveWrap, singleLine: singleLine,
-      password: password, passwordChar: passwordChar)
+      password: password, passwordChar: passwordChar,
+      allowedChars: allowedChars)
     newState.setText(t)
     textBoxStates[id] = newState
   let state = textBoxStates[id]
   state.enabled = enabled
+  state.allowedChars = allowedChars
   if state.password != password:
     state.password = password
     state.dirty = true
@@ -939,35 +961,30 @@ template textBox*(
   isEnabled = true,
   isError = false,
   isPassword = false,
-  passChar: Rune = Rune('*')
+  passChar: Rune = Rune('*'),
+  chars: seq[Rune] = @[]
 ) =
   ## Text box widget. Set singleLine for a single-line input.
-  sk.textBox(
-    window,
-    id,
-    t,
-    boxWidth,
-    boxHeight,
-    wrapWords,
-    singleLine,
-    isEnabled,
-    isError,
-    isPassword,
-    passChar
+  let tbChars = chars
+  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords, singleLine,
+    isEnabled, isError, isPassword, passChar, tbChars
   )
 
 template textInput*(
   id: string,
   t: var string,
   isEnabled: bool = true,
-  isError: bool = false
+  isError: bool = false,
+  chars: seq[Rune] = @[]
 ) =
   ## Single-line text input widget.
   let itFont = sk.atlas.fonts[sk.textStyle]
   let itHeight = itFont.lineHeight + sk.theme.padding.float32 * 2
   let itWidth = sk.size.x - sk.theme.padding.float32 * 3
+  let itChars = chars
   sk.textBox(window, id, t, itWidth, itHeight,
-    wrapWords = false, singleLine = true, enabled = isEnabled, error = isError)
+    wrapWords = false, singleLine = true, enabled = isEnabled,
+    error = isError, allowedChars = itChars)
 
 template passwordInput*(
   id: string,
@@ -980,6 +997,16 @@ template passwordInput*(
   let piFont = sk.atlas.fonts[sk.textStyle]
   let piHeight = piFont.lineHeight + sk.theme.padding.float32 * 2
   let piWidth = sk.size.x - sk.theme.padding.float32 * 3
-  sk.textBox(window, id, t, piWidth, piHeight,
-    wrapWords = false, singleLine = true, enabled = isEnabled,
-    error = isError, password = true, passwordChar = passChar)
+  sk.textBox(
+    window,
+    id,
+    t,
+    piWidth,
+    piHeight,
+    wrapWords = false,
+    singleLine = true,
+    enabled = isEnabled,
+    error = isError,
+    password = true,
+    passwordChar = passChar
+  )

@@ -1557,4 +1557,97 @@ block:
     doAssert s.displayText().len == s.getText().len,
       "displayText length should match getText length"
 
+block:
+  echo "Testing allowedChars: typeCharacter filters"
+  let s = newState("")
+  s.allowedChars = "0123456789".toRunes
+  s.typeCharacter(Rune('5'))
+  doAssert s.getText() == "5"
+  s.typeCharacter(Rune('a'))
+  doAssert s.getText() == "5", "Letter should be rejected"
+  s.typeCharacter(Rune('3'))
+  doAssert s.getText() == "53"
+  s.typeCharacter(Rune(' '))
+  doAssert s.getText() == "53", "Space should be rejected"
+
+block:
+  echo "Testing allowedChars: typeCharacters filters"
+  let s = newState("")
+  s.allowedChars = "0123456789".toRunes
+  s.typeCharacters("abc123def456")
+  doAssert s.getText() == "123456", "Only digits should pass"
+
+block:
+  echo "Testing allowedChars: paste filters"
+  let s = newState("")
+  s.allowedChars = "0123456789".toRunes
+  s.pasteText("hello 42 world 99")
+  doAssert s.getText() == "4299", "Only digits from paste"
+
+block:
+  echo "Testing allowedChars: setText filters"
+  let s = newState("")
+  s.allowedChars = "0123456789".toRunes
+  s.setText("abc123")
+  doAssert s.getText() == "123"
+  s.setText("")
+  doAssert s.getText() == ""
+  s.setText("no digits here")
+  doAssert s.getText() == ""
+
+block:
+  echo "Testing allowedChars: empty means all allowed"
+  let s = newState("")
+  s.allowedChars = @[]
+  s.typeCharacter(Rune('a'))
+  doAssert s.getText() == "a"
+  s.typeCharacter(Rune('1'))
+  doAssert s.getText() == "a1"
+  s.typeCharacter(Rune(' '))
+  doAssert s.getText() == "a1 "
+
+block:
+  echo "Testing allowedChars: backspace and delete still work"
+  let s = newState("")
+  s.allowedChars = "abc".toRunes
+  s.typeCharacters("abc")
+  doAssert s.getText() == "abc"
+  s.backspace()
+  doAssert s.getText() == "ab"
+  s.cursor = 0
+  s.selector = 0
+  s.delete()
+  doAssert s.getText() == "b"
+
+block:
+  echo "Testing allowedChars: undo works"
+  let s = newState("")
+  s.allowedChars = "0123456789".toRunes
+  s.typeCharacter(Rune('5'))
+  s.typeCharacter(Rune('3'))
+  doAssert s.getText() == "53"
+  s.undo()
+  doAssert s.getText() == "5"
+  s.undo()
+  doAssert s.getText() == ""
+
+block:
+  echo "Testing allowedChars: combined with singleLine"
+  let s = newStateSingleLine("")
+  s.allowedChars = "0123456789".toRunes
+  s.typeCharacter(Rune('1'))
+  s.typeCharacter(Rune(10))
+  doAssert s.getText() == "1", "Newline rejected by both singleLine and allowedChars"
+  s.typeCharacters("a2b3c")
+  doAssert s.getText() == "123"
+
+block:
+  echo "Testing allowedChars: combined with password"
+  let s = newState("")
+  s.password = true
+  s.allowedChars = "0123456789".toRunes
+  s.typeCharacters("pin1234")
+  doAssert s.getText() == "1234"
+  doAssert s.displayText() == "****"
+
 echo "All tests passed."

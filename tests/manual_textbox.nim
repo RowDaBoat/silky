@@ -48,7 +48,9 @@ var
   disabledOn = false
   errorOn = false
   passwordOn = false
+  numbersOnly = false
   singleLineText = "Single line input"
+  numberText = "12345"
   sampleText = SampleText
 
 window.onFrame = proc() =
@@ -71,10 +73,21 @@ window.onFrame = proc() =
   checkBox("Disabled", disabledOn)
   checkBox("Error", errorOn)
   checkBox("Password", passwordOn)
+  checkBox("Numbers only", numbersOnly)
 
-  # Single line input or password input.
+  let digitChars = "0123456789".toRunes
+
+  # Single line input variants.
   if passwordOn:
     passwordInput("single", singleLineText, not disabledOn, errorOn)
+  elif numbersOnly:
+    textInput(
+      "numbers",
+      numberText,
+      not disabledOn,
+      errorOn,
+      digitChars
+    )
   else:
     textInput("single", singleLineText, not disabledOn, errorOn)
 
