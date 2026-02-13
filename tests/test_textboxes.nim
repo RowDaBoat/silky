@@ -1131,4 +1131,75 @@ block:
   s2.typeCharacter(Rune('x'))
   doAssert s2.getText() == "x"
 
+block:
+  echo "Testing word wrap disables horizontal scroll"
+  # With word wrap on, scrollToCursor should never change X.
+  let s = newState("hello world this is a long line", 60)
+  s.boxSize = vec2(60, 40)
+  s.scrollPos.x = 0
+  s.cursor = s.runes.len
+  s.selector = s.cursor
+  s.scrollToCursor()
+  doAssert s.scrollPos.x == 0, "Cursor at end with wrap should not scroll X"
+  # Move cursor around, X stays 0.
+  s.cursor = 0
+  s.selector = 0
+  s.scrollToCursor()
+  doAssert s.scrollPos.x == 0, "Cursor at start with wrap should not scroll X"
+  # Without word wrap, scrollPos.x can be non-zero.
+  let snw = newStateNoWrap("hello world this is a long line", 60)
+  snw.boxSize = vec2(60, 40)
+  snw.cursor = snw.runes.len
+  snw.selector = snw.cursor
+  snw.scrollToCursor()
+  doAssert snw.scrollPos.x > 0, "Cursor at end without wrap should scroll X"
+block:
+  echo "Testing word wrap: scrollBy does not affect X"
+  let s = newState("hello world", 60)
+  s.boxSize = vec2(60, 40)
+  s.scrollPos.x = 0
+  # scrollBy only changes Y, but let us verify X stays 0.
+  s.scrollBy(100, 40)
+  doAssert s.scrollPos.x == 0, "scrollBy should not affect X when word wrap on"
+block:
+  echo "Testing no-wrap: horizontal scroll works"
+  let s = newStateNoWrap("abcdefghijklmnopqrstuvwxyz", 60)
+  s.boxSize = vec2(60, 40)
+  # Move cursor to end.
+  s.cursor = s.runes.len
+  s.selector = s.cursor
+  s.scrollToCursor()
+  doAssert s.scrollPos.x > 0, "Cursor at end without wrap should scroll right"
+  # Move cursor to start.
+  s.cursor = 0
+  s.selector = 0
+  s.scrollToCursor()
+  doAssert s.scrollPos.x == 0, "Cursor at start should scroll back to 0"
+block:
+  echo "Testing word wrap: typing does not cause horizontal scroll"
+  let s = newState("", 60)
+  s.boxSize = vec2(60, 40)
+  for c in "hello world this is a test":
+    s.typeCharacter(Rune(c))
+    s.computeLayout(fontData, 60)
+  doAssert s.scrollPos.x == 0, "Typing with wrap should never cause X scroll"
+block:
+  echo "Testing no-wrap: typing long text causes horizontal scroll"
+  let s = newStateNoWrap("", 60)
+  s.boxSize = vec2(60, 40)
+  for c in "hello world this is a test":
+    s.typeCharacter(Rune(c))
+    s.computeLayout(fontData, 60)
+  doAssert s.scrollPos.x > 0, "Typing without wrap should cause X scroll"
+block:
+  echo "Testing word wrap: left/right navigation does not scroll X"
+  let s = newState("hello world this is long text", 60)
+  s.boxSize = vec2(60, 40)
+  s.cursor = 0
+  s.selector = 0
+  for i in 0 ..< s.runes.len:
+    s.right()
+    s.computeLayout(fontData, 60)
+    doAssert s.scrollPos.x == 0, "right() with wrap should never scroll X"
+
 echo "All tests passed."
