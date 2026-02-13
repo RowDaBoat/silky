@@ -76,6 +76,8 @@ type
     scrollDragOffset*: Vec2
     singleLine*: bool
     enabled*: bool = true
+    password*: bool
+    passwordChar*: Rune = Rune('*')
 
 var
   textBoxStates*: Table[string, TextBoxState]
@@ -100,6 +102,15 @@ proc cursorVisible*(state: TextBoxState): bool =
 proc getText*(state: TextBoxState): string =
   ## Returns the current text content.
   $state.runes
+
+proc displayText*(state: TextBoxState): string =
+  ## Returns the text to display. In password mode, all chars are masked.
+  if state.password:
+    result = ""
+    for _ in state.runes:
+      result.add($state.passwordChar)
+  else:
+    result = $state.runes
 
 proc setText*(state: TextBoxState, text: string) =
   ## Sets the text content and resets cursor to end.
@@ -128,6 +139,11 @@ proc computeLayout*(state: TextBoxState, fontData: FontAtlas, maxWidth: float32)
   var i = 0
   while i < state.runes.len:
     let rune = state.runes[i]
+    let displayRune =
+      if state.password:
+        state.passwordChar
+      else:
+        rune
     if rune == LF:
       # Newline gets a zero-width rect at line end.
       state.layout.add rect(currentPos.x, currentPos.y, 0, fontData.lineHeight)
@@ -147,7 +163,7 @@ proc computeLayout*(state: TextBoxState, fontData: FontAtlas, maxWidth: float32)
         while j < state.runes.len and
             state.runes[j] != Rune(32) and
             state.runes[j] != LF:
-          let gs = $state.runes[j]
+          let gs = $displayRune
           if gs in fontData.entries:
             wordW += fontData.entries[gs][0].advance
           elif "?" in fontData.entries:
@@ -156,7 +172,7 @@ proc computeLayout*(state: TextBoxState, fontData: FontAtlas, maxWidth: float32)
         if currentPos.x + wordW > maxWidth:
           currentPos.x = 0
           currentPos.y += fontData.lineHeight
-    let glyphStr = $rune
+    let glyphStr = $displayRune
     var entry: LetterEntry
     if glyphStr in fontData.entries:
       entry = fontData.entries[glyphStr][0]
@@ -762,22 +778,37 @@ proc drawScrollbars*(sk: Silky, state: TextBoxState, window: Window,
         state.scrollDragOffset.x = mouseVec.x - handleRect.x
     sk.draw9Patch("scrollbar.9patch", 4, handleRect.xy, handleRect.wh)
 
-proc textBox*(sk: Silky, window: Window, id: string, t: var string,
-    boxWidth, boxHeight: float32, wrapWords: bool,
-    singleLine: bool = false, enabled: bool = true,
-    error: bool = false) =
+proc textBox*(
+  sk: Silky,
+  window: Window,
+  id: string,
+  t: var string,
+  boxWidth, boxHeight: float32,
+  wrapWords: bool,
+  singleLine: bool = false,
+  enabled: bool = true,
+  error: bool = false,
+  password: bool = false,
+  passwordChar: Rune = Rune('*')
+) =
   ## Text box widget with editing, selection, and scroll.
   ## When disabled, text can be selected and copied but not modified.
   ## Error is a visual-only state that changes the border and text color.
+  ## Password mode masks displayed characters with the given char.
   # State management.
   let effectiveWrap = if singleLine: false else: wrapWords
   if id notin textBoxStates:
     let newState = TextBoxState(
-      dirty: true, wordWrap: effectiveWrap, singleLine: singleLine)
+      dirty: true, wordWrap: effectiveWrap, singleLine: singleLine,
+      password: password, passwordChar: passwordChar)
     newState.setText(t)
     textBoxStates[id] = newState
   let state = textBoxStates[id]
   state.enabled = enabled
+  if state.password != password:
+    state.password = password
+    state.dirty = true
+  state.passwordChar = passwordChar
   if state.singleLine != singleLine:
     state.singleLine = singleLine
     state.dirty = true
@@ -875,9 +906,15 @@ proc textBox*(sk: Silky, window: Window, id: string, t: var string,
       sk.drawRect(
         vec2(textOrigin.x + r.x, textOrigin.y + r.y),
         vec2(r.w, r.h), SelectionColor)
-  discard sk.drawText(sk.textStyle, $state.runes, textOrigin,
-    textColor, maxWidth = innerRect.w,
-    wordWrap = state.wordWrap, clip = false)
+  discard sk.drawText(
+    sk.textStyle,
+    state.displayText,
+    textOrigin,
+    textColor,
+    maxWidth = innerRect.w,
+    wordWrap = state.wordWrap,
+    clip = false
+  )
   if state.focused and state.cursorVisible:
     let cr = state.locationRect(state.cursor)
     sk.drawRect(
@@ -900,11 +937,24 @@ template textBox*(
   wrapWords = true,
   singleLine = false,
   isEnabled = true,
-  isError = false
+  isError = false,
+  isPassword = false,
+  passChar: Rune = Rune('*')
 ) =
   ## Text box widget. Set singleLine for a single-line input.
-  sk.textBox(window, id, t, boxWidth, boxHeight, wrapWords, singleLine,
-    isEnabled, isError)
+  sk.textBox(
+    window,
+    id,
+    t,
+    boxWidth,
+    boxHeight,
+    wrapWords,
+    singleLine,
+    isEnabled,
+    isError,
+    isPassword,
+    passChar
+  )
 
 template textInput*(
   id: string,
@@ -918,3 +968,18 @@ template textInput*(
   let itWidth = sk.size.x - sk.theme.padding.float32 * 3
   sk.textBox(window, id, t, itWidth, itHeight,
     wrapWords = false, singleLine = true, enabled = isEnabled, error = isError)
+
+template passwordInput*(
+  id: string,
+  t: var string,
+  isEnabled: bool = true,
+  isError: bool = false,
+  passChar: Rune = Rune('*')
+) =
+  ## Single-line password input widget. Characters are masked.
+  let piFont = sk.atlas.fonts[sk.textStyle]
+  let piHeight = piFont.lineHeight + sk.theme.padding.float32 * 2
+  let piWidth = sk.size.x - sk.theme.padding.float32 * 3
+  sk.textBox(window, id, t, piWidth, piHeight,
+    wrapWords = false, singleLine = true, enabled = isEnabled,
+    error = isError, password = true, passwordChar = passChar)

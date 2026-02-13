@@ -47,6 +47,7 @@ var
   wordWrapOn = true
   disabledOn = false
   errorOn = false
+  passwordOn = false
   singleLineText = "Single line input"
   sampleText = SampleText
 
@@ -69,9 +70,13 @@ window.onFrame = proc() =
   checkBox("Word wrap", wordWrapOn)
   checkBox("Disabled", disabledOn)
   checkBox("Error", errorOn)
+  checkBox("Password", passwordOn)
 
-  # Single line input.
-  textInput("single", singleLineText, not disabledOn, errorOn)
+  # Single line input or password input.
+  if passwordOn:
+    passwordInput("single", singleLineText, not disabledOn, errorOn)
+  else:
+    textInput("single", singleLineText, not disabledOn, errorOn)
 
   # Multi-line text box.
   textBox(

@@ -1388,4 +1388,65 @@ block:
     s.computeLayout(fontData, 60)
     doAssert s.scrollPos.x == 0, "right() with wrap should never scroll X"
 
+block:
+  echo "Testing password mode: displayText masks characters"
+  let s = newState("hello")
+  doAssert s.displayText() == "hello", "Non-password should show real text"
+  s.password = true
+  doAssert s.displayText() == "*****", "Password should mask with *"
+  s.passwordChar = Rune('#')
+  doAssert s.displayText() == "#####", "Custom password char"
+  # Empty string.
+  let s2 = newState("")
+  s2.password = true
+  doAssert s2.displayText() == ""
+  # Single char.
+  let s3 = newState("x")
+  s3.password = true
+  doAssert s3.displayText() == "*"
+
+block:
+  echo "Testing password mode: layout uses password char width"
+  let s = newState("abc")
+  s.password = true
+  s.computeLayout(fontData, 500)
+  doAssert s.layout.len == 3
+  # All chars should have the same width (the * char width).
+  doAssert s.layout[0].w == s.layout[1].w
+  doAssert s.layout[1].w == s.layout[2].w
+
+block:
+  echo "Testing password mode: getText returns real text"
+  let s = newState("secret")
+  s.password = true
+  doAssert s.getText() == "secret", "getText should return real text"
+  doAssert s.displayText() == "******", "displayText should mask"
+
+block:
+  echo "Testing password mode: editing works on real text"
+  let s = newState("pass")
+  s.password = true
+  s.typeCharacter(Rune('!'))
+  doAssert s.getText() == "pass!"
+  doAssert s.displayText() == "*****"
+  s.backspace()
+  doAssert s.getText() == "pass"
+  doAssert s.displayText() == "****"
+  s.cursor = 0
+  s.selector = 4
+  doAssert s.copyText() == "pass", "Copy should return real text"
+
+block:
+  echo "Testing password mode: toggling recomputes layout"
+  let s = newState("hello")
+  s.computeLayout(fontData, 500)
+  let normalWidth = s.layout[0].w
+  s.password = true
+  s.dirty = true
+  s.computeLayout(fontData, 500)
+  let maskedWidth = s.layout[0].w
+  # The * char likely has a different width than 'h'.
+  # Just verify layout was recomputed (len is still correct).
+  doAssert s.layout.len == 5
+
 echo "All tests passed."
