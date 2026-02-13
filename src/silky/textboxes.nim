@@ -390,13 +390,19 @@ proc delete*(state: TextBoxState) =
   state.resetBlink()
 
 proc backspaceWord*(state: TextBoxState) =
-  ## Deletes the word before the cursor. Disabled state blocks edits.
+  ## Deletes the word before the cursor. If starting on a space, eats spaces
+  ## first then the word. Otherwise just eats the word.
   if not state.enabled:
     return
   if state.removedSelection():
     state.resetBlink()
     return
   if state.cursor > 0:
+    if state.runes[state.cursor - 1].isWhiteSpace():
+      while state.cursor > 0 and
+          state.runes[state.cursor - 1].isWhiteSpace():
+        state.runes.delete(state.cursor - 1)
+        dec state.cursor
     while state.cursor > 0 and
         not state.runes[state.cursor - 1].isWhiteSpace():
       state.runes.delete(state.cursor - 1)
@@ -407,7 +413,7 @@ proc backspaceWord*(state: TextBoxState) =
   state.resetBlink()
 
 proc deleteWord*(state: TextBoxState) =
-  ## Deletes the word after the cursor. Disabled state blocks edits.
+  ## Deletes the word after the cursor, then any trailing spaces.
   if not state.enabled:
     return
   if state.removedSelection():
@@ -416,6 +422,9 @@ proc deleteWord*(state: TextBoxState) =
   if state.cursor < state.runes.len:
     while state.cursor < state.runes.len and
         not state.runes[state.cursor].isWhiteSpace():
+      state.runes.delete(state.cursor)
+    while state.cursor < state.runes.len and
+        state.runes[state.cursor].isWhiteSpace():
       state.runes.delete(state.cursor)
     state.dirty = true
   state.scrollToCursor()

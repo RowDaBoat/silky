@@ -196,6 +196,7 @@ block:
   s2.selector = 0
   s2.backspaceWord()
   doAssert s2.getText() == "\n", "backspaceWord at 0 should not change text"
+  # Cursor at end of word: delete word only, stop at space.
   let s3 = newState("hello world")
   s3.backspaceWord()
   doAssert s3.getText() == "hello "
@@ -207,6 +208,23 @@ block:
   s4.backspaceWord()
   doAssert s4.getText() == "heo world"
   doAssert s4.cursor == 2
+  # Cursor after trailing space: eat space then word.
+  let s5 = newState("super cat ")
+  s5.backspaceWord()
+  doAssert s5.getText() == "super ", "Should eat trailing space then 'cat'"
+  doAssert s5.cursor == 6
+  # Cursor after multiple spaces: eat all spaces then word.
+  let s6 = newState("hello   world")
+  s6.cursor = 8
+  s6.selector = 8
+  s6.backspaceWord()
+  doAssert s6.getText() == "world", "Should eat spaces then 'hello'"
+  doAssert s6.cursor == 0
+  # Only spaces: eat all.
+  let s7 = newState("   ")
+  s7.backspaceWord()
+  doAssert s7.getText() == ""
+  doAssert s7.cursor == 0
 
 block:
   echo "Testing deleteWord"
@@ -214,15 +232,51 @@ block:
   s.deleteWord()
   doAssert s.getText() == ""
   doAssert s.cursor == 0
+  # Cursor at start of word: delete word then trailing spaces.
   let s2 = newState("hello world")
   s2.cursor = 0
   s2.selector = 0
   s2.deleteWord()
-  doAssert s2.getText() == " world"
+  doAssert s2.getText() == "world", "Should eat 'hello' then the space"
   doAssert s2.cursor == 0
   let s3 = newState("hello world")
   s3.deleteWord()
   doAssert s3.getText() == "hello world", "deleteWord at end should not change text"
+  # Cursor on space: only eats spaces (no word chars before them).
+  let s4 = newState(" super cat")
+  s4.cursor = 0
+  s4.selector = 0
+  s4.deleteWord()
+  doAssert s4.getText() == "super cat", "Starting on space: eat only the space"
+  doAssert s4.cursor == 0
+  # Cursor at start of word: delete word then trailing spaces.
+  let s5 = newState("hello world end")
+  s5.cursor = 6
+  s5.selector = 6
+  s5.deleteWord()
+  doAssert s5.getText() == "hello end", "Should eat 'world' then the space"
+  doAssert s5.cursor == 6
+  # Only spaces: eat all.
+  let s6 = newState("   ")
+  s6.cursor = 0
+  s6.selector = 0
+  s6.deleteWord()
+  doAssert s6.getText() == ""
+  doAssert s6.cursor == 0
+  # Cursor between words on space: only eats the space.
+  let s7 = newState("hello world")
+  s7.cursor = 5
+  s7.selector = 5
+  s7.deleteWord()
+  doAssert s7.getText() == "helloworld", "Starting on space: eat only the space"
+  doAssert s7.cursor == 5
+  # Multiple spaces between words: eat word then all trailing spaces.
+  let s8 = newState("hello   world")
+  s8.cursor = 0
+  s8.selector = 0
+  s8.deleteWord()
+  doAssert s8.getText() == "world", "Should eat 'hello' then all 3 spaces"
+  doAssert s8.cursor == 0
 
 block:
   echo "Testing left / right"
