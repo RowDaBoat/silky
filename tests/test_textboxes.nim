@@ -1449,4 +1449,112 @@ block:
   # Just verify layout was recomputed (len is still correct).
   doAssert s.layout.len == 5
 
+block:
+  echo "Testing password mode: selection and cut"
+  let s = newState("secret")
+  s.password = true
+  s.cursor = 1
+  s.selector = 4
+  doAssert s.copyText() == "ecr", "Copy in password mode returns real text"
+  let cut = s.cutText()
+  doAssert cut == "ecr", "Cut in password mode returns real text"
+  doAssert s.getText() == "set"
+  doAssert s.displayText() == "***"
+
+block:
+  echo "Testing password mode: paste"
+  let s = newState("ab")
+  s.password = true
+  s.cursor = 1
+  s.selector = 1
+  s.pasteText("XY")
+  doAssert s.getText() == "aXYb"
+  doAssert s.displayText() == "****"
+
+block:
+  echo "Testing password mode: undo restores real text"
+  let s = newState("pass")
+  s.password = true
+  s.typeCharacter(Rune('!'))
+  doAssert s.getText() == "pass!"
+  s.undo()
+  doAssert s.getText() == "pass"
+  doAssert s.displayText() == "****"
+
+block:
+  echo "Testing password mode: delete and backspaceWord"
+  let s = newState("hello world")
+  s.password = true
+  s.cursor = 0
+  s.selector = 0
+  s.delete()
+  doAssert s.getText() == "ello world"
+  doAssert s.displayText() == "**********"
+  s.backspaceWord()
+  doAssert s.getText() == "ello world", "backspaceWord at 0 should not change"
+  s.cursor = s.runes.len
+  s.selector = s.cursor
+  s.backspaceWord()
+  doAssert s.getText() == "ello "
+  doAssert s.displayText() == "*****"
+
+block:
+  echo "Testing password mode: selectAll and clear"
+  let s = newState("secret")
+  s.password = true
+  s.selectAll()
+  doAssert s.cursor == 0
+  doAssert s.selector == 6
+  s.backspace()
+  doAssert s.getText() == ""
+  doAssert s.displayText() == ""
+
+block:
+  echo "Testing password mode: cursor navigation"
+  let s = newState("abc")
+  s.password = true
+  s.computeLayout(fontData, 500)
+  s.cursor = 0
+  s.selector = 0
+  s.right()
+  doAssert s.cursor == 1
+  s.right()
+  doAssert s.cursor == 2
+  s.left()
+  doAssert s.cursor == 1
+  s.startOfLine()
+  doAssert s.cursor == 0
+  s.endOfLine()
+  doAssert s.cursor == 3
+
+block:
+  echo "Testing password mode: single-line password"
+  let s = newStateSingleLine("mypass")
+  s.password = true
+  doAssert s.displayText() == "******"
+  s.typeCharacter(Rune(10))
+  doAssert s.getText() == "mypass", "Newline ignored in single-line password"
+  doAssert s.displayText() == "******"
+
+block:
+  echo "Testing password mode: disabled password"
+  let s = newState("secret")
+  s.password = true
+  s.enabled = false
+  s.typeCharacter(Rune('x'))
+  doAssert s.getText() == "secret", "Disabled password should block typing"
+  doAssert s.displayText() == "******"
+  s.cursor = 0
+  s.selector = 6
+  doAssert s.copyText() == "secret", "Copy from disabled password returns real text"
+
+block:
+  echo "Testing password mode: displayText length matches runes"
+  let s = newState("")
+  s.password = true
+  for c in "testing":
+    s.typeCharacter(Rune(c))
+    doAssert s.displayText().len == s.getText().len,
+      "displayText length should match getText length"
+
 echo "All tests passed."
