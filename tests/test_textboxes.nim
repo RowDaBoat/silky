@@ -448,6 +448,7 @@ block:
   s2.typeCharacter(Rune('b'))
   s2.redo()
   doAssert s2.getText() == "b", "Redo after new edit should do nothing"
+
 block:
   echo "Testing undo: type multiple chars then undo all"
   let s = newState("")
@@ -471,6 +472,7 @@ block:
   doAssert s.getText() == "ab"
   s.redo()
   doAssert s.getText() == "abc"
+
 block:
   echo "Testing undo: select word, type replacement, then undo"
   let s = newState("hello world foo")
@@ -488,6 +490,7 @@ block:
   # Redo should re-apply the replacement.
   s.redo()
   doAssert s.getText() == "hello x foo"
+
 block:
   echo "Testing undo: select and paste over selection"
   let s = newState("aaa bbb ccc")
@@ -498,6 +501,7 @@ block:
   doAssert s.getText() == "aaa XXX ccc"
   s.undo()
   doAssert s.getText() == "aaa bbb ccc", "Undo paste over selection should restore"
+
 block:
   echo "Testing undo: backspace with selection"
   let s = newState("abcdef")
@@ -507,6 +511,7 @@ block:
   doAssert s.getText() == "aef"
   s.undo()
   doAssert s.getText() == "abcdef", "Undo backspace-selection should restore"
+
 block:
   echo "Testing undo: delete with selection"
   let s = newState("abcdef")
@@ -516,6 +521,7 @@ block:
   doAssert s.getText() == "aef"
   s.undo()
   doAssert s.getText() == "abcdef", "Undo delete-selection should restore"
+
 block:
   echo "Testing undo: backspace single char"
   let s = newState("abc")
@@ -523,6 +529,7 @@ block:
   doAssert s.getText() == "ab"
   s.undo()
   doAssert s.getText() == "abc", "Undo backspace should restore char"
+
 block:
   echo "Testing undo: delete single char"
   let s = newState("abc")
@@ -532,6 +539,7 @@ block:
   doAssert s.getText() == "bc"
   s.undo()
   doAssert s.getText() == "abc", "Undo delete should restore char"
+
 block:
   echo "Testing undo: cutText"
   let s = newState("hello world")
@@ -542,6 +550,7 @@ block:
   doAssert s.getText() == " world"
   s.undo()
   doAssert s.getText() == "hello world", "Undo cut should restore"
+
 block:
   echo "Testing undo: backspaceWord"
   let s = newState("hello world")
@@ -549,6 +558,7 @@ block:
   doAssert s.getText() == "hello "
   s.undo()
   doAssert s.getText() == "hello world", "Undo backspaceWord should restore"
+
 block:
   echo "Testing undo: deleteWord"
   let s = newState("hello world")
@@ -1124,6 +1134,7 @@ block:
   doAssert s.getText() == "a", "CR should be ignored in single-line"
   s.typeCharacter(Rune('b'))
   doAssert s.getText() == "ab"
+
 block:
   echo "Testing single-line mode: typeCharacters converts newlines to spaces"
   let s = newStateSingleLine("")
@@ -1142,6 +1153,7 @@ block:
   let s5 = newStateSingleLine("abc")
   s5.typeCharacters("")
   doAssert s5.getText() == "abc"
+
 block:
   echo "Testing single-line mode: setText converts newlines to spaces"
   let s = newStateSingleLine("")
@@ -1155,11 +1167,13 @@ block:
   doAssert s.getText() == ""
   s.setText("no newlines")
   doAssert s.getText() == "no newlines"
+
 block:
   echo "Testing single-line mode: paste multi-line text"
   let s = newStateSingleLine("start ")
   s.pasteText("line1\nline2\nline3")
   doAssert s.getText() == "start line1 line2 line3"
+
 block:
   echo "Testing single-line mode: computeLayout stays on one line"
   let s = newStateSingleLine("abcdef")
@@ -1170,6 +1184,7 @@ block:
   let s2 = newStateSingleLine("hello world this is a test", 60)
   for r in s2.layout:
     doAssert r.y == 0, "Single-line should never wrap"
+
 block:
   echo "Testing single-line mode: empty string operations"
   let s = newStateSingleLine("")
@@ -1186,6 +1201,7 @@ block:
   s.selectAll()
   doAssert s.cursor == 0
   doAssert s.selector == 0
+
 block:
   echo "Testing single-line mode: up/down are no-ops"
   let s = newStateSingleLine("hello world")
@@ -1197,6 +1213,7 @@ block:
   doAssert s.cursor == 11, "Down on single line goes to end"
   s.up()
   doAssert s.cursor == 0, "Up on single line goes to start"
+
 block:
   echo "Testing single-line mode: multi-line not affected"
   # Verify multi-line mode still allows newlines.
@@ -1317,6 +1334,7 @@ block:
   snw.selector = snw.cursor
   snw.scrollToCursor()
   doAssert snw.scrollPos.x > 0, "Cursor at end without wrap should scroll X"
+
 block:
   echo "Testing word wrap: scrollBy does not affect X"
   let s = newState("hello world", 60)
@@ -1325,6 +1343,7 @@ block:
   # scrollBy only changes Y, but let us verify X stays 0.
   s.scrollBy(100, 40)
   doAssert s.scrollPos.x == 0, "scrollBy should not affect X when word wrap on"
+
 block:
   echo "Testing no-wrap: horizontal scroll works"
   let s = newStateNoWrap("abcdefghijklmnopqrstuvwxyz", 60)
@@ -1339,6 +1358,7 @@ block:
   s.selector = 0
   s.scrollToCursor()
   doAssert s.scrollPos.x == 0, "Cursor at start should scroll back to 0"
+
 block:
   echo "Testing word wrap: typing does not cause horizontal scroll"
   let s = newState("", 60)
@@ -1347,6 +1367,7 @@ block:
     s.typeCharacter(Rune(c))
     s.computeLayout(fontData, 60)
   doAssert s.scrollPos.x == 0, "Typing with wrap should never cause X scroll"
+
 block:
   echo "Testing no-wrap: typing long text causes horizontal scroll"
   let s = newStateNoWrap("", 60)
@@ -1355,6 +1376,7 @@ block:
     s.typeCharacter(Rune(c))
     s.computeLayout(fontData, 60)
   doAssert s.scrollPos.x > 0, "Typing without wrap should cause X scroll"
+
 block:
   echo "Testing word wrap: left/right navigation does not scroll X"
   let s = newState("hello world this is long text", 60)
