@@ -1,7 +1,6 @@
 import
   std/[tables, unicode, times, strutils, options],
-  vmath, bumpy, chroma,
-  silky/textinput
+  vmath, bumpy, chroma
 
 when defined(silkyTesting):
   import silky/semantic, silky/testing
@@ -64,7 +63,6 @@ var
   subWindowStates*: Table[string, SubWindowState]
   frameStates*: Table[string, FrameState]
   scrubberStates*: Table[string, ScrubberState]
-  textInputStates*: Table[int, InputTextState]
   dropDownStates*: Table[string, DropDownState]
   menuState*: MenuState = MenuState(
     openPath: @[],
@@ -838,81 +836,6 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U, label: 
     discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
   else:
     sk.drawImage("scrubber.handle", handlePos2)
-  sk.advance(vec2(width, height))
-
-template inputText*(id: int, t: var string, enabled: bool = true, error: bool = false) =
-  ## Create an input text.
-  let font = sk.atlas.fonts[sk.textStyle]
-  let height = font.lineHeight + sk.theme.padding.float32 * 2
-  let width = sk.size.x - sk.theme.padding.float32 * 3
-  sk.pushLayout(sk.at, vec2(width, height))
-
-  if id notin textInputStates:
-    textInputStates[id] = InputTextState(focused: false)
-    textInputStates[id].setText(t)
-
-  let textInputState = textInputStates[id]
-
-  # If t changed externally, update the internal state
-  if not textInputState.focused and textInputState.getText() != t:
-    textInputState.setText(t)
-
-  # Handle focus
-  if enabled and window.buttonPressed[MouseLeft]:
-    if sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
-      textInputState.focused = true
-      # TODO: Set cursor position based on click.
-    else:
-      textInputState.focused = false
-
-  let patch =
-    if not enabled:
-      "input.disabled.9patch"
-    elif error:
-      "input.error.9patch"
-    else:
-      "input.9patch"
-
-  # Handle input if focused
-  if enabled and textInputState.focused:
-    sk.draw9Patch(patch, 6, sk.pos, sk.size, sk.theme.frameFocusColor)
-
-    # Process runes
-    for r in sk.inputRunes:
-      textInputState.typeCharacter(r)
-
-    textInputState.handleInput(window)
-
-    # Sync back
-    t = textInputState.getText()
-  else:
-    textInputState.focused = false
-    sk.draw9Patch(patch, 6, sk.pos, sk.size)
-
-  # Draw text and we should probably clip or scroll text.
-  let padding = vec2(sk.theme.padding)
-  let textColor =
-    if not enabled:
-      sk.theme.disabledTextColor
-    elif error:
-      sk.theme.errorTextColor
-    else:
-      sk.theme.defaultTextColor
-  discard sk.drawText(sk.textStyle, t, sk.at + padding, textColor)
-
-  # Draw cursor if focused and blinking is on.
-  if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
-    # Calculate cursor position, which is inefficient but fine for now.
-    let textBeforeCursor = $textInputState.runes[0 ..< min(textInputState.cursor, textInputState.runes.len)]
-    let textSize = sk.getTextSize(sk.textStyle, textBeforeCursor)
-    let cursorHeight = sk.atlas.fonts[sk.textStyle].lineHeight
-
-    let cursorX = sk.at.x + padding.x + textSize.x
-    let cursorY = sk.at.y + padding.y
-
-    sk.drawRect(vec2(cursorX, cursorY), vec2(2, cursorHeight), textColor)
-
-  sk.popLayout()
   sk.advance(vec2(width, height))
 
 proc menuPopupStart*(sk: Silky, path: seq[string], popupAt: Vec2, popupWidth = 200) =

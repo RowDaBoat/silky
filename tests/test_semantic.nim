@@ -8,7 +8,7 @@ import std/[strutils]
 import bumpy
 import silky
 
-proc testUI(sk: Silky, window: TestWindow) =
+proc testUI(sk: Silky, window: Window) =
   sk.beginWidget("SubWindow", name = "TestWindow", rect = rect(10, 10, 300, 200))
   
   sk.beginWidget("Button", text = "Click Me", rect = rect(20, 50, 100, 30))
@@ -28,10 +28,9 @@ proc testUI(sk: Silky, window: TestWindow) =
 proc testBasicSnapshot() =
   echo "Testing basic snapshot..."
   var sk = Silky()
-  sk.semantic.enabled = true
   sk.semantic.reset()
   
-  var window = newTestWindow(800, 600)
+  var window = newWindow(800, 600)
   testUI(sk, window)
   
   let snapshot = sk.semanticSnapshot()
@@ -47,10 +46,9 @@ proc testBasicSnapshot() =
 proc testFindByPath() =
   echo "Testing find by path..."
   var sk = Silky()
-  sk.semantic.enabled = true
   sk.semantic.reset()
   
-  var window = newTestWindow(800, 600)
+  var window = newWindow(800, 600)
   testUI(sk, window)
   
   let windowNode = sk.semantic.root.findByPath("TestWindow")
@@ -67,10 +65,9 @@ proc testFindByPath() =
 proc testFindByText() =
   echo "Testing find by text..."
   var sk = Silky()
-  sk.semantic.enabled = true
   sk.semantic.reset()
   
-  var window = newTestWindow(800, 600)
+  var window = newWindow(800, 600)
   testUI(sk, window)
   
   let button = sk.semantic.root.findByText("Cancel")

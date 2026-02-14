@@ -57,7 +57,7 @@ window.onFrame = proc() =
     text("Hello world!")
     button("Close Me"):
       showWindow = false
-    inputText(10, inputText)
+    textInput("input", inputText)
 
     radioButton("Avg", option, 1)
     radioButton("Max", option, 2)
