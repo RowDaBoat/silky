@@ -671,32 +671,54 @@ proc handleKeyboard*(
   state: TextBoxState,
   window: Window,
   inputRunes: seq[Rune],
-  ctrl, shift: bool,
+  ctrl, shift, alt: bool,
   wordWrap: bool
 ) =
   ## Processes keyboard input for the text box.
+  # On Mac: Option = word-level, Cmd = line/document-level.
+  # On Windows/Linux: Ctrl = word-level, Home/End = line, Ctrl+Home/End = document.
+  when defined(macosx):
+    let wordMod = alt
+    let lineMod = ctrl
+  else:
+    let wordMod = ctrl
+    let lineMod = false
   for r in inputRunes:
     state.typeCharacter(r)
   if window.buttonPressed[KeyBackspace]:
-    if ctrl: state.backspaceWord()
+    if wordMod: state.backspaceWord()
     else: state.backspace()
   elif window.buttonPressed[KeyDelete]:
-    if ctrl: state.deleteWord()
+    if wordMod: state.deleteWord()
     else: state.delete()
   elif window.buttonPressed[KeyLeft]:
-    if ctrl: state.leftWord(shift)
+    if wordMod: state.leftWord(shift)
+    elif lineMod: state.startOfLine(shift)
     else: state.left(shift)
   elif window.buttonPressed[KeyRight]:
-    if ctrl: state.rightWord(shift)
+    if wordMod: state.rightWord(shift)
+    elif lineMod: state.endOfLine(shift)
     else: state.right(shift)
   elif window.buttonPressed[KeyUp]:
-    state.up(shift)
+    if lineMod:
+      state.cursor = 0
+      if not shift: state.selector = state.cursor
+    else: state.up(shift)
   elif window.buttonPressed[KeyDown]:
-    state.down(shift)
+    if lineMod:
+      state.cursor = state.runes.len
+      if not shift: state.selector = state.cursor
+    else: state.down(shift)
   elif window.buttonPressed[KeyHome]:
-    state.startOfLine(shift)
+    if ctrl:
+      state.cursor = 0
+      if not shift: state.selector = state.cursor
+    else: state.startOfLine(shift)
   elif window.buttonPressed[KeyEnd]:
-    state.endOfLine(shift)
+    if ctrl:
+      state.cursor = state.runes.len
+      if not shift: state.selector = state.cursor
+    else: state.endOfLine(shift)
   elif window.buttonPressed[KeyPageUp]:
     state.pageUp(shift)
   elif window.buttonPressed[KeyPageDown]:
@@ -858,6 +880,8 @@ proc textBox*(
     window.buttonDown[KeyRightSuper]
   let shift = window.buttonDown[KeyLeftShift] or
     window.buttonDown[KeyRightShift]
+  let alt = window.buttonDown[KeyLeftAlt] or
+    window.buttonDown[KeyRightAlt]
   # Mouse state.
   let mouseVec = vec2(window.mousePos.x.float32, window.mousePos.y.float32)
   let mouseInside = mouseVec.overlaps(outerRect) and
@@ -892,7 +916,7 @@ proc textBox*(
       state.dragging = false
   # Keyboard input. Editing procs check state.enabled internally.
   if state.focused:
-    state.handleKeyboard(window, sk.inputRunes, ctrl, shift, state.wordWrap)
+    state.handleKeyboard(window, sk.inputRunes, ctrl, shift, alt, state.wordWrap)
     t = state.getText()
   # Recompute layout after edits.
   if state.dirty:
