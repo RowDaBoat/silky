@@ -340,7 +340,6 @@ proc drawText*(
   if hAlign != LeftAlign or vAlign != TopAlign:
     # Disable glyph clipping when alignment is not left or top.
     glyphClip = false
-    echo "no clip"
 
   let fontData = sk.atlas.fonts[font]
   var currentPos = pos + vec2(0, fontData.ascent)
