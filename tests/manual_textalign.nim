@@ -10,7 +10,7 @@ import
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("tests/data/", "tests/data/")
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "H1", 32.0)
-builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0)
+builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
 builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
 
 let window = newWindow(
