@@ -336,6 +336,12 @@ proc drawText*(
   if clip and (maxWidth <= 0 or maxHeight <= 0):
     return
 
+  var glyphClip = clip
+  if hAlign != LeftAlign or vAlign != TopAlign:
+    # Disable glyph clipping when alignment is not left or top.
+    glyphClip = false
+    echo "no clip"
+
   let fontData = sk.atlas.fonts[font]
   var currentPos = pos + vec2(0, fontData.ascent)
   let
@@ -434,14 +440,14 @@ proc drawText*(
         sk.alignLine(currentPos.x - pos.x)
         currentPos.x = pos.x
         currentPos.y += fontData.lineHeight
-      elif clip:
+      elif glyphClip:
         # Skip chars until the next newline, then start a new line.
         while i < runedText.len and runedText[i] != Rune(10):
           inc i
         continue
 
     # Stop when the glyph starts below the clip area.
-    if clip and currentPos.y + entry.boundsY >= maxPos.y:
+    if glyphClip and currentPos.y + entry.boundsY >= maxPos.y:
       break
 
     # Draw the glyph if it has dimensions.
