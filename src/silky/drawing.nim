@@ -324,7 +324,9 @@ proc drawText*(
   maxWidth = float32.high,
   maxHeight = float32.high,
   clip = true,
-  wordWrap = false
+  wordWrap = false,
+  hAlign: HorizontalAlignment = LeftAlign,
+  vAlign: VerticalAlignment = TopAlign
 ): Vec2 =
   ## Draw text using the specified font from the atlas.
   assert sk.inFrame
@@ -339,6 +341,9 @@ proc drawText*(
   let maxPos = pos + vec2(maxWidth, maxHeight)
   let runedText = text.toRunes
   let hasSubpixel = fontData.subpixelSteps > 0
+  let layer = sk.currentLayer
+  let needsHAlign = hAlign != LeftAlign
+  let needsVAlign = vAlign != TopAlign
 
   # Per-char clip rect: when clip is on, intersect parent clip rect with text bounds.
   let parentClip = sk.clipRect
@@ -353,11 +358,33 @@ proc drawText*(
     else:
       (parentClip.xy, parentClip.wh)
 
+  # Track buffer indices for alignment fixup.
+  let textStartIdx = sk.layers[layer].len
+  var lineStartIdx = textStartIdx
+
+  proc alignLine(sk: Silky, lineWidth: float32) =
+    ## Shift glyph positions for the current line based on horizontal alignment.
+    if not needsHAlign:
+      return
+    let dx =
+      case hAlign:
+      of LeftAlign:
+        0.0f
+      of CenterAlign:
+        floor((maxWidth - lineWidth) * 0.5)
+      of RightAlign:
+        floor(maxWidth - lineWidth)
+    if dx != 0:
+      for j in lineStartIdx ..< sk.layers[layer].len:
+        sk.layers[layer][j].pos.x += dx
+    lineStartIdx = sk.layers[layer].len
+
   var i = 0
   while i < runedText.len:
     let rune = runedText[i]
 
     if rune == Rune(10): # Newline.
+      sk.alignLine(currentPos.x - pos.x)
       currentPos.x = pos.x
       currentPos.y += fontData.lineHeight
       inc i
@@ -377,6 +404,7 @@ proc drawText*(
             wordW += fontData.entries["?"][0].advance
           inc j
         if currentPos.x + wordW > pos.x + maxWidth:
+          sk.alignLine(currentPos.x - pos.x)
           currentPos.x = pos.x
           currentPos.y += fontData.lineHeight
 
@@ -402,6 +430,7 @@ proc drawText*(
     if currentPos.x >= maxPos.x:
       if wordWrap:
         # Character-level fallback for words wider than maxWidth.
+        sk.alignLine(currentPos.x - pos.x)
         currentPos.x = pos.x
         currentPos.y += fontData.lineHeight
       elif clip:
@@ -441,6 +470,24 @@ proc drawText*(
         currentPos.x += fontData.entries[glyphStr][0].kerning[nextGlyphStr]
 
     inc i
+
+  # Align the last line.
+  sk.alignLine(currentPos.x - pos.x)
+
+  # Vertical alignment: shift all glyphs in the buffer.
+  if needsVAlign:
+    let textHeight = currentPos.y - pos.y - fontData.ascent + fontData.lineHeight
+    let dy =
+      case vAlign:
+      of TopAlign:
+        0.0f
+      of MiddleAlign:
+        floor((maxHeight - textHeight) * 0.5)
+      of BottomAlign:
+        floor(maxHeight - textHeight)
+    if dy != 0:
+      for j in textStartIdx ..< sk.layers[layer].len:
+        sk.layers[layer][j].pos.y += dy
 
   return currentPos - pos
 
