@@ -338,12 +338,13 @@ proc drawText*(
 
   let fontData = sk.atlas.fonts[font]
   var currentPos = pos + vec2(0, fontData.ascent)
-  let maxPos = pos + vec2(maxWidth, maxHeight)
-  let runedText = text.toRunes
-  let hasSubpixel = fontData.subpixelSteps > 0
-  let layer = sk.currentLayer
-  let needsHAlign = hAlign != LeftAlign
-  let needsVAlign = vAlign != TopAlign
+  let
+    maxPos = pos + vec2(maxWidth, maxHeight)
+    runedText = text.toRunes
+    hasSubpixel = fontData.subpixelSteps > 0
+    layer = sk.currentLayer
+    needsHAlign = hAlign != LeftAlign
+    needsVAlign = vAlign != TopAlign
 
   # Per-char clip rect: when clip is on, intersect parent clip rect with text bounds.
   let parentClip = sk.clipRect
