@@ -1,4 +1,3 @@
-
 import
   std/[strformat],
   bumpy, vmath, chroma,

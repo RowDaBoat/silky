@@ -1,4 +1,3 @@
-
 # Silky - Fast UI for Nim.
 
 Silky is an immediate mode GUI that focuses on speed above all else.
