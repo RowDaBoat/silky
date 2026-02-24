@@ -208,7 +208,7 @@ window.onFrame = proc() =
     iconButton("ui/heart"):
       echo "heart"
     if sk.shouldShowTooltip:
-      tooltip("Heart")  
+      tooltip("Heart")
     iconButton("ui/cloud"):
       echo "cloud"
     if sk.shouldShowTooltip:

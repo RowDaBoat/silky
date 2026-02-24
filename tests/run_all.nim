@@ -26,12 +26,12 @@ proc main() =
     let
       exampleDir = examplesDir / name
       nimFile = name & ".nim"
-    
+
     echo fmt"[{i + 1}/{Examples.len}] Compiling and running: {name}"
-    
+
     # Change to example directory so it can find its data folder
     setCurrentDir(exampleDir)
-    
+
     let exitCode = execCmd(fmt"nim r {nimFile}")
     if exitCode != 0:
       echo fmt"  ERROR: {name} failed with exit code {exitCode}"

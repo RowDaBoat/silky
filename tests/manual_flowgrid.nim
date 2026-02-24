@@ -79,10 +79,10 @@ window.onFrame = proc() =
         sk.at.x = startX
         sk.at.y += 32 + margin
 
-      let icon = 
-        if i mod 2 == 0: 
-          "heart" 
-        else: 
+      let icon =
+        if i mod 2 == 0:
+          "heart"
+        else:
           "cloud"
       iconButton(icon):
         clickedItems[i] = not clickedItems[i]

@@ -1,4 +1,3 @@
-
 Dear ImGui
 ```cpp
 ImGui::Text("Hello, world %d", 123);
@@ -78,5 +77,3 @@ begin("My First Tool", myToolActive, MenuBarFlags):
     for n in 0 ..< 50:
       text(&"{n:04d}: Some text")
 ```
-
-

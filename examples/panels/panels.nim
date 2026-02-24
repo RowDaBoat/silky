@@ -1,4 +1,3 @@
-
 import
   std/[random, strformat],
   opengl, windy, bumpy, vmath, chroma,

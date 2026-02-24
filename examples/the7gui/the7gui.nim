@@ -1,4 +1,3 @@
-
 import
   std/[strformat, strutils, times],
   opengl, windy, bumpy, vmath, chroma,
