@@ -9,7 +9,7 @@ builder.addDir("data/ui/", "data/")
 builder.addDir("data/vibe/", "data/")
 builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.write("dist/atlas.png")
 
 let window = newWindow(
   "Silky Example 1",
@@ -26,7 +26,7 @@ const
   Margin = 12f
 
 let
-  sk = newSilky("dist/atlas.png", "dist/atlas.json")
+  sk = newSilky("dist/atlas.png")
   vibes = @[
   "vibe/alembic",
   "vibe/angry",

@@ -1,10 +1,13 @@
 import
   std/[os, strutils, tables, unicode],
-  pixie, jsony, vmath,
+  pixie, jsony, vmath, crunchy,
+  pixie/fileformats/png,
+  flatty/binny,
   allocator
 
 const
   WhiteTileKey* = "_white_tile_"
+  AtlasJsonChunkType* = "siAT"
   AsciiGlyphs* = static:
     var arr: seq[string]
     for c in " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~":
@@ -12,6 +15,9 @@ const
     arr
 
 type
+  SilkyAtlasError* = object of CatchableError
+    ## Raised when atlas PNG metadata cannot be encoded or decoded.
+
   Entry* = object
     ## The position and size of a sprite in the atlas.
     x*: int
@@ -81,6 +87,124 @@ proc newAtlasBuilder*(size, margin: int): AtlasBuilder =
     atlasImage: atlasImage,
     atlas: atlas
   )
+
+proc addPngChunk(buffer: var string, chunkType, chunkData: string) =
+  ## Appends one PNG chunk to the output buffer.
+  buffer.addUint32(chunkData.len.uint32.swap())
+  buffer.add(chunkType)
+  buffer.add(chunkData)
+  let chunkStart = buffer.len - (chunkData.len + 4)
+  buffer.addUint32(crc32(
+    buffer[chunkStart].addr,
+    chunkData.len + 4
+  ).swap())
+
+proc validatePngSignature(data: string) =
+  ## Validates PNG magic bytes.
+  if data.len < 8:
+    raise newException(SilkyAtlasError, "Invalid PNG data: missing signature")
+  let signature = cast[array[8, uint8]](data.readUint64(0))
+  if signature != pngSignature:
+    raise newException(SilkyAtlasError, "Invalid PNG data: bad signature")
+
+proc eachPngChunk(
+  data: string,
+  fn: proc(chunkType, chunkData: string, chunkStart, nextStart: int): bool
+) =
+  ## Iterates PNG chunks and validates chunk bounds and CRC.
+  validatePngSignature(data)
+  var pos = 8
+  while pos < data.len:
+    if pos + 8 > data.len:
+      raise newException(SilkyAtlasError, "Invalid PNG data: truncated chunk header")
+    let
+      chunkLen = data.readUint32(pos).swap().int
+      chunkType = data.readStr(pos + 4, 4)
+      chunkDataStart = pos + 8
+      chunkDataEnd = chunkDataStart + chunkLen
+      crcStart = chunkDataEnd
+      nextStart = crcStart + 4
+    if chunkLen < 0:
+      raise newException(SilkyAtlasError, "Invalid PNG data: negative chunk size")
+    if nextStart > data.len:
+      raise newException(SilkyAtlasError, "Invalid PNG data: truncated chunk data")
+    let expected = crc32(data[pos + 4].addr, chunkLen + 4)
+    let found = data.readUint32(crcStart).swap()
+    if expected != found:
+      raise newException(SilkyAtlasError, "Invalid PNG data: CRC mismatch")
+    let chunkData = data.readStr(chunkDataStart, chunkLen)
+    let stop = fn(chunkType, chunkData, pos, nextStart)
+    if stop:
+      return
+    pos = nextStart
+  raise newException(SilkyAtlasError, "Invalid PNG data: missing IEND")
+
+proc embedAtlasJsonInPng*(pngData, atlasJson: string): string =
+  ## Embeds atlas JSON in a custom PNG ancillary chunk.
+  var iendStart = -1
+  eachPngChunk(
+    pngData,
+    proc(chunkType, chunkData: string, chunkStart, nextStart: int): bool =
+      if chunkType == "IEND":
+        iendStart = chunkStart
+        return true
+      false
+  )
+  if iendStart < 0:
+    raise newException(SilkyAtlasError, "Invalid PNG data: missing IEND")
+  result = newStringOfCap(pngData.len + atlasJson.len + 12)
+  result.add(pngData[0 ..< iendStart])
+  result.addPngChunk(AtlasJsonChunkType, atlasJson)
+  result.add(pngData[iendStart .. ^1])
+
+proc extractAtlasJsonFromPng*(pngData: string): string =
+  ## Extracts embedded atlas JSON from a PNG custom chunk.
+  var
+    atlasJson = ""
+    found = false
+    seenIend = false
+  eachPngChunk(
+    pngData,
+    proc(chunkType, chunkData: string, chunkStart, nextStart: int): bool =
+      if chunkType == AtlasJsonChunkType:
+        atlasJson = chunkData
+        found = true
+      if chunkType == "IEND":
+        seenIend = true
+        return true
+      false
+  )
+  if not seenIend:
+    raise newException(SilkyAtlasError, "Invalid PNG data: missing IEND")
+  if not found:
+    raise newException(
+      SilkyAtlasError,
+      "Atlas PNG is missing embedded JSON metadata"
+    )
+  result = atlasJson
+
+proc readAtlasJsonFromPng*(path: string): string =
+  ## Reads embedded atlas JSON from an atlas PNG file.
+  try:
+    extractAtlasJsonFromPng(readFile(path))
+  except IOError as e:
+    raise newException(SilkyAtlasError, e.msg, e)
+
+proc readAtlasFromPng*(path: string): SilkyAtlas =
+  ## Reads and decodes the atlas JSON embedded in an atlas PNG file.
+  readAtlasJsonFromPng(path).fromJson(SilkyAtlas)
+
+proc writePng*(path, json: string, image: Image) =
+  ## Writes a PNG with embedded atlas JSON metadata.
+  let dir = path.splitPath().head
+  if dir.len > 0:
+    createDir(dir)
+  let encoded = image.encodeImage(PngFormat)
+  let withMetadata = embedAtlasJsonInPng(encoded, json)
+  try:
+    writeFile(path, withMetadata)
+  except IOError as e:
+    raise newException(SilkyAtlasError, e.msg, e)
 
 proc addDir*(builder: AtlasBuilder, path: string, removePrefix: string = "") =
   ## Add all images in the given directory to the atlas.
@@ -202,3 +326,7 @@ proc write*(builder: AtlasBuilder, outputImagePath, outputJsonPath: string) =
   builder.atlasImage.writeFile(outputImagePath)
   createDir(outputJsonPath.splitPath().head)
   writeFile(outputJsonPath, builder.atlas.toJson())
+
+proc write*(builder: AtlasBuilder, outputPngPath: string) =
+  ## Write atlas image and JSON metadata into a single PNG.
+  writePng(outputPngPath, builder.atlas.toJson(), builder.atlasImage)

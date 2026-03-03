@@ -97,7 +97,7 @@ builder.addDir("data/", "data/")
 const CalculatorChars = @["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "±", "%", ".", "=", "C", "a", "l", "c", "u", "l", "a", "t", "o", "r", "f", "m", "e", "i", "s", " ", ":"]
 builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0, chars = CalculatorChars)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0, chars = CalculatorChars)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.write("dist/atlas.png")
 
 let window = newWindow(
   "Calculator",
@@ -109,7 +109,7 @@ loadExtensions()
 
 const BackgroundColor = parseHtmlColor("#000000").rgbx
 
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+let sk = newSilky("dist/atlas.png")
 
 var showWindow = true
 
