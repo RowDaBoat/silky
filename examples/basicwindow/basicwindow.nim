@@ -105,8 +105,5 @@ window.onFrame = proc() =
   window.swapBuffers()
 
 when isMainModule:
-  when defined(emscripten):
-    window.run()
-  else:
-    while not window.closeRequested:
-      pollEvents()
+  while not window.closeRequested:
+    pollEvents()
