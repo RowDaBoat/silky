@@ -1,11 +1,10 @@
-## Compiles and runs all examples sequentially for visual verification.
+## Compiles all examples first, then runs them sequentially.
 
 import std/[osproc, os, strformat]
 
 const Examples = [
   "basicwindow",
   "calculator",
-  "flowgrid",
   "gameplayer",
   "menu",
   "panels",
@@ -13,13 +12,17 @@ const Examples = [
 ]
 
 proc main() =
-  ## Run all examples in sequence.
+  ## Compile all examples, then run all examples in sequence.
   let
+    startDir = getCurrentDir()
     rootDir = currentSourcePath().parentDir.parentDir
     examplesDir = rootDir / "examples"
+  defer:
+    setCurrentDir(startDir)
 
   echo "=== Silky Examples Runner ==="
-  echo "Compiling and running each example."
+  echo "Compiling all examples first."
+  echo "Running all examples after successful compilation."
   echo "Close each window to proceed to the next example.\n"
 
   for i, name in Examples:
@@ -27,12 +30,30 @@ proc main() =
       exampleDir = examplesDir / name
       nimFile = name & ".nim"
 
-    echo fmt"[{i + 1}/{Examples.len}] Compiling and running: {name}"
+    echo fmt"[{i + 1}/{Examples.len}] Compiling: {name}"
 
-    # Change to example directory so it can find its data folder
+    # Change to example directory so the compiler can resolve local files.
     setCurrentDir(exampleDir)
 
-    let exitCode = execCmd(fmt"nim r {nimFile}")
+    let exitCode = execCmd(fmt"nim c {nimFile}")
+    if exitCode != 0:
+      echo fmt"  ERROR: {name} failed to compile with exit code {exitCode}"
+      quit(exitCode)
+    echo ""
+
+  echo "=== Compilation complete ===\n"
+
+  for i, name in Examples:
+    let
+      exampleDir = examplesDir / name
+      binaryPath = "." / name
+
+    echo fmt"[{i + 1}/{Examples.len}] Running: {name}"
+
+    # Change to example directory so each app can find its data folder.
+    setCurrentDir(exampleDir)
+
+    let exitCode = execCmd(binaryPath)
     if exitCode != 0:
       echo fmt"  ERROR: {name} failed with exit code {exitCode}"
       quit(exitCode)
