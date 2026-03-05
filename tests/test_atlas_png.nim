@@ -9,7 +9,7 @@ proc assertRaisesMissingChunk(path: string) =
   ## Asserts that reading metadata fails when chunk is missing.
   var raised = false
   try:
-    discard readAtlasJsonFromPng(path)
+    discard extractAtlasJsonFromPng(readFile(path))
   except SilkyAtlasError:
     raised = true
   doAssert raised, "Expected missing atlas metadata exception"
@@ -20,12 +20,11 @@ block:
     outputPath = "tests/dist/atlas_embedded.png"
     builder = newAtlasBuilder(64, 2)
   builder.write(outputPath)
-  let loadedAtlas = readAtlasFromPng(outputPath)
-  doAssert loadedAtlas != nil
-  doAssert WhiteTileKey in loadedAtlas.entries
-  let loadedImage = readImage(outputPath)
-  doAssert loadedImage.width == builder.size
-  doAssert loadedImage.height == builder.size
+  let loadedAtlasData = readAtlas(outputPath)
+  doAssert loadedAtlasData.atlas != nil
+  doAssert WhiteTileKey in loadedAtlasData.atlas.entries
+  doAssert loadedAtlasData.image.width == builder.size
+  doAssert loadedAtlasData.image.height == builder.size
 
 block:
   echo "Testing direct writePng and metadata roundtrip"
@@ -35,7 +34,7 @@ block:
     image = newImage(8, 8)
   image.fill(color(1, 0, 0, 1))
   writePng(path, json, image)
-  let extracted = readAtlasJsonFromPng(path)
+  let extracted = extractAtlasJsonFromPng(readFile(path))
   doAssert extracted == json
   let decoded = readImage(path)
   doAssert decoded.width == 8

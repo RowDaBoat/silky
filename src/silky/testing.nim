@@ -1,7 +1,7 @@
 ## Test harness for Silky UI testing without a real window or GPU.
 
 import std/unicode
-import vmath, bumpy, jsony
+import vmath, bumpy
 import silky/[semantic, atlas]
 from windy/common import Button
 
@@ -93,11 +93,6 @@ proc newTestHarness*(atlas: SilkyAtlas, width = 800, height = 600): TestHarness 
   result.sk.layers[PopupsLayer] = @[]
   result.sk.currentLayer = NormalLayer
   result.sk.layerStack = @[]
-
-proc newTestHarness*(atlasImg, atlasJson: string, width = 800, height = 600): TestHarness =
-  ## Creates a new test harness with the given atlas files.
-  let atlas = readFile(atlasJson).fromJson(SilkyAtlas)
-  newTestHarness(atlas, width, height)
 
 proc newTestHarness*(atlasPng: string, width = 800, height = 600): TestHarness =
   ## Creates a new test harness from a single atlas PNG.

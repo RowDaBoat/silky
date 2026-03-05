@@ -1,6 +1,6 @@
 import
-  std/[os, strutils, tables, unicode, times],
-  pixie, opengl, jsony, shady, vmath, windy, bumpy,
+  std/[tables, unicode, times],
+  pixie, opengl, shady, vmath, windy, bumpy,
   silky/[atlas, shaders]
 
 when defined(profile):
@@ -616,19 +616,10 @@ proc newSilky*(image: Image, atlas: SilkyAtlas): Silky {.measure.} =
   glBindBuffer(GL_ARRAY_BUFFER, 0)
   glBindVertexArray(0)
 
-proc newSilky*(imagePath, jsonPath: string): Silky {.measure.} =
-  ## Create a new Silky from image and JSON files.
-  let
-    image = readImage(imagePath)
-    atlas = readFile(jsonPath).fromJson(SilkyAtlas)
-  newSilky(image, atlas)
-
 proc newSilky*(atlasPngPath: string): Silky {.measure.} =
   ## Create a new Silky from a single atlas PNG with embedded JSON.
-  let
-    image = readImage(atlasPngPath)
-    atlas = readAtlasFromPng(atlasPngPath)
-  newSilky(image, atlas)
+  let atlasData = readAtlas(atlasPngPath)
+  newSilky(atlasData.image, atlasData.atlas)
 
 proc drawQuad*(
   sk: Silky,

@@ -183,16 +183,23 @@ proc extractAtlasJsonFromPng*(pngData: string): string =
     )
   result = atlasJson
 
-proc readAtlasJsonFromPng*(path: string): string =
-  ## Reads embedded atlas JSON from an atlas PNG file.
+proc readAtlasFromPng*(path: string): SilkyAtlas =
+  ## Reads and decodes the atlas JSON embedded in an atlas PNG file.
   try:
-    extractAtlasJsonFromPng(readFile(path))
+    extractAtlasJsonFromPng(readFile(path)).fromJson(SilkyAtlas)
   except IOError as e:
     raise newException(SilkyAtlasError, e.msg, e)
 
-proc readAtlasFromPng*(path: string): SilkyAtlas =
-  ## Reads and decodes the atlas JSON embedded in an atlas PNG file.
-  readAtlasJsonFromPng(path).fromJson(SilkyAtlas)
+proc readAtlas*(
+  path: string
+): tuple[atlas: SilkyAtlas, image: Image] =
+  ## Reads atlas metadata and image from one PNG file read.
+  try:
+    let pngData = readFile(path)
+    result.atlas = extractAtlasJsonFromPng(pngData).fromJson(SilkyAtlas)
+    result.image = decodePng(pngData).convertToImage()
+  except IOError as e:
+    raise newException(SilkyAtlasError, e.msg, e)
 
 proc writePng*(path, json: string, image: Image) =
   ## Writes a PNG with embedded atlas JSON metadata.
@@ -319,13 +326,6 @@ proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, 
       if kerning != 0:
         fontAtlas.entries[glyphStr][0].kerning[glyphStr2] = kerning * scale
   builder.atlas.fonts[name] = fontAtlas
-
-proc write*(builder: AtlasBuilder, outputImagePath, outputJsonPath: string) =
-  ## Write the atlas image and JSON file to the given paths.
-  createDir(outputImagePath.splitPath().head)
-  builder.atlasImage.writeFile(outputImagePath)
-  createDir(outputJsonPath.splitPath().head)
-  writeFile(outputJsonPath, builder.atlas.toJson())
 
 proc write*(builder: AtlasBuilder, outputPngPath: string) =
   ## Write atlas image and JSON metadata into a single PNG.

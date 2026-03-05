@@ -2,7 +2,7 @@
 
 import
   std/[strutils, tables, unicode, times],
-  vmath, bumpy, chroma, jsony,
+  vmath, bumpy, chroma,
   silky/atlas
 
 type
@@ -449,11 +449,6 @@ proc newSilky*(atlas: SilkyAtlas): Silky =
   result.layers[PopupsLayer] = @[]
   result.currentLayer = NormalLayer
   result.layerStack = @[]
-
-proc newSilky*(imagePath, jsonPath: string): Silky =
-  ## Creates a new Silky context for testing from image and JSON files.
-  let atlas = readFile(jsonPath).fromJson(SilkyAtlas)
-  newSilky(atlas)
 
 proc newSilky*(atlasPngPath: string): Silky =
   ## Creates a new Silky context for testing from a single atlas PNG.
