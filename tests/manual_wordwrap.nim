@@ -13,7 +13,7 @@ let builder = newAtlasBuilder(1024, 4)
 builder.addDir("tests/data/", "tests/data/")
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "H1", 32.0)
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
-builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
+builder.write("tests/dist/atlas.png")
 
 let window = newWindow(
   "Word Wrap Example",
@@ -35,7 +35,7 @@ Hi.
 Supercalifragilisticexpialidocious is a very long word that tests character-level fallback wrapping.
 Done."""
 
-let sk = newSilky("tests/dist/atlas.png", "tests/dist/atlas.json")
+let sk = newSilky("tests/dist/atlas.png")
 
 var
   wrapWidth = 300.0f

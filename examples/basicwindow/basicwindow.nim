@@ -7,7 +7,7 @@ let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
 builder.addFont("data/IBMPlexSans-Regular.ttf", "H1", 32.0)
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.write("dist/atlas.png")
 
 let window = newWindow(
   "Basic Window",
@@ -19,7 +19,7 @@ loadExtensions()
 
 const BackgroundColor = parseHtmlColor("#000000").rgbx
 
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+let sk = newSilky("dist/atlas.png")
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =

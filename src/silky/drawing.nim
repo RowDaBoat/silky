@@ -1,6 +1,6 @@
 import
-  std/[os, strutils, tables, unicode, times],
-  pixie, opengl, jsony, shady, vmath, windy, bumpy,
+  std/[tables, unicode, times],
+  pixie, opengl, shady, vmath, windy, bumpy,
   silky/[atlas, shaders]
 
 when defined(profile):
@@ -532,11 +532,11 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
 
   return currentPos
 
-proc newSilky*(imagePath, jsonPath: string): Silky {.measure.} =
-  ## Create a new Silky.
+proc newSilky*(image: Image, atlas: SilkyAtlas): Silky {.measure.} =
+  ## Create a new Silky from already loaded image and atlas data.
   result = Silky()
-  result.image = readImage(imagePath)
-  result.atlas = readFile(jsonPath).fromJson(SilkyAtlas)
+  result.image = image
+  result.atlas = atlas
   result.layers[NormalLayer] = @[]
   result.layers[PopupsLayer] = @[]
   result.currentLayer = NormalLayer
@@ -615,6 +615,11 @@ proc newSilky*(imagePath, jsonPath: string): Silky {.measure.} =
   # Unbind the layers.
   glBindBuffer(GL_ARRAY_BUFFER, 0)
   glBindVertexArray(0)
+
+proc newSilky*(atlasPngPath: string): Silky {.measure.} =
+  ## Create a new Silky from a single atlas PNG with embedded JSON.
+  let atlasData = readAtlas(atlasPngPath)
+  newSilky(atlasData.image, atlasData.atlas)
 
 proc drawQuad*(
   sk: Silky,
@@ -726,6 +731,21 @@ proc draw9Patch*(
 proc contains*(sk: Silky, name: string): bool =
   ## Check if the given sprite is in the atlas.
   name in sk.atlas.entries
+
+proc getAtlasEntry*(sk: Silky, name: string, entry: var Entry): bool =
+  ## Gets one atlas entry by key.
+  if name notin sk.atlas.entries:
+    return false
+  entry = sk.atlas.entries[name]
+  true
+
+proc atlasTextureId*(sk: Silky): GLuint =
+  ## Returns the atlas texture ID.
+  sk.atlasTexture
+
+proc atlasImageSize*(sk: Silky): IVec2 =
+  ## Returns the atlas image size.
+  ivec2(sk.image.width.int32, sk.image.height.int32)
 
 proc clear*(sk: Silky) =
   ## Clear the current instance queue.

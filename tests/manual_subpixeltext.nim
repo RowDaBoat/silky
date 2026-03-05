@@ -15,7 +15,7 @@ builder.addDir("tests/data/", "tests/data/")
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0)
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Regular", 18.0)
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Subpixel", 18.0, subpixelSteps = 10)
-builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
+builder.write("tests/dist/atlas.png")
 
 let window = newWindow(
   "Subpixel Text Example",
@@ -28,7 +28,7 @@ loadExtensions()
 const
   BackgroundColor = parseHtmlColor("#1a1a2e").rgbx
 
-let sk = newSilky("tests/dist/atlas.png", "tests/dist/atlas.json")
+let sk = newSilky("tests/dist/atlas.png")
 
 var textOffset = 0.0f
 

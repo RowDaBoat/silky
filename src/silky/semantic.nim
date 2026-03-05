@@ -2,7 +2,7 @@
 
 import
   std/[strutils, tables, unicode, times],
-  vmath, bumpy, chroma, jsony,
+  vmath, bumpy, chroma,
   silky/atlas
 
 type
@@ -441,14 +441,19 @@ proc instanceCount*(sk: Silky): int =
   ## Returns the number of render instances.
   return 0
 
-proc newSilky*(imagePath, jsonPath: string): Silky =
-  ## Creates a new Silky context for testing.
+proc newSilky*(atlas: SilkyAtlas): Silky =
+  ## Creates a new Silky context for testing from atlas data.
   result = Silky()
-  result.atlas = readFile(jsonPath).fromJson(SilkyAtlas)
+  result.atlas = atlas
   result.layers[NormalLayer] = @[]
   result.layers[PopupsLayer] = @[]
   result.currentLayer = NormalLayer
   result.layerStack = @[]
+
+proc newSilky*(atlasPngPath: string): Silky =
+  ## Creates a new Silky context for testing from a single atlas PNG.
+  let atlas = readAtlasFromPng(atlasPngPath)
+  newSilky(atlas)
 
 proc beginUi*(sk: Silky, window: auto, size: IVec2) =
   ## Begins a new UI frame.

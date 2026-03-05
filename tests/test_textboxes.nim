@@ -2,14 +2,14 @@
 
 import
   std/[tables, unicode],
-  vmath, bumpy, jsony,
+  vmath, bumpy,
   silky/atlas, silky/textboxes
 
 # Build a real atlas with font metrics.
 let builder = newAtlasBuilder(1024, 4)
 builder.addFont("tests/data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.write("tests/dist/atlas.png", "tests/dist/atlas.json")
-let silkyAtlas = readFile("tests/dist/atlas.json").fromJson(SilkyAtlas)
+builder.write("tests/dist/atlas.png")
+let silkyAtlas = readAtlasFromPng("tests/dist/atlas.png")
 let fontData = silkyAtlas.fonts["Default"]
 let lh = fontData.lineHeight
 

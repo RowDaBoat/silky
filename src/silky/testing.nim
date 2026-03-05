@@ -1,7 +1,7 @@
 ## Test harness for Silky UI testing without a real window or GPU.
 
 import std/unicode
-import vmath, bumpy, jsony
+import vmath, bumpy
 import silky/[semantic, atlas]
 from windy/common import Button
 
@@ -83,16 +83,21 @@ proc moveMouse*(w: Window, x, y: int) =
   ## Moves the simulated mouse cursor to the given position.
   w.mousePos = ivec2(x.int32, y.int32)
 
-proc newTestHarness*(atlasImg, atlasJson: string, width = 800, height = 600): TestHarness =
-  ## Creates a new test harness with the given atlas files.
+proc newTestHarness*(atlas: SilkyAtlas, width = 800, height = 600): TestHarness =
+  ## Creates a new test harness from atlas data.
   result.window = newWindow(width, height)
   result.frameCount = 0
   result.sk = Silky()
-  result.sk.atlas = readFile(atlasJson).fromJson(SilkyAtlas)
+  result.sk.atlas = atlas
   result.sk.layers[NormalLayer] = @[]
   result.sk.layers[PopupsLayer] = @[]
   result.sk.currentLayer = NormalLayer
   result.sk.layerStack = @[]
+
+proc newTestHarness*(atlasPng: string, width = 800, height = 600): TestHarness =
+  ## Creates a new test harness from a single atlas PNG.
+  let atlas = readAtlasFromPng(atlasPng)
+  newTestHarness(atlas, width, height)
 
 proc beginFrame*(h: var TestHarness) =
   ## Begins a new test frame.
