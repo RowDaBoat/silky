@@ -4,6 +4,9 @@ import
   std/[browsers, os, osproc, strformat, strutils],
   mummy, mummy/routers
 
+when not declared(Thread):
+  import std/threads
+
 const Examples = [
   "basicwindow",
   "calculator",
@@ -61,6 +64,11 @@ proc openTabs(urls: seq[string]) =
   for url in urls:
     openDefaultBrowser(url)
 
+proc serveThread(server: Server) =
+  ## Runs the server loop in a worker thread.
+  {.gcsafe.}:
+    server.serve(ServerPort, ServerHost)
+
 proc serveEmscriptenDir(emscriptenDir: string, urls: seq[string]) =
   ## Serves the Emscripten output directory until Ctrl-C.
   var router: Router
@@ -103,8 +111,16 @@ proc serveEmscriptenDir(emscriptenDir: string, urls: seq[string]) =
   echo fmt"Serving {emscriptenDir} at http://{ServerHost}:{ServerPortNumber}/"
   echo "Press Ctrl-C to stop."
 
-  openTabs(urls)
-  server.serve(ServerPort, ServerHost)
+  when compileOption("threads"):
+    var serverWorker: Thread[Server]
+    createThread(serverWorker, serveThread, server)
+    server.waitUntilReady()
+    openTabs(urls)
+    joinThread(serverWorker)
+  else:
+    echo "Warning: Build without threads, opening tabs before server starts."
+    openTabs(urls)
+    server.serve(ServerPort, ServerHost)
 
 proc main() =
   ## Compiles all Emscripten examples, then serves and opens them in tabs.
