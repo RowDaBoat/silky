@@ -43,15 +43,21 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
 
     # Build the examples for Emscripten.
-    - run: nim c -d:emscripten examples/basicwindow/basicwindow.nim
+    - run: nim c -d:emscripten basicwindow.nim
+      working-directory: examples/basicwindow
       if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten examples/calculator/calculator.nim
+    - run: nim c -d:emscripten calculator.nim
+      working-directory: examples/calculator
       if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten examples/gameplayer/gameplayer.nim
+    - run: nim c -d:emscripten gameplayer.nim
+      working-directory: examples/gameplayer
       if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten examples/menu/menu.nim
+    - run: nim c -d:emscripten menu.nim
+      working-directory: examples/menu
       if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten examples/panels/panels.nim
+    - run: nim c -d:emscripten panels.nim
+      working-directory: examples/panels
       if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten examples/the7gui/the7gui.nim
+    - run: nim c -d:emscripten the7gui.nim
+      working-directory: examples/the7gui
       if: matrix.os == 'ubuntu-latest'
