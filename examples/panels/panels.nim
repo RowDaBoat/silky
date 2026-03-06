@@ -1,6 +1,6 @@
 import
   std/[random, strformat],
-  opengl, windy, bumpy, vmath, chroma,
+  windy, bumpy, vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)

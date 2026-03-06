@@ -544,21 +544,13 @@ proc newSilky*(image: Image, atlas: SilkyAtlas): Silky {.measure.} =
 
   when defined(emscripten):
     result.shader = newShader(
-      (
-        "SilkyVert",
-        toGLSL(SilkyVert, "300 es", "precision highp float;\n")
-          .replace("uint(2)", "2")
-          .replace("mod(gl_VertexID, 2)", "gl_VertexID % 2")
-      ),
-      (
-        "SilkyFrag",
-        toGLSL(SilkyFrag, "300 es", "precision highp float;\n")
-      )
+      ("SilkyVert", toGLSL(SilkyVert, glslES3)),
+      ("SilkyFrag", toGLSL(SilkyFrag, glslES3))
     )
   else:
     result.shader = newShader(
-      ("SilkyVert", toGLSL(SilkyVert, "410", "")),
-      ("SilkyFrag", toGLSL(SilkyFrag, "410", ""))
+      ("SilkyVert", toGLSL(SilkyVert, glslDesktop)),
+      ("SilkyFrag", toGLSL(SilkyFrag, glslDesktop))
     )
 
   # Upload atlas image to GL texture.
