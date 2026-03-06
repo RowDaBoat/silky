@@ -37,3 +37,21 @@ jobs:
     - name: Run basicwindow tests
       working-directory: examples/basicwindow
       run: nim r tests/test.nim
+
+    # Install Emscripten only after native checks pass.
+    - uses: mymindstorm/setup-emsdk@v14
+      if: matrix.os == 'ubuntu-latest'
+
+    # Build the examples for Emscripten.
+    - run: nim c -d:emscripten examples/basicwindow/basicwindow.nim
+      if: matrix.os == 'ubuntu-latest'
+    - run: nim c -d:emscripten examples/calculator/calculator.nim
+      if: matrix.os == 'ubuntu-latest'
+    - run: nim c -d:emscripten examples/gameplayer/gameplayer.nim
+      if: matrix.os == 'ubuntu-latest'
+    - run: nim c -d:emscripten examples/menu/menu.nim
+      if: matrix.os == 'ubuntu-latest'
+    - run: nim c -d:emscripten examples/panels/panels.nim
+      if: matrix.os == 'ubuntu-latest'
+    - run: nim c -d:emscripten examples/the7gui/the7gui.nim
+      if: matrix.os == 'ubuntu-latest'
