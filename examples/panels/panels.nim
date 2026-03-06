@@ -64,7 +64,9 @@ var
   maybeDragPanel: Panel
 
   prevMem: int
-  prevNumAlloc: int
+
+when defined(nimTypeNames):
+  var prevNumAlloc: int
 
 proc movePanels*(area: Area, panels: seq[Panel])
 
@@ -504,8 +506,6 @@ window.onFrame = proc() =
     prevNumAlloc = numAlloc
   else:
     let numAllocChange = 0
-    let numAlloc = 0
-    let prevNumAlloc = 0
 
   text(&"frame time: {ms:>7.3}ms {sk.instanceCount} {memoryChange}bytes/frame {numAllocChange}allocs/frame")
 
