@@ -599,7 +599,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
 
   if state.open and options.len > 0:
     sk.pushLayer(PopupsLayer)
-    sk.pushClipRect(rect(vec2(0, 0), sk.rootSize))
+    sk.pushRawClipRect(rect(vec2(0, 0), sk.rootSize))
 
     let
       rowHeight = height
@@ -839,7 +839,7 @@ proc menuPopupStart*(sk: Silky, path: seq[string], popupAt: Vec2, popupWidth = 2
   ## Begin a popup; caller must call menuPopupEnd.
   menuEnsureState()
   sk.pushLayer(PopupsLayer)
-  sk.pushClipRect(rect(vec2(0, 0), sk.rootSize))
+  sk.pushRawClipRect(rect(vec2(0, 0), sk.rootSize))
   let layout = MenuLayout(
     origin: popupAt,
     width: popupWidth.float32,
@@ -1040,7 +1040,7 @@ template tooltip*(text: string) =
   ## This should be called after a widget when sk.showTooltip is true.
   let tooltipText = text
   sk.pushLayer(PopupsLayer)
-  sk.pushClipRect(rect(vec2(0, 0), sk.rootSize))
+  sk.pushRawClipRect(rect(vec2(0, 0), sk.rootSize))
 
   let textSize = sk.getTextSize(sk.textStyle, tooltipText)
   let tooltipSize = textSize + vec2(sk.theme.padding.float32 * 2, sk.theme.padding.float32 * 2)

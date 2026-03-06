@@ -328,9 +328,28 @@ proc stackDirection*(sk: Silky): StackDirection =
   ## Returns the current stack direction.
   sk.directionStack[^1]
 
-proc pushClipRect*(sk: Silky, rect: Rect) =
-  ## Pushes a clipping rectangle onto the stack.
+proc pushRawClipRect*(sk: Silky, rect: Rect) =
+  ## Pushes a clipping rectangle onto the stack without intersection.
   sk.clipStack.add(rect)
+
+proc pushClipRect*(sk: Silky, rect: Rect) =
+  ## Pushes a clipping rectangle intersected with the current clip rectangle.
+  if sk.clipStack.len == 0:
+    sk.pushRawClipRect(rect)
+    return
+
+  let
+    parentClip = sk.clipStack[^1]
+    x1 = max(parentClip.x, rect.x)
+    y1 = max(parentClip.y, rect.y)
+    x2 = min(parentClip.x + parentClip.w, rect.x + rect.w)
+    y2 = min(parentClip.y + parentClip.h, rect.y + rect.h)
+  sk.pushRawClipRect(rect(
+    x1,
+    y1,
+    max(0.0'f, x2 - x1),
+    max(0.0'f, y2 - y1)
+  ))
 
 proc popClipRect*(sk: Silky) =
   ## Pops the current clipping rectangle from the stack.
