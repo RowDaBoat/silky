@@ -63,11 +63,6 @@ var
   maybeDragStartPos: Vec2
   maybeDragPanel: Panel
 
-  prevMem: int
-
-when defined(nimTypeNames):
-  var prevNumAlloc: int
-
 proc movePanels*(area: Area, panels: seq[Panel])
 
 proc clear*(area: Area) =
@@ -491,23 +486,8 @@ window.onFrame = proc() =
     regenerate()
 
   let ms = sk.avgFrameTime * 1000
-  sk.at = sk.pos + vec2(sk.size.x - 600, 2)
-  let mem = getOccupiedMem()
-  let memoryChange = mem - prevMem
-  prevMem = mem
-  when defined(nimTypeNames):
-    let memCounters0 = getMemCounters()
-    type MemCounters = object
-      allocCounter: int
-      deallocCounter: int
-    let memCounters = cast[MemCounters](memCounters0)
-    let numAlloc = memCounters.allocCounter
-    let numAllocChange = numAlloc - prevNumAlloc
-    prevNumAlloc = numAlloc
-  else:
-    let numAllocChange = 0
-
-  text(&"frame time: {ms:>7.3}ms {sk.instanceCount} {memoryChange}bytes/frame {numAllocChange}allocs/frame")
+  sk.at = sk.pos + vec2(sk.size.x - 250, 20)
+  text(&"frame time: {ms:>7.3f}ms")
 
   sk.endUi()
   window.swapBuffers()

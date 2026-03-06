@@ -1,4 +1,5 @@
 import
+  std/[strformat],
   opengl, windy, vmath, chroma,
   silky
 
@@ -68,6 +69,10 @@ window.onFrame = proc() =
     subMenu("Help", menuWidth = 100):
       menuItem("About"):
         echo "About"
+
+  let ms = sk.avgFrameTime * 1000
+  sk.at = sk.pos + vec2(sk.size.x - 250, 20)
+  text(&"frame time: {ms:>7.3f}ms")
 
   sk.endUi()
   window.swapBuffers()
