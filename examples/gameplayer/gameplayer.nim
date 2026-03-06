@@ -20,7 +20,6 @@ makeContextCurrent(window)
 loadExtensions()
 
 const
-  BackgroundColor = parseHtmlColor("#000000").rgbx
   RibbonColor = parseHtmlColor("#273646").rgbx
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx
   Margin = 12f

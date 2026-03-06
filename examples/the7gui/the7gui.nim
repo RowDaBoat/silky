@@ -95,6 +95,7 @@ proc isValidFloat(s: string): bool =
 window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
+  sk.clearScreen(BackgroundColor)
 
   # Update the timer elapsed time.
   let now = epochTime()

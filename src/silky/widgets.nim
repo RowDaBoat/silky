@@ -1,5 +1,5 @@
 import
-  std/[tables, unicode, times, strutils, options],
+  std/[tables, unicode, times, options],
   vmath, bumpy, chroma
 
 when defined(silkyTesting):
@@ -71,9 +71,6 @@ var
   menuLayouts: seq[MenuLayout]
   menuPathStack: seq[string]
 
-proc menuPathKey(path: seq[string]): string =
-  ## Join menu path segments into a unique key.
-  path.join(">")
 
 proc menuPathOpen(path: seq[string]): bool =
   ## Check if the given menu path is currently open.

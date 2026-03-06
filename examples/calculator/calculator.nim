@@ -166,6 +166,7 @@ template calcButton(label: string, body: untyped) =
 window.onFrame = proc() =
 
   sk.beginUI(window, window.size)
+  sk.clearScreen(BackgroundColor)
 
   # Draw tiled test texture as the background.
   for x in 0 ..< 16:
