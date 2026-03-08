@@ -214,7 +214,9 @@ proc uploadTexture(sk: Silky) =
   )
   state.ctx.commandList.resourceBarrier(1, addr barrier)
   state.ctx.commandList.close()
-  state.ctx.executeFrame()
+  state.ctx.executeFrame(
+    if state.window != nil: state.window.vsync else: true
+  )
   state.ctx.waitForGpu()
   uploadBuffer.release()
 
@@ -673,6 +675,7 @@ proc recordDraw(sk: Silky, vertexCount: int) =
 proc beginUi*(sk: Silky, window: Window, size: IVec2) =
   ## Begins a new UI frame for the DX12 backend.
   sk.ensureRenderer(window, size)
+  sk.dx12.window = window
   sk.beginUiShared(window, size)
 
 proc clearScreen*(sk: Silky, color: ColorRGBX) {.measure.} =
@@ -712,5 +715,7 @@ proc endUi*(sk: Silky) {.measure.} =
     )
 
   sk.recordDraw(vertexCount)
-  sk.dx12.ctx.executeFrame()
+  sk.dx12.ctx.executeFrame(
+    if sk.dx12.window != nil: sk.dx12.window.vsync else: true
+  )
   sk.endUiShared()

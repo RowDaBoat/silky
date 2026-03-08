@@ -4,7 +4,7 @@ import
   silky/atlas
 
 when defined(profile):
-  import fluffy/measure
+  import fluffy/measure, std/os
   export measure
 else:
   macro measure*(fn: untyped) =
@@ -93,6 +93,7 @@ when defined(windyDirectX):
     SilkyDx12State* = ref object
       ## DirectX 12 renderer state.
       initialized*: bool
+      window*: Window
       ctx*: D3D12Context
       rootSignature*: ID3D12RootSignature
       pipelineState*: ID3D12PipelineState
