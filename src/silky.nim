@@ -4,6 +4,10 @@ when defined(silkyTesting):
   import silky/[semantic, atlas, widgets, textboxes, testing]
   export semantic, atlas, widgets, tables, textboxes, testing
 else:
-  import opengl, windy
+  import windy
+  when not defined(windyDirectX):
+    import opengl
   import silky/[drawing, atlas, widgets, textboxes]
-  export opengl, windy, drawing, atlas, widgets, tables, textboxes
+  when not defined(windyDirectX):
+    export opengl
+  export windy, drawing, atlas, widgets, tables, textboxes

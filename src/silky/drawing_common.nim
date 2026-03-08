@@ -1,0 +1,708 @@
+import
+  std/[tables, unicode, times],
+  pixie, vmath, windy, bumpy,
+  silky/atlas
+
+when defined(profile):
+  import fluffy/measure
+  export measure
+else:
+  macro measure*(fn: untyped) =
+    ## Passes procedures through unchanged when profiling is off.
+    return fn
+
+  template measurePush*(what: string) =
+    ## No-op profile begin marker.
+    discard
+
+  template measurePop*() =
+    ## No-op profile end marker.
+    discard
+
+when defined(windyDirectX):
+  import dx12, dx12/context
+else:
+  import opengl
+  import silky/shaders
+
+const
+  NormalLayer* = 0
+  PopupsLayer* = 1
+
+type
+  StackDirection* = enum
+    ## Direction of the current layout flow.
+    TopToBottom
+    BottomToTop
+    LeftToRight
+    RightToLeft
+
+  Theme* = object
+    ## Theme for the Silky UI.
+    padding*: int = 8
+    menuPadding*: int = 2
+    spacing*: int = 8
+    border*: int = 10
+    textPadding*: int = 4
+    headerHeight*: int = 32
+    defaultTextColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    disabledTextColor*: ColorRGBX = rgbx(150, 150, 150, 255)
+    errorTextColor*: ColorRGBX = rgbx(255, 100, 100, 255)
+    buttonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    buttonDownColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconButtonHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconButtonDownColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconClickableUpColor*: ColorRGBX = rgbx(200, 200, 200, 200)
+    iconClickableOnColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconClickableHoverColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    iconClickableOffColor*: ColorRGBX = rgbx(110, 110, 110, 110)
+    dropdownHoverBgColor*: ColorRGBX = rgbx(220, 220, 240, 255)
+    dropdownBgColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    dropdownPopupBgColor*: ColorRGBX = rgbx(245, 245, 255, 255)
+    textColor*: ColorRGBX = rgbx(255, 255, 255, 255)
+    textH1Color*: ColorRGBX = rgbx(255, 255, 255, 255)
+    frameFocusColor*: ColorRGBX = rgbx(220, 220, 255, 255)
+    headerBgColor*: ColorRGBX = rgbx(30, 30, 40, 255)
+    menuRootHoverColor*: ColorRGBX = rgbx(70, 70, 90, 200)
+    menuItemHoverColor*: ColorRGBX = rgbx(70, 70, 90, 180)
+    menuItemBgColor*: ColorRGBX = rgbx(40, 40, 50, 140)
+    menuPopupHoverColor*: ColorRGBX = rgbx(80, 80, 100, 180)
+    menuPopupSelectedColor*: ColorRGBX = rgbx(60, 60, 80, 120)
+
+  SilkyVertex* {.packed.} = object
+    ## Shared draw command for one textured quad.
+    pos*: Vec2
+    size*: Vec2
+    uvPos*: array[2, uint16]
+    uvSize*: array[2, uint16]
+    color*: ColorRGBX
+    clipPos*: Vec2
+    clipSize*: Vec2
+
+when defined(windyDirectX):
+  type
+    SilkyDx12Vertex* = object
+      ## Expanded DX12 triangle-list vertex.
+      pos*: array[2, float32]
+      uv*: array[2, float32]
+      color*: array[4, uint8]
+      clipPos*: array[2, float32]
+      clipSize*: array[2, float32]
+      pixelPos*: array[2, float32]
+
+    SilkyDx12State* = ref object
+      ## DirectX 12 renderer state.
+      initialized*: bool
+      ctx*: D3D12Context
+      rootSignature*: ID3D12RootSignature
+      pipelineState*: ID3D12PipelineState
+      texture*: ID3D12Resource
+      srvHeap*: ID3D12DescriptorHeap
+      srvHandleGpu*: D3D12_GPU_DESCRIPTOR_HANDLE
+      vertexBuffer*: ID3D12Resource
+      vertexBufferView*: D3D12_VERTEX_BUFFER_VIEW
+      vertexBufferPtr*: pointer
+      maxVertexCount*: int
+      viewportSize*: IVec2
+      clearColor*: array[4, FLOAT]
+else:
+  type
+    SilkyOpenGlState* = ref object
+      ## OpenGL renderer state.
+      shader*: Shader
+      vao*: GLuint
+      instanceVbo*: GLuint
+      atlasTexture*: GLuint
+
+type
+  Silky* = ref object
+    ## Main Silky context shared across rendering backends.
+    inFrame: bool = false
+    at*: Vec2
+    atStack: seq[Vec2]
+    posStack: seq[Vec2]
+    sizeStack: seq[Vec2]
+    stretchAt*: Vec2
+    directionStack: seq[StackDirection]
+    textStyle*: string = "Default"
+    padding*: float32 = 12
+    theme*: Theme = Theme()
+    cursor*: Cursor = Cursor(kind: ArrowCursor)
+    inputRunes*: seq[Rune]
+    showTooltip*: bool = false
+    lastMousePos*: Vec2
+    mouseIdleTime*: float64
+    hover*: bool = false
+    tooltipThreshold*: float64 = 0.5
+    atlas*: SilkyAtlas
+    image*: Image
+    when defined(windyDirectX):
+      dx12*: SilkyDx12State
+    else:
+      gl*: SilkyOpenGlState
+    layers*: array[2, seq[SilkyVertex]]
+    currentLayer*: int
+    layerStack*: seq[int]
+    clipStack: seq[Rect]
+    frameStartTime*: float64
+    frameTime*: float64
+    avgFrameTime*: float64
+
+var traceActive*: bool = false
+
+proc initSilky*(image: Image, atlas: SilkyAtlas): Silky =
+  ## Creates a new Silky with the shared state initialized.
+  result = Silky()
+  result.image = image
+  result.atlas = atlas
+  result.layers[NormalLayer] = @[]
+  result.layers[PopupsLayer] = @[]
+  result.currentLayer = NormalLayer
+  result.layerStack = @[]
+  when defined(windyDirectX):
+    result.dx12 = SilkyDx12State(
+      clearColor: [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
+    )
+  else:
+    result.gl = SilkyOpenGlState()
+
+proc pushLayer*(sk: Silky, layer: int) =
+  ## Pushes a new rendering layer onto the stack.
+  sk.layerStack.add(sk.currentLayer)
+  sk.currentLayer = layer
+
+proc popLayer*(sk: Silky) =
+  ## Pops the current rendering layer from the stack.
+  sk.currentLayer = sk.layerStack.pop()
+
+proc pushLayout*(
+  sk: Silky,
+  pos: Vec2,
+  size: Vec2,
+  direction: StackDirection = TopToBottom
+) =
+  ## Pushes a new layout region onto the stack.
+  sk.atStack.add(sk.at)
+  sk.posStack.add(pos)
+  sk.at = pos
+  sk.sizeStack.add(size)
+  sk.directionStack.add(direction)
+  sk.stretchAt = sk.at
+  case direction:
+  of TopToBottom:
+    sk.at = pos
+  of BottomToTop:
+    sk.at = pos + vec2(0, size.y)
+  of LeftToRight:
+    sk.at = pos
+  of RightToLeft:
+    sk.at = pos + vec2(size.x, 0)
+
+proc popLayout*(sk: Silky) =
+  ## Pops the current layout region from the stack.
+  sk.at = sk.atStack.pop()
+  discard sk.posStack.pop()
+  discard sk.sizeStack.pop()
+  discard sk.directionStack.pop()
+
+proc pos*(sk: Silky): Vec2 =
+  ## Returns the current layout position.
+  sk.posStack[^1]
+
+proc size*(sk: Silky): Vec2 =
+  ## Returns the current layout size.
+  sk.sizeStack[^1]
+
+proc rootSize*(sk: Silky): Vec2 =
+  ## Returns the root layout size.
+  sk.sizeStack[0]
+
+proc stackDirection*(sk: Silky): StackDirection =
+  ## Returns the current stack direction.
+  sk.directionStack[^1]
+
+proc pushRawClipRect*(sk: Silky, rect: Rect) =
+  ## Pushes a clip rectangle without intersection.
+  sk.clipStack.add(rect)
+
+proc pushClipRect*(sk: Silky, rect: Rect) =
+  ## Pushes a clip rectangle intersected with the parent clip.
+  if sk.clipStack.len == 0:
+    sk.pushRawClipRect(rect)
+    return
+
+  let
+    parentClip = sk.clipStack[^1]
+    x1 = max(parentClip.x, rect.x)
+    y1 = max(parentClip.y, rect.y)
+    x2 = min(parentClip.x + parentClip.w, rect.x + rect.w)
+    y2 = min(parentClip.y + parentClip.h, rect.y + rect.h)
+  sk.pushRawClipRect(rect(
+    x1,
+    y1,
+    max(0.0'f, x2 - x1),
+    max(0.0'f, y2 - y1)
+  ))
+
+proc popClipRect*(sk: Silky) =
+  ## Pops the current clip rectangle.
+  discard sk.clipStack.pop()
+
+proc clipRect*(sk: Silky): Rect =
+  ## Returns the current clip rectangle.
+  sk.clipStack[^1]
+
+proc instanceCount*(sk: Silky): int =
+  ## Returns the number of queued quads.
+  for i in 0 ..< sk.layers.len:
+    result += sk.layers[i].len
+
+proc advance*(sk: Silky, amount: Vec2) =
+  ## Advances the current layout cursor.
+  sk.stretchAt = max(
+    sk.stretchAt,
+    sk.at + amount + vec2(sk.theme.spacing.float32)
+  )
+  case sk.stackDirection:
+  of TopToBottom:
+    sk.at.y += amount.y + sk.theme.spacing.float32
+  of BottomToTop:
+    sk.at.y -= amount.y + sk.theme.spacing.float32
+  of LeftToRight:
+    sk.at.x += amount.x + sk.theme.spacing.float32
+  of RightToLeft:
+    sk.at.x -= amount.x + sk.theme.spacing.float32
+
+proc getImageSize*(sk: Silky, image: string): Vec2 =
+  ## Returns the size of an atlas image in pixels.
+  if image notin sk.atlas.entries:
+    echo "[Warning] Image not found in atlas: " & image
+    return vec2(0, 0)
+  let uv = sk.atlas.entries[image]
+  vec2(uv.width.float32, uv.height.float32)
+
+proc shouldShowTooltip*(sk: Silky): bool =
+  ## Returns true when a tooltip should be shown.
+  sk.hover and sk.mouseIdleTime >= sk.tooltipThreshold
+
+proc beginUiShared*(sk: Silky, window: Window, size: IVec2) =
+  ## Starts a frame and updates the shared UI state.
+  when defined(profile):
+    if window.buttonPressed[KeyF3]:
+      if not traceActive:
+        traceActive = true
+        startTrace()
+      else:
+        traceActive = false
+        endTrace()
+        createDir("tmp")
+        dumpMeasures("tmp/trace.json")
+
+  sk.showTooltip = false
+  sk.pushLayout(vec2(0, 0), size.vec2)
+  sk.inFrame = true
+
+  let
+    currentTime = epochTime()
+    deltaTime = currentTime - sk.frameStartTime
+    currentMousePos = window.mousePos.vec2
+  sk.frameStartTime = currentTime
+
+  if currentMousePos != sk.lastMousePos:
+    sk.mouseIdleTime = 0
+    sk.lastMousePos = currentMousePos
+  else:
+    sk.mouseIdleTime += deltaTime
+
+  sk.showTooltip = false
+  measurePush("frame")
+  sk.pushClipRect(rect(0, 0, sk.size.x, sk.size.y))
+
+proc clear*(sk: Silky)
+
+proc endUiShared*(sk: Silky) =
+  ## Ends a frame after the backend has finished drawing.
+  sk.clear()
+  sk.popLayout()
+  sk.popClipRect()
+  sk.frameTime = epochTime() - sk.frameStartTime
+  sk.avgFrameTime = (sk.avgFrameTime * 0.99) + (sk.frameTime * 0.01)
+  sk.inputRunes.setLen(0)
+  sk.inFrame = false
+  measurePop()
+
+proc drawText*(
+  sk: Silky,
+  font: string,
+  text: string,
+  pos: Vec2,
+  color: ColorRGBX,
+  maxWidth = float32.high,
+  maxHeight = float32.high,
+  clip = true,
+  wordWrap = false,
+  hAlign: HorizontalAlignment = LeftAlign,
+  vAlign: VerticalAlignment = TopAlign
+): Vec2 =
+  ## Queues text glyphs using atlas-backed font data.
+  assert sk.inFrame
+  if font notin sk.atlas.fonts:
+    echo "[Warning] Font not found in atlas: " & font
+    return
+  if clip and (maxWidth <= 0 or maxHeight <= 0):
+    return
+
+  var glyphClip = clip
+  if hAlign != LeftAlign or vAlign != TopAlign:
+    glyphClip = false
+
+  let
+    fontData = sk.atlas.fonts[font]
+    maxPos = pos + vec2(maxWidth, maxHeight)
+    runedText = text.toRunes
+    hasSubpixel = fontData.subpixelSteps > 0
+    layer = sk.currentLayer
+    needsHAlign = hAlign != LeftAlign
+    needsVAlign = vAlign != TopAlign
+  var currentPos = pos + vec2(0, fontData.ascent)
+
+  let
+    parentClip = sk.clipRect
+    textClip =
+      if clip:
+        let
+          cx1 = max(pos.x, parentClip.x)
+          cy1 = max(pos.y, parentClip.y)
+          cx2 = min(maxPos.x, parentClip.x + parentClip.w)
+          cy2 = min(maxPos.y, parentClip.y + parentClip.h)
+        (
+          vec2(cx1, cy1),
+          vec2(max(0.0'f, cx2 - cx1), max(0.0'f, cy2 - cy1))
+        )
+      else:
+        (parentClip.xy, parentClip.wh)
+
+  let textStartIdx = sk.layers[layer].len
+  var lineStartIdx = textStartIdx
+
+  proc alignLine(lineWidth: float32) =
+    ## Applies horizontal alignment to the current buffered line.
+    if not needsHAlign:
+      return
+    let dx =
+      case hAlign:
+      of LeftAlign:
+        0.0'f
+      of CenterAlign:
+        floor((maxWidth - lineWidth) * 0.5)
+      of RightAlign:
+        floor(maxWidth - lineWidth)
+    if dx != 0:
+      for j in lineStartIdx ..< sk.layers[layer].len:
+        sk.layers[layer][j].pos.x += dx
+    lineStartIdx = sk.layers[layer].len
+
+  var i = 0
+  while i < runedText.len:
+    let rune = runedText[i]
+
+    if rune == Rune(10):
+      alignLine(currentPos.x - pos.x)
+      currentPos.x = pos.x
+      currentPos.y += fontData.lineHeight
+      inc i
+      continue
+
+    if wordWrap and currentPos.x > pos.x and rune != Rune(32):
+      let isWordStart =
+        i == 0 or
+        runedText[i - 1] == Rune(32) or
+        runedText[i - 1] == Rune(10)
+      if isWordStart:
+        var
+          wordW = 0.0'f
+          j = i
+        while j < runedText.len and
+          runedText[j] != Rune(32) and
+          runedText[j] != Rune(10):
+          let gs = $runedText[j]
+          if gs in fontData.entries:
+            wordW += fontData.entries[gs][0].advance
+          elif "?" in fontData.entries:
+            wordW += fontData.entries["?"][0].advance
+          inc j
+        if currentPos.x + wordW > pos.x + maxWidth:
+          alignLine(currentPos.x - pos.x)
+          currentPos.x = pos.x
+          currentPos.y += fontData.lineHeight
+
+    let glyphStr = $rune
+    let variant =
+      if hasSubpixel:
+        let frac = currentPos.x - currentPos.x.floor
+        (frac * fontData.subpixelSteps.float32).int mod
+          fontData.subpixelSteps
+      else:
+        0
+
+    var entry: LetterEntry
+    if glyphStr in fontData.entries:
+      entry = fontData.entries[glyphStr][variant]
+    elif "?" in fontData.entries:
+      entry = fontData.entries["?"][0]
+    else:
+      inc i
+      continue
+
+    if currentPos.x >= maxPos.x:
+      if wordWrap:
+        alignLine(currentPos.x - pos.x)
+        currentPos.x = pos.x
+        currentPos.y += fontData.lineHeight
+      elif glyphClip:
+        while i < runedText.len and runedText[i] != Rune(10):
+          inc i
+        continue
+
+    if glyphClip and currentPos.y + entry.boundsY >= maxPos.y:
+      break
+
+    if entry.boundsWidth > 0 and entry.boundsHeight > 0:
+      let glyphPos = vec2(
+        floor(currentPos.x) + entry.boundsX,
+        round(currentPos.y + entry.boundsY)
+      )
+      sk.layers[sk.currentLayer].add(SilkyVertex(
+        pos: glyphPos,
+        size: vec2(entry.boundsWidth, entry.boundsHeight),
+        uvPos: [entry.x.uint16, entry.y.uint16],
+        uvSize: [entry.boundsWidth.uint16, entry.boundsHeight.uint16],
+        color: color,
+        clipPos: textClip[0],
+        clipSize: textClip[1]
+      ))
+
+    currentPos.x += entry.advance
+    if i < runedText.len - 1:
+      let nextGlyphStr = $runedText[i + 1]
+      if glyphStr in fontData.entries and
+        nextGlyphStr in fontData.entries[glyphStr][0].kerning:
+        currentPos.x +=
+          fontData.entries[glyphStr][0].kerning[nextGlyphStr]
+
+    inc i
+
+  alignLine(currentPos.x - pos.x)
+
+  if needsVAlign:
+    let
+      textHeight =
+        currentPos.y - pos.y - fontData.ascent + fontData.lineHeight
+      dy =
+        case vAlign:
+        of TopAlign:
+          0.0'f
+        of MiddleAlign:
+          floor((maxHeight - textHeight) * 0.5)
+        of BottomAlign:
+          floor(maxHeight - textHeight)
+    if dy != 0:
+      for j in textStartIdx ..< sk.layers[layer].len:
+        sk.layers[layer][j].pos.y += dy
+
+  currentPos - pos
+
+proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
+  ## Returns the size of text in pixels.
+  if font notin sk.atlas.fonts:
+    return vec2(0, 0)
+
+  let
+    fontData = sk.atlas.fonts[font]
+    runedText = text.toRunes
+  var currentPos = vec2(0, fontData.lineHeight)
+
+  for i in 0 ..< runedText.len:
+    let rune = runedText[i]
+    if rune == Rune(10):
+      currentPos.x = 0
+      currentPos.y += fontData.lineHeight
+      continue
+
+    let glyphStr = $rune
+    var entry: LetterEntry
+    if glyphStr in fontData.entries:
+      entry = fontData.entries[glyphStr][0]
+    elif "?" in fontData.entries:
+      entry = fontData.entries["?"][0]
+    else:
+      continue
+
+    currentPos.x += entry.advance
+    if i < runedText.len - 1:
+      let nextGlyphStr = $runedText[i + 1]
+      if nextGlyphStr in entry.kerning:
+        currentPos.x += entry.kerning[nextGlyphStr]
+
+  currentPos
+
+proc drawQuad*(
+  sk: Silky,
+  pos: Vec2,
+  size: Vec2,
+  uvPos: Vec2,
+  uvSize: Vec2,
+  color: ColorRGBX
+) =
+  ## Queues one quad draw.
+  sk.layers[sk.currentLayer].add(SilkyVertex(
+    pos: pos,
+    size: size,
+    uvPos: [uvPos.x.uint16, uvPos.y.uint16],
+    uvSize: [uvSize.x.uint16, uvSize.y.uint16],
+    color: color,
+    clipPos: sk.clipRect.xy,
+    clipSize: sk.clipRect.wh
+  ))
+
+proc drawImage*(
+  sk: Silky,
+  name: string,
+  pos: Vec2,
+  color = rgbx(255, 255, 255, 255)
+) =
+  ## Queues an atlas image draw.
+  if name notin sk.atlas.entries:
+    echo "[Warning] Sprite not found in atlas: " & name
+    return
+  let uv = sk.atlas.entries[name]
+  sk.drawQuad(
+    pos,
+    vec2(uv.width.float32, uv.height.float32),
+    vec2(uv.x.float32, uv.y.float32),
+    vec2(uv.width.float32, uv.height.float32),
+    color
+  )
+
+proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) =
+  ## Queues a solid-colored rectangle draw.
+  let
+    uv = sk.atlas.entries[WhiteTileKey]
+    center =
+      vec2(uv.x.float32, uv.y.float32) +
+      vec2(uv.width.float32, uv.height.float32) / 2
+  sk.drawQuad(pos, size, center, vec2(0, 0), color)
+
+proc draw9Patch*(
+  sk: Silky,
+  name: string,
+  patch: int,
+  pos: Vec2,
+  size: Vec2,
+  color = rgbx(255, 255, 255, 255)
+) =
+  ## Queues a 9-patch image draw.
+  if name notin sk.atlas.entries:
+    echo "[Warning] Sprite not found in atlas: " & name
+    return
+  let uv = sk.atlas.entries[name]
+
+  let
+    p = patch.float32
+    srcXOffsets = [0.int, patch, uv.width - patch]
+    srcWidths = [patch, uv.width - 2 * patch, patch]
+    srcYOffsets = [0.int, patch, uv.height - patch]
+    srcHeights = [patch, uv.height - 2 * patch, patch]
+    dstXOffsets = [0.0'f32, p, size.x - p]
+    dstWidths = [p, size.x - 2 * p, p]
+    dstYOffsets = [0.0'f32, p, size.y - p]
+    dstHeights = [p, size.y - 2 * p, p]
+
+  let order = [
+    (0, 0), (2, 0), (0, 2), (2, 2),
+    (1, 0), (0, 1), (2, 1), (1, 2),
+    (1, 1)
+  ]
+
+  for (x, y) in order:
+    let
+      sw = srcWidths[x]
+      sh = srcHeights[y]
+      dw = dstWidths[x]
+      dh = dstHeights[y]
+    if dw <= 0.001 or dh <= 0.001 or sw <= 0 or sh <= 0:
+      continue
+    sk.drawQuad(
+      vec2(pos.x + dstXOffsets[x], pos.y + dstYOffsets[y]),
+      vec2(dw, dh),
+      vec2(
+        (uv.x + srcXOffsets[x]).float32,
+        (uv.y + srcYOffsets[y]).float32
+      ),
+      vec2(sw.float32, sh.float32),
+      color
+    )
+
+proc contains*(sk: Silky, name: string): bool =
+  ## Returns true if the atlas contains one image entry.
+  name in sk.atlas.entries
+
+proc getAtlasEntry*(sk: Silky, name: string, entry: var Entry): bool =
+  ## Gets one atlas entry by name.
+  if name notin sk.atlas.entries:
+    return false
+  entry = sk.atlas.entries[name]
+  true
+
+proc atlasImageSize*(sk: Silky): IVec2 =
+  ## Returns the atlas image size.
+  ivec2(sk.image.width.int32, sk.image.height.int32)
+
+proc clear*(sk: Silky) =
+  ## Clears the queued draw data for the next frame.
+  sk.layers[NormalLayer].setLen(0)
+  sk.layers[PopupsLayer].setLen(0)
+  sk.currentLayer = NormalLayer
+  sk.layerStack.setLen(0)
+
+proc beginWidget*(
+  sk: Silky,
+  kind: string,
+  name = "",
+  text = "",
+  rect = rect(0'f, 0'f, 0'f, 0'f)
+) {.inline.} =
+  ## No-op semantic begin hook for GPU backends.
+  discard
+
+proc endWidget*(sk: Silky) {.inline.} =
+  ## No-op semantic end hook for GPU backends.
+  discard
+
+proc setWidgetState*(
+  sk: Silky,
+  enabled = true,
+  focused = false,
+  pressed = false,
+  hovered = false,
+  checked = false,
+  value = ""
+) {.inline.} =
+  ## No-op semantic state update for GPU backends.
+  discard
+
+proc setWidgetRect*(sk: Silky, rect: Rect) {.inline.} =
+  ## No-op semantic rectangle update for GPU backends.
+  discard
+
+proc semanticSnapshot*(sk: Silky): string =
+  ## Returns an empty semantic snapshot for GPU backends.
+  ""
+
+proc semanticReset*(sk: Silky) =
+  ## Resets semantic capture for GPU backends.
+  discard
+
+proc semanticEnabled*(sk: Silky): bool =
+  ## Returns false for GPU backends.
+  false
