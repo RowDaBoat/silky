@@ -28,7 +28,7 @@ loadExtensions()
 const
   BackgroundColor = parseHtmlColor("#1a1a2e").rgbx
 
-let sk = newSilky("tests/dist/atlas.png")
+let sk = newSilky(window, "tests/dist/atlas.png")
 
 var textOffset = 0.0f
 

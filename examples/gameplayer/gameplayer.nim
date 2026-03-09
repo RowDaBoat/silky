@@ -25,7 +25,7 @@ const
   Margin = 12f
 
 let
-  sk = newSilky("dist/atlas.png")
+  sk = newSilky(window, "dist/atlas.png")
   vibes = @[
   "vibe/alembic",
   "vibe/angry",

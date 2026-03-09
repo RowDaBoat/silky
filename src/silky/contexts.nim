@@ -20,10 +20,10 @@ else:
     discard
 
 when defined(windyDirectX):
-  import dx12, dx12/context
+  import silky/dx12_drawers
 else:
   import opengl
-  import silky/shaders
+  import silky/ogl_drawers
 
 const
   NormalLayer* = 0
@@ -79,43 +79,6 @@ type
     clipPos*: Vec2
     clipSize*: Vec2
 
-when defined(windyDirectX):
-  type
-    SilkyDx12Vertex* = object
-      ## Expanded DX12 triangle-list vertex.
-      pos*: array[2, float32]
-      uv*: array[2, float32]
-      color*: array[4, uint8]
-      clipPos*: array[2, float32]
-      clipSize*: array[2, float32]
-      pixelPos*: array[2, float32]
-
-    SilkyDx12State* = ref object
-      ## DirectX 12 renderer state.
-      initialized*: bool
-      window*: Window
-      ctx*: D3D12Context
-      rootSignature*: ID3D12RootSignature
-      pipelineState*: ID3D12PipelineState
-      texture*: ID3D12Resource
-      srvHeap*: ID3D12DescriptorHeap
-      srvHandleGpu*: D3D12_GPU_DESCRIPTOR_HANDLE
-      vertexBuffer*: ID3D12Resource
-      vertexBufferView*: D3D12_VERTEX_BUFFER_VIEW
-      vertexBufferPtr*: pointer
-      maxVertexCount*: int
-      viewportSize*: IVec2
-      clearColor*: array[4, FLOAT]
-else:
-  type
-    SilkyOpenGlState* = ref object
-      ## OpenGL renderer state.
-      shader*: Shader
-      vao*: GLuint
-      instanceVbo*: GLuint
-      atlasTexture*: GLuint
-
-type
   Silky* = ref object
     ## Main Silky context shared across rendering backends.
     inFrame: bool = false
@@ -137,13 +100,7 @@ type
     tooltipThreshold*: float64 = 0.5
     atlas*: SilkyAtlas
     image*: Image
-    when defined(windyDirectX):
-      dx12*: SilkyDx12State
-    else:
-      gl*: SilkyOpenGlState
-    layers*: array[2, seq[SilkyVertex]]
-    currentLayer*: int
-    layerStack*: seq[int]
+    drawer*: Drawer
     clipStack: seq[Rect]
     frameStartTime*: float64
     frameTime*: float64
@@ -151,30 +108,14 @@ type
 
 var traceActive*: bool = false
 
-proc initSilky*(image: Image, atlas: SilkyAtlas): Silky =
-  ## Creates a new Silky with the shared state initialized.
-  result = Silky()
-  result.image = image
-  result.atlas = atlas
-  result.layers[NormalLayer] = @[]
-  result.layers[PopupsLayer] = @[]
-  result.currentLayer = NormalLayer
-  result.layerStack = @[]
-  when defined(windyDirectX):
-    result.dx12 = SilkyDx12State(
-      clearColor: [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32]
-    )
-  else:
-    result.gl = SilkyOpenGlState()
-
 proc pushLayer*(sk: Silky, layer: int) =
   ## Pushes a new rendering layer onto the stack.
-  sk.layerStack.add(sk.currentLayer)
-  sk.currentLayer = layer
+  sk.drawer.layerStack.add(sk.drawer.currentLayer)
+  sk.drawer.currentLayer = layer
 
 proc popLayer*(sk: Silky) =
   ## Pops the current rendering layer from the stack.
-  sk.currentLayer = sk.layerStack.pop()
+  sk.drawer.currentLayer = sk.drawer.layerStack.pop()
 
 proc pushLayout*(
   sk: Silky,
@@ -255,8 +196,8 @@ proc clipRect*(sk: Silky): Rect =
 
 proc instanceCount*(sk: Silky): int =
   ## Returns the number of queued quads.
-  for i in 0 ..< sk.layers.len:
-    result += sk.layers[i].len
+  for i in 0 ..< sk.drawer.layers.len:
+    result += sk.drawer.layers[i].len
 
 proc advance*(sk: Silky, amount: Vec2) =
   ## Advances the current layout cursor.
@@ -362,7 +303,7 @@ proc drawText*(
     maxPos = pos + vec2(maxWidth, maxHeight)
     runedText = text.toRunes
     hasSubpixel = fontData.subpixelSteps > 0
-    layer = sk.currentLayer
+    layer = sk.drawer.currentLayer
     needsHAlign = hAlign != LeftAlign
     needsVAlign = vAlign != TopAlign
   var currentPos = pos + vec2(0, fontData.ascent)
@@ -383,7 +324,7 @@ proc drawText*(
       else:
         (parentClip.xy, parentClip.wh)
 
-  let textStartIdx = sk.layers[layer].len
+  let textStartIdx = sk.drawer.layers[layer].len
   var lineStartIdx = textStartIdx
 
   proc alignLine(lineWidth: float32) =
@@ -399,9 +340,9 @@ proc drawText*(
       of RightAlign:
         floor(maxWidth - lineWidth)
     if dx != 0:
-      for j in lineStartIdx ..< sk.layers[layer].len:
-        sk.layers[layer][j].pos.x += dx
-    lineStartIdx = sk.layers[layer].len
+      for j in lineStartIdx ..< sk.drawer.layers[layer].len:
+        sk.drawer.layers[layer][j].pos.x += dx
+    lineStartIdx = sk.drawer.layers[layer].len
 
   var i = 0
   while i < runedText.len:
@@ -473,7 +414,7 @@ proc drawText*(
         floor(currentPos.x) + entry.boundsX,
         round(currentPos.y + entry.boundsY)
       )
-      sk.layers[sk.currentLayer].add(SilkyVertex(
+      sk.drawer.layers[sk.drawer.currentLayer].add(DrawerVertex(
         pos: glyphPos,
         size: vec2(entry.boundsWidth, entry.boundsHeight),
         uvPos: [entry.x.uint16, entry.y.uint16],
@@ -508,8 +449,8 @@ proc drawText*(
         of BottomAlign:
           floor(maxHeight - textHeight)
     if dy != 0:
-      for j in textStartIdx ..< sk.layers[layer].len:
-        sk.layers[layer][j].pos.y += dy
+      for j in textStartIdx ..< sk.drawer.layers[layer].len:
+        sk.drawer.layers[layer][j].pos.y += dy
 
   currentPos - pos
 
@@ -547,6 +488,22 @@ proc getTextSize*(sk: Silky, font: string, text: string): Vec2 =
 
   currentPos
 
+proc newSilky*(
+  window: Window,
+  image: Image,
+  atlas: SilkyAtlas
+): Silky {.measure.} =
+  ## Creates a new Silky context and eagerly initializes its drawer.
+  result = Silky()
+  result.image = image
+  result.atlas = atlas
+  result.drawer = newDrawer(window, image)
+
+proc newSilky*(window: Window, atlasPngPath: string): Silky {.measure.} =
+  ## Creates a new Silky from one atlas PNG file.
+  let atlasData = readAtlas(atlasPngPath)
+  newSilky(window, atlasData.image, atlasData.atlas)
+
 proc drawQuad*(
   sk: Silky,
   pos: Vec2,
@@ -556,7 +513,7 @@ proc drawQuad*(
   color: ColorRGBX
 ) =
   ## Queues one quad draw.
-  sk.layers[sk.currentLayer].add(SilkyVertex(
+  sk.drawer.layers[sk.drawer.currentLayer].add(DrawerVertex(
     pos: pos,
     size: size,
     uvPos: [uvPos.x.uint16, uvPos.y.uint16],
@@ -661,10 +618,44 @@ proc atlasImageSize*(sk: Silky): IVec2 =
 
 proc clear*(sk: Silky) =
   ## Clears the queued draw data for the next frame.
-  sk.layers[NormalLayer].setLen(0)
-  sk.layers[PopupsLayer].setLen(0)
-  sk.currentLayer = NormalLayer
-  sk.layerStack.setLen(0)
+  sk.drawer.layers[NormalLayer].setLen(0)
+  sk.drawer.layers[PopupsLayer].setLen(0)
+  sk.drawer.currentLayer = NormalLayer
+  sk.drawer.layerStack.setLen(0)
+
+proc beginUi*(sk: Silky, window: Window, size: IVec2) =
+  ## Begins a new UI frame.
+  sk.drawer.beginFrame(window, size)
+  sk.beginUiShared(window, size)
+
+proc clearScreen*(sk: Silky, color: ColorRGBX) {.measure.} =
+  ## Clears or updates the frame clear color through the drawer.
+  sk.drawer.clearScreen(color)
+
+proc endUi*(sk: Silky) {.measure.} =
+  ## Flushes the queued draws through the active drawer.
+  for i in 1 ..< sk.drawer.layers.len:
+    sk.drawer.layers[NormalLayer].add(sk.drawer.layers[i])
+
+  let
+    quadCount = sk.drawer.layers[NormalLayer].len
+    quadsPtr =
+      if quadCount > 0:
+        cast[pointer](unsafeAddr sk.drawer.layers[NormalLayer][0])
+      else:
+        nil
+  sk.drawer.endFrame(
+    sk.image,
+    sk.size,
+    quadsPtr,
+    quadCount
+  )
+  sk.endUiShared()
+
+when not defined(windyDirectX):
+  proc atlasTextureId*(sk: Silky): GLuint =
+    ## Returns the OpenGL texture id of the atlas.
+    sk.drawer.atlasTextureId()
 
 proc beginWidget*(
   sk: Silky,

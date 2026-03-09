@@ -109,7 +109,7 @@ loadExtensions()
 
 const BackgroundColor = parseHtmlColor("#000000").rgbx
 
-let sk = newSilky("dist/atlas.png")
+let sk = newSilky(window, "dist/atlas.png")
 
 var showWindow = true
 

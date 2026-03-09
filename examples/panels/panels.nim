@@ -21,7 +21,7 @@ proc snapToPixels(rect: Rect): Rect =
   ## Snap rectangle coordinates to integer pixels.
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
 
-let sk = newSilky("dist/atlas.png")
+let sk = newSilky(window, "dist/atlas.png")
 
 type
   AreaLayout = enum

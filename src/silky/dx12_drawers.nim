@@ -4,13 +4,49 @@ when not defined(windows):
 import
   pixie, vmath, windy,
   windy/platforms/win32/windefs,
-  dx12, dx12/context,
-  silky/[atlas, drawing_common]
-
-export drawing_common
+  dx12, dx12/context
 
 const
   InitialVertexCapacity = 4096
+
+type
+  DrawerVertex* {.packed.} = object
+    ## Raw quad layout consumed by the DX12 drawer.
+    pos*: Vec2
+    size*: Vec2
+    uvPos*: array[2, uint16]
+    uvSize*: array[2, uint16]
+    color*: ColorRGBX
+    clipPos*: Vec2
+    clipSize*: Vec2
+
+  SilkyDx12Vertex = object
+    ## Expanded DX12 triangle-list vertex.
+    pos: array[2, float32]
+    uv: array[2, float32]
+    color: array[4, uint8]
+    clipPos: array[2, float32]
+    clipSize: array[2, float32]
+    pixelPos: array[2, float32]
+
+  Drawer* = ref object
+    ## DirectX 12-backed drawer state.
+    window: Window
+    ctx: D3D12Context
+    rootSignature: ID3D12RootSignature
+    pipelineState: ID3D12PipelineState
+    texture: ID3D12Resource
+    srvHeap: ID3D12DescriptorHeap
+    srvHandleGpu: D3D12_GPU_DESCRIPTOR_HANDLE
+    vertexBuffer: ID3D12Resource
+    vertexBufferView: D3D12_VERTEX_BUFFER_VIEW
+    vertexBufferPtr: pointer
+    maxVertexCount: int
+    viewportSize: IVec2
+    clearColor: array[4, FLOAT]
+    layers*: array[2, seq[DrawerVertex]]
+    currentLayer*: int
+    layerStack*: seq[int]
 
 proc clampViewport(size: IVec2): IVec2 =
   ## Clamps the viewport to valid swap-chain dimensions.
@@ -34,7 +70,7 @@ proc screenToClip(size: IVec2, pos: Vec2): Vec2 =
     1.0'f32 - (pos.y / height) * 2.0'f32
   )
 
-proc createVertexBuffer(state: SilkyDx12State, maxVertexCount: int) =
+proc createVertexBuffer(state: Drawer, maxVertexCount: int) =
   ## Creates or replaces the persistently mapped upload vertex buffer.
   if state.vertexBuffer != nil:
     state.vertexBuffer.unmap(0, nil)
@@ -80,12 +116,9 @@ proc createVertexBuffer(state: SilkyDx12State, maxVertexCount: int) =
     StrideInBytes: uint32(sizeof(SilkyDx12Vertex))
   )
 
-proc uploadTexture(sk: Silky) =
+proc uploadTexture(state: Drawer, image: Image) =
   ## Uploads the atlas image to a DX12 texture and creates one SRV.
-  let
-    state = sk.dx12
-    image = sk.image
-    bytesPerPixel = 4
+  const BytesPerPixel = 4
 
   var texDesc: D3D12_RESOURCE_DESC
   zeroMem(addr texDesc, sizeof(texDesc))
@@ -164,7 +197,7 @@ proc uploadTexture(sk: Silky) =
   uploadBuffer.map(0, nil, addr uploadPtr)
   let
     rowPitch = int(footprint.Footprint.RowPitch)
-    srcRowSize = image.width * bytesPerPixel
+    srcRowSize = image.width * BytesPerPixel
   var dst = cast[ptr uint8](cast[uint](uploadPtr) + uint(footprint.Offset))
   for y in 0 ..< image.height:
     let srcIdx = image.dataIndex(0, y)
@@ -249,7 +282,7 @@ proc uploadTexture(sk: Silky) =
     srvCpuHandle
   )
 
-proc initRenderer(sk: Silky, size: IVec2) =
+proc initRenderer(state: Drawer, image: Image, size: IVec2) =
   ## Creates the DX12 pipeline, upload buffers, and atlas texture.
   const vertexShaderSrc = """
 struct VSInput {
@@ -307,7 +340,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
 """
 
   let
-    state = sk.dx12
+    safeSize = clampViewport(size)
     vsBlob = compileShader(vertexShaderSrc, "VSMain", "vs_5_0")
     psBlob = compileShader(pixelShaderSrc, "PSMain", "ps_5_0")
 
@@ -386,7 +419,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
     D3D12_INPUT_ELEMENT_DESC(
       SemanticName: "COLOR",
       SemanticIndex: 0,
-    Format: DXGI_FORMAT_R8G8B8A8_UNORM,
+      Format: DXGI_FORMAT_R8G8B8A8_UNORM,
       InputSlot: 0,
       AlignedByteOffset: 16,
       InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
@@ -495,32 +528,48 @@ float4 PSMain(PSInput input) : SV_TARGET {
   release(vsBlob)
   release(psBlob)
 
-  state.viewportSize = clampViewport(size)
+  state.viewportSize = safeSize
   state.createVertexBuffer(InitialVertexCapacity)
-  sk.uploadTexture()
+  state.uploadTexture(image)
 
-proc ensureRenderer(sk: Silky, window: Window, size: IVec2) =
-  ## Creates or resizes the DX12 renderer for the current window.
+proc newDrawer*(window: Window, image: Image): Drawer =
+  ## Creates a new DX12 drawer and eagerly initializes its resources.
   let
-    state = sk.dx12
-    safeSize = clampViewport(size)
-  if not state.initialized:
-    let hwnd = window.getHWND()
-    state.ctx.initDevice(hwnd, safeSize.x.int, safeSize.y.int)
-    sk.initRenderer(safeSize)
-    state.initialized = true
-  elif state.viewportSize != safeSize:
-    state.ctx.resize(safeSize.x.int, safeSize.y.int)
-    state.viewportSize = safeSize
+    state = Drawer(
+      window: window,
+      clearColor: [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32],
+      currentLayer: 0,
+      layerStack: @[]
+    )
+    hwnd = window.getHWND()
+    safeSize = clampViewport(window.size)
+  state.layers[0] = @[]
+  state.layers[1] = @[]
+  result = state
+  state.ctx.initDevice(hwnd, safeSize.x.int, safeSize.y.int)
+  state.initRenderer(image, safeSize)
 
-proc ensureVertexCapacity(sk: Silky, vertexCount: int) =
+proc beginFrame*(drawer: Drawer, window: Window, size: IVec2) =
+  ## Prepares the DX12 drawer for a new frame.
+  let safeSize = clampViewport(size)
+  drawer.window = window
+  if drawer.viewportSize != safeSize:
+    drawer.ctx.resize(safeSize.x.int, safeSize.y.int)
+    drawer.viewportSize = safeSize
+
+proc clearScreen*(drawer: Drawer, color: ColorRGBX) =
+  ## Sets the DX12 clear color used at frame submission.
+  let c = color.color
+  drawer.clearColor = [c.r, c.g, c.b, c.a]
+
+proc ensureVertexCapacity(state: Drawer, vertexCount: int) =
   ## Grows the upload vertex buffer to fit the current batch.
-  if vertexCount <= sk.dx12.maxVertexCount:
+  if vertexCount <= state.maxVertexCount:
     return
-  var newCapacity = max(InitialVertexCapacity, sk.dx12.maxVertexCount)
+  var newCapacity = max(InitialVertexCapacity, state.maxVertexCount)
   while newCapacity < vertexCount:
     newCapacity *= 2
-  sk.dx12.createVertexBuffer(newCapacity)
+  state.createVertexBuffer(newCapacity)
 
 proc pushTriangleVertex(
   vertices: var seq[SilkyDx12Vertex],
@@ -545,7 +594,7 @@ proc expandQuad(
   vertices: var seq[SilkyDx12Vertex],
   viewportSize: IVec2,
   atlasSize: Vec2,
-  quad: SilkyVertex
+  quad: DrawerVertex
 ) =
   ## Expands one queued Silky quad into six DX12 vertices.
   let
@@ -616,9 +665,8 @@ proc expandQuad(
     quad.clipSize
   )
 
-proc recordDraw(sk: Silky, vertexCount: int) =
+proc recordDraw(state: Drawer, vertexCount: int) =
   ## Records the DX12 draw pass for the current frame.
-  let state = sk.dx12
   state.ctx.commandAllocator.reset()
   state.ctx.commandList.reset(state.ctx.commandAllocator, state.pipelineState)
   state.ctx.commandList.setGraphicsRootSignature(state.rootSignature)
@@ -672,50 +720,33 @@ proc recordDraw(sk: Silky, vertexCount: int) =
   state.ctx.commandList.resourceBarrier(1, addr barrier)
   state.ctx.commandList.close()
 
-proc beginUi*(sk: Silky, window: Window, size: IVec2) =
-  ## Begins a new UI frame for the DX12 backend.
-  sk.ensureRenderer(window, size)
-  sk.dx12.window = window
-  sk.beginUiShared(window, size)
-
-proc clearScreen*(sk: Silky, color: ColorRGBX) {.measure.} =
-  ## Sets the DX12 clear color used at frame submission.
-  let c = color.color
-  sk.dx12.clearColor = [c.r, c.g, c.b, c.a]
-
-proc newSilky*(image: Image, atlas: SilkyAtlas): Silky {.measure.} =
-  ## Creates a new Silky configured for lazy DX12 initialization.
-  initSilky(image, atlas)
-
-proc newSilky*(atlasPngPath: string): Silky {.measure.} =
-  ## Creates a new Silky from one atlas PNG file.
-  let atlasData = readAtlas(atlasPngPath)
-  newSilky(atlasData.image, atlasData.atlas)
-
-proc endUi*(sk: Silky) {.measure.} =
+proc endFrame*(
+  drawer: Drawer,
+  image: Image,
+  size: Vec2,
+  quads: pointer,
+  quadCount: int
+) =
   ## Flushes the queued draws through DirectX 12.
-  for i in 1 ..< sk.layers.len:
-    sk.layers[NormalLayer].add(sk.layers[i])
-
+  discard size
   let
-    atlasSize = vec2(sk.image.width.float32, sk.image.height.float32)
-    quadCount = sk.layers[NormalLayer].len
+    atlasSize = vec2(image.width.float32, image.height.float32)
     vertexCount = quadCount * 6
-  sk.ensureVertexCapacity(vertexCount)
+  drawer.ensureVertexCapacity(vertexCount)
 
   var vertices = newSeqOfCap[SilkyDx12Vertex](vertexCount)
-  for quad in sk.layers[NormalLayer]:
-    vertices.expandQuad(sk.dx12.viewportSize, atlasSize, quad)
+  let quadsArr = cast[ptr UncheckedArray[DrawerVertex]](quads)
+  for i in 0 ..< quadCount:
+    vertices.expandQuad(drawer.viewportSize, atlasSize, quadsArr[i])
 
   if vertexCount > 0:
     copyMem(
-      sk.dx12.vertexBufferPtr,
+      drawer.vertexBufferPtr,
       unsafeAddr vertices[0],
       vertexCount * sizeof(SilkyDx12Vertex)
     )
 
-  sk.recordDraw(vertexCount)
-  sk.dx12.ctx.executeFrame(
-    if sk.dx12.window != nil: sk.dx12.window.vsync else: true
+  drawer.recordDraw(vertexCount)
+  drawer.ctx.executeFrame(
+    if drawer.window != nil: drawer.window.vsync else: true
   )
-  sk.endUiShared()

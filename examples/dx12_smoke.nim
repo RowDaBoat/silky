@@ -13,7 +13,7 @@ let window = newWindow(
   ivec2(800, 600),
   vsync = false
 )
-let sk = newSilky("dist/dx12_smoke.png")
+let sk = newSilky(window, "dist/dx12_smoke.png")
 
 window.onFrame = proc() =
   ## Draws a small DX12-backed Silky frame.

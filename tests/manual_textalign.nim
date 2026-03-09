@@ -27,7 +27,7 @@ const
   SampleText = "The quick brown fox jumps over the lazy dog."
   MultiLineText = "Left or right,\ncenter if you like.\nThree lines of text."
 
-let sk = newSilky("tests/dist/atlas.png")
+let sk = newSilky(window, "tests/dist/atlas.png")
 
 var
   hAlignVal = 0

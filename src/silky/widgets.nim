@@ -5,7 +5,7 @@ import
 when defined(silkyTesting):
   import silky/semantic, silky/testing
 else:
-  import silky/drawing, windy
+  import silky/contexts, windy
 
 when defined(macos):
   const ScrollSpeed* = 10.0

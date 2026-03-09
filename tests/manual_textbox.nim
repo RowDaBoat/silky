@@ -35,7 +35,7 @@ Hi.
 Supercalifragilisticexpialidocious is a very long word that tests character-level fallback wrapping.
 Done."""
 
-let sk = newSilky("tests/dist/atlas.png")
+let sk = newSilky(window, "tests/dist/atlas.png")
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =

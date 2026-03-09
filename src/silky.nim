@@ -7,7 +7,7 @@ else:
   import windy
   when not defined(windyDirectX):
     import opengl
-  import silky/[drawing, atlas, widgets, textboxes]
+  import silky/[contexts, atlas, widgets, textboxes]
   when not defined(windyDirectX):
     export opengl
-  export windy, drawing, atlas, widgets, tables, textboxes
+  export windy, contexts, atlas, widgets, tables, textboxes
