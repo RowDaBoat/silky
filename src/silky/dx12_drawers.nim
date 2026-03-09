@@ -13,21 +13,10 @@ type
   DrawerVertex* {.packed.} = object
     ## Raw quad layout consumed by the DX12 drawer.
     pos*: Vec2
-    size*: Vec2
-    uvPos*: array[2, uint16]
-    uvSize*: array[2, uint16]
+    uv*: Vec2
     color*: ColorRGBX
     clipPos*: Vec2
     clipSize*: Vec2
-
-  SilkyDx12Vertex = object
-    ## Expanded DX12 triangle-list vertex.
-    pos: array[2, float32]
-    uv: array[2, float32]
-    color: array[4, uint8]
-    clipPos: array[2, float32]
-    clipSize: array[2, float32]
-    pixelPos: array[2, float32]
 
   Drawer* = ref object
     ## DirectX 12-backed drawer state.
@@ -52,23 +41,22 @@ proc clampViewport(size: IVec2): IVec2 =
   ## Clamps the viewport to valid swap-chain dimensions.
   ivec2(max(1'i32, size.x), max(1'i32, size.y))
 
-proc colorArray(color: ColorRGBX): array[4, uint8] =
-  ## Converts a Silky tint into packed color components.
-  [color.r, color.g, color.b, color.a]
-
-proc vec2Array(v: Vec2): array[2, float32] =
-  ## Converts a vector into a plain float array.
-  [v.x, v.y]
-
-proc screenToClip(size: IVec2, pos: Vec2): Vec2 =
-  ## Converts pixel coordinates into clip-space coordinates.
+proc normalizeVertices(
+  vertices: var seq[DrawerVertex],
+  viewportSize: IVec2,
+  atlasSize: Vec2
+) =
+  ## Converts queued pixel-space vertices to clip-space and normalized UVs.
   let
-    width = max(1.0'f32, size.x.float32)
-    height = max(1.0'f32, size.y.float32)
-  vec2(
-    (pos.x / width) * 2.0'f32 - 1.0'f32,
-    1.0'f32 - (pos.y / height) * 2.0'f32
-  )
+    width = max(1.0'f32, viewportSize.x.float32)
+    height = max(1.0'f32, viewportSize.y.float32)
+  for i in 0 ..< vertices.len:
+    let p = vertices[i].pos
+    vertices[i].pos = vec2(
+      (p.x / width) * 2.0'f32 - 1.0'f32,
+      1.0'f32 - (p.y / height) * 2.0'f32
+    )
+    vertices[i].uv = vertices[i].uv / atlasSize
 
 proc createVertexBuffer(state: Drawer, maxVertexCount: int) =
   ## Creates or replaces the persistently mapped upload vertex buffer.
@@ -78,7 +66,7 @@ proc createVertexBuffer(state: Drawer, maxVertexCount: int) =
     state.vertexBuffer = nil
     state.vertexBufferPtr = nil
 
-  let vertexBufferSize = UINT64(maxVertexCount * sizeof(SilkyDx12Vertex))
+  let vertexBufferSize = UINT64(maxVertexCount * sizeof(DrawerVertex))
 
   var bufferDesc: D3D12_RESOURCE_DESC
   zeroMem(addr bufferDesc, sizeof(bufferDesc))
@@ -113,7 +101,7 @@ proc createVertexBuffer(state: Drawer, maxVertexCount: int) =
   state.vertexBufferView = D3D12_VERTEX_BUFFER_VIEW(
     BufferLocation: state.vertexBuffer.getGPUVirtualAddress(),
     SizeInBytes: uint32(vertexBufferSize),
-    StrideInBytes: uint32(sizeof(SilkyDx12Vertex))
+    StrideInBytes: uint32(sizeof(DrawerVertex))
   )
 
 proc uploadTexture(state: Drawer, image: Image) =
@@ -291,7 +279,6 @@ struct VSInput {
   float4 color : COLOR0;
   float2 clipPos : TEXCOORD1;
   float2 clipSize : TEXCOORD2;
-  float2 pixelPos : TEXCOORD3;
 };
 
 struct PSInput {
@@ -300,7 +287,6 @@ struct PSInput {
   float4 color : COLOR0;
   float2 clipPos : TEXCOORD1;
   float2 clipSize : TEXCOORD2;
-  float2 pixelPos : TEXCOORD3;
 };
 
 PSInput VSMain(VSInput input) {
@@ -310,7 +296,6 @@ PSInput VSMain(VSInput input) {
   output.color = input.color;
   output.clipPos = input.clipPos;
   output.clipSize = input.clipSize;
-  output.pixelPos = input.pixelPos;
   return output;
 }
 """
@@ -325,14 +310,13 @@ struct PSInput {
   float4 color : COLOR0;
   float2 clipPos : TEXCOORD1;
   float2 clipSize : TEXCOORD2;
-  float2 pixelPos : TEXCOORD3;
 };
 
 float4 PSMain(PSInput input) : SV_TARGET {
-  if (input.pixelPos.x < input.clipPos.x ||
-      input.pixelPos.y < input.clipPos.y ||
-      input.pixelPos.x > input.clipPos.x + input.clipSize.x ||
-      input.pixelPos.y > input.clipPos.y + input.clipSize.y) {
+  if (input.pos.x < input.clipPos.x ||
+      input.pos.y < input.clipPos.y ||
+      input.pos.x > input.clipPos.x + input.clipSize.x ||
+      input.pos.y > input.clipPos.y + input.clipSize.y) {
     discard;
   }
   return tex0.Sample(samp0, input.uv) * input.color;
@@ -440,15 +424,6 @@ float4 PSMain(PSInput input) : SV_TARGET {
       Format: DXGI_FORMAT_R32G32_FLOAT,
       InputSlot: 0,
       AlignedByteOffset: 28,
-      InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-      InstanceDataStepRate: 0
-    ),
-    D3D12_INPUT_ELEMENT_DESC(
-      SemanticName: "TEXCOORD",
-      SemanticIndex: 3,
-      Format: DXGI_FORMAT_R32G32_FLOAT,
-      InputSlot: 0,
-      AlignedByteOffset: 36,
       InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
       InstanceDataStepRate: 0
     )
@@ -571,100 +546,6 @@ proc ensureVertexCapacity(state: Drawer, vertexCount: int) =
     newCapacity *= 2
   state.createVertexBuffer(newCapacity)
 
-proc pushTriangleVertex(
-  vertices: var seq[SilkyDx12Vertex],
-  viewportSize: IVec2,
-  pixelPos: Vec2,
-  uv: Vec2,
-  color: ColorRGBX,
-  clipPos: Vec2,
-  clipSize: Vec2
-) =
-  ## Appends one expanded triangle-list vertex.
-  vertices.add(SilkyDx12Vertex(
-    pos: vec2Array(screenToClip(viewportSize, pixelPos)),
-    uv: vec2Array(uv),
-    color: colorArray(color),
-    clipPos: vec2Array(clipPos),
-    clipSize: vec2Array(clipSize),
-    pixelPos: vec2Array(pixelPos)
-  ))
-
-proc expandQuad(
-  vertices: var seq[SilkyDx12Vertex],
-  viewportSize: IVec2,
-  atlasSize: Vec2,
-  quad: DrawerVertex
-) =
-  ## Expands one queued Silky quad into six DX12 vertices.
-  let
-    pos0 = quad.pos
-    pos1 = quad.pos + vec2(quad.size.x, 0)
-    pos2 = quad.pos + quad.size
-    pos3 = quad.pos + vec2(0, quad.size.y)
-    uv0 = vec2(quad.uvPos[0].float32, quad.uvPos[1].float32) / atlasSize
-    uv1 = vec2(
-      quad.uvPos[0].float32 + quad.uvSize[0].float32,
-      quad.uvPos[1].float32
-    ) / atlasSize
-    uv2 = vec2(
-      quad.uvPos[0].float32 + quad.uvSize[0].float32,
-      quad.uvPos[1].float32 + quad.uvSize[1].float32
-    ) / atlasSize
-    uv3 = vec2(
-      quad.uvPos[0].float32,
-      quad.uvPos[1].float32 + quad.uvSize[1].float32
-    ) / atlasSize
-
-  vertices.pushTriangleVertex(
-    viewportSize,
-    pos0,
-    uv0,
-    quad.color,
-    quad.clipPos,
-    quad.clipSize
-  )
-  vertices.pushTriangleVertex(
-    viewportSize,
-    pos1,
-    uv1,
-    quad.color,
-    quad.clipPos,
-    quad.clipSize
-  )
-  vertices.pushTriangleVertex(
-    viewportSize,
-    pos2,
-    uv2,
-    quad.color,
-    quad.clipPos,
-    quad.clipSize
-  )
-  vertices.pushTriangleVertex(
-    viewportSize,
-    pos0,
-    uv0,
-    quad.color,
-    quad.clipPos,
-    quad.clipSize
-  )
-  vertices.pushTriangleVertex(
-    viewportSize,
-    pos2,
-    uv2,
-    quad.color,
-    quad.clipPos,
-    quad.clipSize
-  )
-  vertices.pushTriangleVertex(
-    viewportSize,
-    pos3,
-    uv3,
-    quad.color,
-    quad.clipPos,
-    quad.clipSize
-  )
-
 proc recordDraw(state: Drawer, vertexCount: int) =
   ## Records the DX12 draw pass for the current frame.
   state.ctx.commandAllocator.reset()
@@ -731,19 +612,20 @@ proc endFrame*(
   discard size
   let
     atlasSize = vec2(image.width.float32, image.height.float32)
-    vertexCount = quadCount * 6
+    vertexCount = quadCount
   drawer.ensureVertexCapacity(vertexCount)
 
-  var vertices = newSeqOfCap[SilkyDx12Vertex](vertexCount)
+  var vertices = newSeqOfCap[DrawerVertex](vertexCount)
   let quadsArr = cast[ptr UncheckedArray[DrawerVertex]](quads)
   for i in 0 ..< quadCount:
-    vertices.expandQuad(drawer.viewportSize, atlasSize, quadsArr[i])
+    vertices.add(quadsArr[i])
+  vertices.normalizeVertices(drawer.viewportSize, atlasSize)
 
   if vertexCount > 0:
     copyMem(
       drawer.vertexBufferPtr,
       unsafeAddr vertices[0],
-      vertexCount * sizeof(SilkyDx12Vertex)
+      vertexCount * sizeof(DrawerVertex)
     )
 
   drawer.recordDraw(vertexCount)

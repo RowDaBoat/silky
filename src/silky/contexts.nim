@@ -195,7 +195,7 @@ proc clipRect*(sk: Silky): Rect =
   sk.clipStack[^1]
 
 proc instanceCount*(sk: Silky): int =
-  ## Returns the number of queued quads.
+  ## Returns the number of queued drawer vertices.
   for i in 0 ..< sk.drawer.layers.len:
     result += sk.drawer.layers[i].len
 
@@ -272,6 +272,71 @@ proc endUiShared*(sk: Silky) =
   sk.inputRunes.setLen(0)
   sk.inFrame = false
   measurePop()
+
+proc pushDrawerQuad(
+  sk: Silky,
+  pos: Vec2,
+  size: Vec2,
+  uvPos: Vec2,
+  uvSize: Vec2,
+  color: ColorRGBX,
+  clipPos: Vec2,
+  clipSize: Vec2
+) =
+  ## Expands one quad into six drawer vertices.
+  let
+    pos0 = pos
+    pos1 = pos + vec2(size.x, 0)
+    pos2 = pos + size
+    pos3 = pos + vec2(0, size.y)
+    uv0 = uvPos
+    uv1 = uvPos + vec2(uvSize.x, 0)
+    uv2 = uvPos + uvSize
+    uv3 = uvPos + vec2(0, uvSize.y)
+    layer = sk.drawer.currentLayer
+
+  sk.drawer.layers[layer].add(DrawerVertex(
+    pos: pos0,
+    uv: uv0,
+    color: color,
+    clipPos: clipPos,
+    clipSize: clipSize
+  ))
+  sk.drawer.layers[layer].add(DrawerVertex(
+    pos: pos1,
+    uv: uv1,
+    color: color,
+    clipPos: clipPos,
+    clipSize: clipSize
+  ))
+  sk.drawer.layers[layer].add(DrawerVertex(
+    pos: pos2,
+    uv: uv2,
+    color: color,
+    clipPos: clipPos,
+    clipSize: clipSize
+  ))
+  sk.drawer.layers[layer].add(DrawerVertex(
+    pos: pos0,
+    uv: uv0,
+    color: color,
+    clipPos: clipPos,
+    clipSize: clipSize
+  ))
+  sk.drawer.layers[layer].add(DrawerVertex(
+    pos: pos2,
+    uv: uv2,
+    color: color,
+    clipPos: clipPos,
+    clipSize: clipSize
+  ))
+  sk.drawer.layers[layer].add(DrawerVertex(
+    pos: pos3,
+    uv: uv3,
+    color: color,
+    clipPos: clipPos,
+    clipSize: clipSize
+  ))
 
 proc drawText*(
   sk: Silky,
@@ -414,15 +479,15 @@ proc drawText*(
         floor(currentPos.x) + entry.boundsX,
         round(currentPos.y + entry.boundsY)
       )
-      sk.drawer.layers[sk.drawer.currentLayer].add(DrawerVertex(
-        pos: glyphPos,
-        size: vec2(entry.boundsWidth, entry.boundsHeight),
-        uvPos: [entry.x.uint16, entry.y.uint16],
-        uvSize: [entry.boundsWidth.uint16, entry.boundsHeight.uint16],
-        color: color,
-        clipPos: textClip[0],
-        clipSize: textClip[1]
-      ))
+      sk.pushDrawerQuad(
+        glyphPos,
+        vec2(entry.boundsWidth, entry.boundsHeight),
+        vec2(entry.x.float32, entry.y.float32),
+        vec2(entry.boundsWidth, entry.boundsHeight),
+        color,
+        textClip[0],
+        textClip[1]
+      )
 
     currentPos.x += entry.advance
     if i < runedText.len - 1:
@@ -513,15 +578,15 @@ proc drawQuad*(
   color: ColorRGBX
 ) =
   ## Queues one quad draw.
-  sk.drawer.layers[sk.drawer.currentLayer].add(DrawerVertex(
-    pos: pos,
-    size: size,
-    uvPos: [uvPos.x.uint16, uvPos.y.uint16],
-    uvSize: [uvSize.x.uint16, uvSize.y.uint16],
-    color: color,
-    clipPos: sk.clipRect.xy,
-    clipSize: sk.clipRect.wh
-  ))
+  sk.pushDrawerQuad(
+    pos,
+    size,
+    uvPos,
+    uvSize,
+    color,
+    sk.clipRect.xy,
+    sk.clipRect.wh
+  )
 
 proc drawImage*(
   sk: Silky,

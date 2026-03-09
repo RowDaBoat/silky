@@ -34,9 +34,7 @@ type
   DrawerVertex* {.packed.} = object
     ## Raw quad layout consumed by the OpenGL drawer.
     pos*: Vec2
-    size*: Vec2
-    uvPos*: array[2, uint16]
-    uvSize*: array[2, uint16]
+    uv*: Vec2
     color*: ColorRGBX
     clipPos*: Vec2
     clipSize*: Vec2
@@ -470,9 +468,7 @@ proc bindUniforms*(shader: Shader) =
 
 proc silkyVert(
   pos: Vec2,
-  size: Vec2,
-  uvPos: array[2, uint16],
-  uvSize: array[2, uint16],
+  uv: Vec2,
   color: ColorRGBX,
   clipPos: Vec2,
   clipSize: Vec2,
@@ -483,24 +479,12 @@ proc silkyVert(
   fragmentPos: var Vec2
 ) =
   ## Vertex shader for Silky's OpenGL drawer.
-  let corner = uvec2(
-    uint32(gl_VertexID mod 2),
-    uint32(gl_VertexID div 2)
-  )
-
-  let
-    dx = pos.x + corner.x.float32 * size.x
-    dy = pos.y + corner.y.float32 * size.y
-  gl_Position = mvp * vec4(dx, dy, 0.0, 1.0)
-
-  let
-    sx = float32(uvPos[0]) + float32(corner.x) * float32(uvSize[0])
-    sy = float32(uvPos[1]) + float32(corner.y) * float32(uvSize[1])
-  fragmentUv = vec2(sx, sy) / atlasSize
+  gl_Position = mvp * vec4(pos.x, pos.y, 0.0, 1.0)
+  fragmentUv = uv / atlasSize
   fragmentColor = color.vec4
   fragmentClipPos = clipPos
   fragmentClipSize = clipSize
-  fragmentPos = vec2(dx, dy)
+  fragmentPos = pos
 
 proc silkyFrag(
   fragmentUv: Vec2,
@@ -603,26 +587,11 @@ proc newDrawer*(window: Window, image: Image): Drawer =
         stride,
         cast[pointer](offset)
       )
-      glVertexAttribDivisor(loc.GLuint, 1)
     else:
       echo "[Warning] Attribute not found: ", name
 
   setAttr("pos", 2, cGL_FLOAT, GL_FALSE, offsetof(DrawerVertex, pos))
-  setAttr("size", 2, cGL_FLOAT, GL_FALSE, offsetof(DrawerVertex, size))
-  setAttr(
-    "uvPos",
-    2,
-    GL_UNSIGNED_SHORT,
-    GL_FALSE,
-    offsetof(DrawerVertex, uvPos)
-  )
-  setAttr(
-    "uvSize",
-    2,
-    GL_UNSIGNED_SHORT,
-    GL_FALSE,
-    offsetof(DrawerVertex, uvSize)
-  )
+  setAttr("uv", 2, cGL_FLOAT, GL_FALSE, offsetof(DrawerVertex, uv))
   setAttr(
     "color",
     4,
@@ -695,12 +664,7 @@ proc endFrame*(
   drawer.shader.bindUniforms()
 
   glBindVertexArray(drawer.vao)
-  glDrawArraysInstanced(
-    GL_TRIANGLE_STRIP,
-    0,
-    4,
-    quadCount.GLsizei
-  )
+  glDrawArrays(GL_TRIANGLES, 0, quadCount.GLsizei)
 
   glBindVertexArray(0)
   glUseProgram(0)
