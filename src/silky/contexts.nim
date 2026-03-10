@@ -273,18 +273,24 @@ proc endUiShared*(sk: Silky) =
   sk.inFrame = false
   measurePop()
 
-proc pushDrawerQuad(
+proc drawQuad*(
   sk: Silky,
   pos: Vec2,
   size: Vec2,
   uvPos: Vec2,
   uvSize: Vec2,
   color: ColorRGBX,
-  clipPos: Vec2,
-  clipSize: Vec2
+  clipPos = vec2(-1, -1),
+  clipSize = vec2(-1, -1)
 ) =
   ## Expands one quad into six drawer vertices.
   let
+    cPos =
+      if clipPos.x < 0: sk.clipRect.xy
+      else: clipPos
+    cSize =
+      if clipSize.x < 0: sk.clipRect.wh
+      else: clipSize
     pos0 = pos
     pos1 = pos + vec2(size.x, 0)
     pos2 = pos + size
@@ -299,62 +305,69 @@ proc pushDrawerQuad(
     pos: pos0,
     uv: uv0,
     color: color,
-    clipPos: clipPos,
-    clipSize: clipSize
+    clipPos: cPos,
+    clipSize: cSize
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos1,
     uv: uv1,
     color: color,
-    clipPos: clipPos,
-    clipSize: clipSize
+    clipPos: cPos,
+    clipSize: cSize
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos2,
     uv: uv2,
     color: color,
-    clipPos: clipPos,
-    clipSize: clipSize
+    clipPos: cPos,
+    clipSize: cSize
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos0,
     uv: uv0,
     color: color,
-    clipPos: clipPos,
-    clipSize: clipSize
+    clipPos: cPos,
+    clipSize: cSize
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos2,
     uv: uv2,
     color: color,
-    clipPos: clipPos,
-    clipSize: clipSize
+    clipPos: cPos,
+    clipSize: cSize
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos3,
     uv: uv3,
     color: color,
-    clipPos: clipPos,
-    clipSize: clipSize
+    clipPos: cPos,
+    clipSize: cSize
   ))
 
-proc pushDrawerTriangle(
+proc drawTriangle*(
   sk: Silky,
   positions: array[3, Vec2],
   uvs: array[3, Vec2],
   colors: array[3, ColorRGBX],
-  clipPos: Vec2,
-  clipSize: Vec2
+  clipPos = vec2(-1, -1),
+  clipSize = vec2(-1, -1)
 ) =
   ## Appends one raw triangle to the current drawer layer.
-  let layer = sk.drawer.currentLayer
+  let
+    cPos =
+      if clipPos.x < 0: sk.clipRect.xy
+      else: clipPos
+    cSize =
+      if clipSize.x < 0: sk.clipRect.wh
+      else: clipSize
+    layer = sk.drawer.currentLayer
   for i in 0 ..< 3:
     sk.drawer.layers[layer].add(DrawerVertex(
       pos: positions[i],
       uv: uvs[i],
       color: colors[i],
-      clipPos: clipPos,
-      clipSize: clipSize
+      clipPos: cPos,
+      clipSize: cSize
     ))
 
 proc drawText*(
@@ -498,7 +511,7 @@ proc drawText*(
         floor(currentPos.x) + entry.boundsX,
         round(currentPos.y + entry.boundsY)
       )
-      sk.pushDrawerQuad(
+      sk.drawQuad(
         glyphPos,
         vec2(entry.boundsWidth, entry.boundsHeight),
         vec2(entry.x.float32, entry.y.float32),
@@ -588,25 +601,6 @@ proc newSilky*(window: Window, atlasPngPath: string): Silky {.measure.} =
   let atlasData = readAtlas(atlasPngPath)
   newSilky(window, atlasData.image, atlasData.atlas)
 
-proc drawQuad*(
-  sk: Silky,
-  pos: Vec2,
-  size: Vec2,
-  uvPos: Vec2,
-  uvSize: Vec2,
-  color: ColorRGBX
-) =
-  ## Queues one quad draw.
-  sk.pushDrawerQuad(
-    pos,
-    size,
-    uvPos,
-    uvSize,
-    color,
-    sk.clipRect.xy,
-    sk.clipRect.wh
-  )
-
 proc drawImage*(
   sk: Silky,
   name: string,
@@ -624,21 +618,6 @@ proc drawImage*(
     vec2(uv.x.float32, uv.y.float32),
     vec2(uv.width.float32, uv.height.float32),
     color
-  )
-
-proc drawTriangle*(
-  sk: Silky,
-  positions: array[3, Vec2],
-  uvs: array[3, Vec2],
-  colors: array[3, ColorRGBX]
-) =
-  ## Queues one raw triangle with per-vertex UVs and colors.
-  sk.pushDrawerTriangle(
-    positions,
-    uvs,
-    colors,
-    sk.clipRect.xy,
-    sk.clipRect.wh
   )
 
 proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) =
