@@ -48,13 +48,13 @@ proc normalizeVertices(
 ) =
   ## Converts queued pixel-space vertices to clip-space and normalized UVs.
   let
-    width = max(1.0'f32, viewportSize.x.float32)
-    height = max(1.0'f32, viewportSize.y.float32)
+    width = max(1.0'f, viewportSize.x.float32)
+    height = max(1.0'f, viewportSize.y.float32)
   for i in 0 ..< vertices.len:
     let p = vertices[i].pos
     vertices[i].pos = vec2(
-      (p.x / width) * 2.0'f32 - 1.0'f32,
-      1.0'f32 - (p.y / height) * 2.0'f32
+      (p.x / width) * 2.0'f - 1.0'f,
+      1.0'f - (p.y / height) * 2.0'f
     )
     vertices[i].uv = vertices[i].uv / atlasSize
 
@@ -512,7 +512,7 @@ proc newDrawer*(window: Window, image: Image): Drawer =
   let
     state = Drawer(
       window: window,
-      clearColor: [0.0'f32, 0.0'f32, 0.0'f32, 1.0'f32],
+      clearColor: [0.0'f, 0.0'f, 0.0'f, 1.0'f],
       currentLayer: 0,
       layerStack: @[]
     )

@@ -69,16 +69,6 @@ type
     menuPopupHoverColor*: ColorRGBX = rgbx(80, 80, 100, 180)
     menuPopupSelectedColor*: ColorRGBX = rgbx(60, 60, 80, 120)
 
-  SilkyVertex* {.packed.} = object
-    ## Shared draw command for one textured quad.
-    pos*: Vec2
-    size*: Vec2
-    uvPos*: array[2, uint16]
-    uvSize*: array[2, uint16]
-    color*: ColorRGBX
-    clipPos*: Vec2
-    clipSize*: Vec2
-
   Silky* = ref object
     ## Main Silky context shared across rendering backends.
     inFrame: bool = false
@@ -649,9 +639,9 @@ proc draw9Patch*(
     srcWidths = [patch, uv.width - 2 * patch, patch]
     srcYOffsets = [0.int, patch, uv.height - patch]
     srcHeights = [patch, uv.height - 2 * patch, patch]
-    dstXOffsets = [0.0'f32, p, size.x - p]
+    dstXOffsets = [0.0'f, p, size.x - p]
     dstWidths = [p, size.x - 2 * p, p]
-    dstYOffsets = [0.0'f32, p, size.y - p]
+    dstYOffsets = [0.0'f, p, size.y - p]
     dstHeights = [p, size.y - 2 * p, p]
 
   let order = [
