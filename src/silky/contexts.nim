@@ -338,6 +338,25 @@ proc pushDrawerQuad(
     clipSize: clipSize
   ))
 
+proc pushDrawerTriangle(
+  sk: Silky,
+  positions: array[3, Vec2],
+  uvs: array[3, Vec2],
+  colors: array[3, ColorRGBX],
+  clipPos: Vec2,
+  clipSize: Vec2
+) =
+  ## Appends one raw triangle to the current drawer layer.
+  let layer = sk.drawer.currentLayer
+  for i in 0 ..< 3:
+    sk.drawer.layers[layer].add(DrawerVertex(
+      pos: positions[i],
+      uv: uvs[i],
+      color: colors[i],
+      clipPos: clipPos,
+      clipSize: clipSize
+    ))
+
 proc drawText*(
   sk: Silky,
   font: string,
@@ -605,6 +624,21 @@ proc drawImage*(
     vec2(uv.x.float32, uv.y.float32),
     vec2(uv.width.float32, uv.height.float32),
     color
+  )
+
+proc drawTriangle*(
+  sk: Silky,
+  positions: array[3, Vec2],
+  uvs: array[3, Vec2],
+  colors: array[3, ColorRGBX]
+) =
+  ## Queues one raw triangle with per-vertex UVs and colors.
+  sk.pushDrawerTriangle(
+    positions,
+    uvs,
+    colors,
+    sk.clipRect.xy,
+    sk.clipRect.wh
   )
 
 proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) =
