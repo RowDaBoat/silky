@@ -1,6 +1,6 @@
 import
   std/[strformat],
-  opengl, windy, vmath, chroma,
+  windy, vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)
@@ -19,7 +19,7 @@ loadExtensions()
 
 const BackgroundColor = parseHtmlColor("#808080").rgbx
 
-let sk = newSilky("dist/atlas.png")
+let sk = newSilky(window, "dist/atlas.png")
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =

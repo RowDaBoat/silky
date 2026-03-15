@@ -1,6 +1,6 @@
 import
   std/[strformat, strutils, times],
-  opengl, windy, bumpy, vmath, chroma,
+  windy, bumpy, vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)
@@ -19,7 +19,7 @@ loadExtensions()
 
 const BackgroundColor = parseHtmlColor("#000000").rgbx
 
-let sk = newSilky("dist/atlas.png")
+let sk = newSilky(window, "dist/atlas.png")
 
 # Set up a light theme for 7GUIs.
 sk.theme.defaultTextColor = parseHtmlColor("#2C3E50").rgbx

@@ -23,7 +23,7 @@ const
   BackgroundColor = parseHtmlColor("#1a1a2e").rgbx
   NumItems = 50
 
-let sk = newSilky("tests/dist/atlas.png")
+let sk = newSilky(window, "tests/dist/atlas.png")
 
 # Track which items have been clicked.
 var
