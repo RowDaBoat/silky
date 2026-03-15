@@ -11,6 +11,14 @@ const Examples = [
   "the7gui",
 ]
 
+const BuildFlags =
+  when defined(useDirectX):
+    "-d:useDirectX"
+  elif defined(useMetal4):
+    "-d:useMetal4"
+  else:
+    ""
+
 proc main() =
   ## Compile all examples, then run all examples in sequence.
   let
@@ -35,7 +43,12 @@ proc main() =
     # Change to example directory so the compiler can resolve local files.
     setCurrentDir(exampleDir)
 
-    let exitCode = execCmd(fmt"nim c {nimFile}")
+    let compileCmd =
+      if BuildFlags.len == 0:
+        fmt"nim c {nimFile}"
+      else:
+        fmt"nim c {BuildFlags} {nimFile}"
+    let exitCode = execCmd(compileCmd)
     if exitCode != 0:
       echo fmt"  ERROR: {name} failed to compile with exit code {exitCode}"
       quit(exitCode)
