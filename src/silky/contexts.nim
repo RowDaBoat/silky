@@ -19,8 +19,10 @@ else:
     ## No-op profile end marker.
     discard
 
-when defined(windyDirectX):
+when defined(useDirectX):
   import silky/dx12_drawers
+elif defined(useMetal4) or defined(useMetal4):
+  import silky/metal4_drawers
 else:
   import opengl
   import silky/ogl_drawers
@@ -720,7 +722,9 @@ proc endUi*(sk: Silky) {.measure.} =
   )
   sk.endUiShared()
 
-when not defined(windyDirectX):
+when not defined(useDirectX) and
+    not defined(useMetal4) and
+    not defined(useMetal4):
   proc atlasTextureId*(sk: Silky): GLuint =
     ## Returns the OpenGL texture id of the atlas.
     sk.drawer.atlasTextureId()

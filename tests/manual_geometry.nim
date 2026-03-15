@@ -5,7 +5,7 @@ import
   windy, bumpy, vmath, chroma,
   silky
 
-when not defined(windyDirectX):
+when not defined(useDirectX):
   import opengl
 
 let builder = newAtlasBuilder(1024, 4)
@@ -20,7 +20,7 @@ let window = newWindow(
   vsync = false
 )
 makeContextCurrent(window)
-when not defined(windyDirectX):
+when not defined(useDirectX):
   loadExtensions()
 
 const
