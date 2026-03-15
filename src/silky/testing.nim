@@ -42,6 +42,16 @@ proc newWindow*(title: string, size: IVec2, vsync = true): Window =
     mousePos: ivec2(0, 0)
   )
 
+proc newSilky*(window: Window, atlas: SilkyAtlas): Silky =
+  ## Creates a test Silky context with a fake window.
+  discard window
+  semantic.newSilky(atlas)
+
+proc newSilky*(window: Window, atlasPngPath: string): Silky =
+  ## Creates a test Silky context from one atlas PNG.
+  discard window
+  semantic.newSilky(atlasPngPath)
+
 proc swapBuffers*(window: Window) {.inline.} =
   ## Stub for swapping buffers.
   discard
