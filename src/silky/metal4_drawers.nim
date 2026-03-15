@@ -6,39 +6,6 @@ import
 
 const
   InitialVertexCapacity = 4096
-  MTLBlendFactorOne = 1'u
-  MTLBlendFactorOneMinusSourceAlpha = 5'u
-  MTLBlendOperationAdd = 0'u
-
-objc:
-  proc setBlendingEnabled*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: bool
-  )
-  proc setSourceRGBBlendFactor*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: uint
-  )
-  proc setDestinationRGBBlendFactor*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: uint
-  )
-  proc setRgbBlendOperation*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: uint
-  )
-  proc setSourceAlphaBlendFactor*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: uint
-  )
-  proc setDestinationAlphaBlendFactor*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: uint
-  )
-  proc setAlphaBlendOperation*(
-    self: MTLRenderPipelineColorAttachmentDescriptor,
-    x: uint
-  )
 
 type
   DrawerVertex* {.packed.} = object
