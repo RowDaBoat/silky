@@ -14,7 +14,7 @@ else:
     export opengl
   export windy, contexts, atlas, widgets, tables, textboxes
 
-  when defined(useDirectX) or defined(useMetal4):
+  when defined(useMetal4):
     proc loadExtensions*() {.inline.} =
       ## No-op helper for non-OpenGL backends.
       discard

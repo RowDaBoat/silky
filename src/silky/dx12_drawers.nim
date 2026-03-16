@@ -226,12 +226,12 @@ proc uploadTexture(state: Drawer, image: Image) =
   var barrier = D3D12_RESOURCE_BARRIER(
     typ: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
     Flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
-    Transition: D3D12_RESOURCE_TRANSITION_BARRIER(
+    data: D3D12_RESOURCE_BARRIER_union(Transition: D3D12_RESOURCE_TRANSITION_BARRIER(
       pResource: state.texture,
       Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
       StateBefore: D3D12_RESOURCE_STATE_COPY_DEST,
       StateAfter: D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-    )
+    ))
   )
   state.ctx.commandList.resourceBarrier(1, addr barrier)
   state.ctx.commandList.close()
@@ -556,12 +556,12 @@ proc recordDraw(state: Drawer, vertexCount: int) =
   var barrier = D3D12_RESOURCE_BARRIER(
     typ: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
     Flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
-    Transition: D3D12_RESOURCE_TRANSITION_BARRIER(
+    data: D3D12_RESOURCE_BARRIER_union(Transition: D3D12_RESOURCE_TRANSITION_BARRIER(
       pResource: state.ctx.renderTargets[state.ctx.currentFrame],
       Subresource: D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
       StateBefore: D3D12_RESOURCE_STATE_PRESENT,
       StateAfter: D3D12_RESOURCE_STATE_RENDER_TARGET
-    )
+    ))
   )
   state.ctx.commandList.resourceBarrier(1, addr barrier)
   state.ctx.commandList.rsSetViewports(1, addr state.ctx.viewport)
@@ -596,8 +596,8 @@ proc recordDraw(state: Drawer, vertexCount: int) =
   if vertexCount > 0:
     state.ctx.commandList.drawInstanced(uint32(vertexCount), 1, 0, 0)
 
-  barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET
-  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT
+  barrier.data.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET
+  barrier.data.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT
   state.ctx.commandList.resourceBarrier(1, addr barrier)
   state.ctx.commandList.close()
 
