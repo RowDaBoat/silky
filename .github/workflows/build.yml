@@ -1,63 +1,80 @@
-name: Github Actions
+name: Build
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            name: Windows OpenGL
+            build_flags: ""
+          - os: windows-latest
+            name: Windows DirectX 12
+            build_flags: "-d:useDirectX"
+          - os: ubuntu-latest
+            name: Linux OpenGL
+            build_flags: ""
+          - os: ubuntu-latest
+            name: Linux Emscripten
+            emscripten: true
+          - os: macos-latest
+            name: macOS OpenGL
+            build_flags: ""
+          - os: macos-latest
+            name: macOS Metal
+            build_flags: "-d:useMetal4"
+
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v5
-    - uses: treeform/setup-nim-action@v6
+      - uses: actions/checkout@v5
+      - uses: treeform/setup-nim-action@v6
 
-    - run: nimby sync -g nimby.lock
+      - run: nimby sync -g nimby.lock
 
-    # Run tests
-    - run: nim r tests/test_semantic.nim
-    - run: nim r tests/test_textboxes.nim
+      - name: Install Emscripten
+        if: matrix.emscripten
+        uses: mymindstorm/setup-emsdk@v14
 
-    # Build the examples
-    - run: nim c examples/basicwindow/basicwindow.nim
-    - run: nim c examples/calculator/calculator.nim
-    - run: nim c examples/gameplayer/gameplayer.nim
-    - run: nim c examples/menu/menu.nim
-    - run: nim c examples/panels/panels.nim
-    - run: nim c examples/the7gui/the7gui.nim
+      - name: Run unit tests
+        if: ${{ !matrix.emscripten }}
+        run: |
+          nim r tests/test_semantic.nim
+          nim r tests/test_textboxes.nim
 
-    # Run example tests
-    - name: Run calculator tests
-      working-directory: examples/calculator
-      run: nim r tests/test.nim
+      - name: Compile examples
+        if: ${{ !matrix.emscripten }}
+        run: |
+          nim c ${{ matrix.build_flags }} examples/basicwindow/basicwindow.nim
+          nim c ${{ matrix.build_flags }} examples/calculator/calculator.nim
+          nim c ${{ matrix.build_flags }} examples/gameplayer/gameplayer.nim
+          nim c ${{ matrix.build_flags }} examples/menu/menu.nim
+          nim c ${{ matrix.build_flags }} examples/panels/panels.nim
+          nim c ${{ matrix.build_flags }} examples/the7gui/the7gui.nim
 
-    - name: Run basicwindow tests
-      working-directory: examples/basicwindow
-      run: nim r tests/test.nim
+      - name: Compile examples (Emscripten)
+        if: matrix.emscripten
+        run: |
+          cd examples/basicwindow && nim c -d:emscripten basicwindow.nim && cd ../..
+          cd examples/calculator && nim c -d:emscripten calculator.nim && cd ../..
+          cd examples/gameplayer && nim c -d:emscripten gameplayer.nim && cd ../..
+          cd examples/menu && nim c -d:emscripten menu.nim && cd ../..
+          cd examples/panels && nim c -d:emscripten panels.nim && cd ../..
+          cd examples/the7gui && nim c -d:emscripten the7gui.nim && cd ../..
 
-    # Install Emscripten only after native checks pass.
-    - uses: mymindstorm/setup-emsdk@v14
-      if: matrix.os == 'ubuntu-latest'
+      - name: Run example tests
+        if: ${{ !matrix.emscripten }}
+        run: |
+          cd examples/calculator && nim r tests/test.nim && cd ../..
+          cd examples/basicwindow && nim r tests/test.nim && cd ../..
 
-    # Build the examples for Emscripten.
-    - run: nim c -d:emscripten basicwindow.nim
-      working-directory: examples/basicwindow
-      if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten calculator.nim
-      working-directory: examples/calculator
-      if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten gameplayer.nim
-      working-directory: examples/gameplayer
-      if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten menu.nim
-      working-directory: examples/menu
-      if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten panels.nim
-      working-directory: examples/panels
-      if: matrix.os == 'ubuntu-latest'
-    - run: nim c -d:emscripten the7gui.nim
-      working-directory: examples/the7gui
-      if: matrix.os == 'ubuntu-latest'
+      - name: Run atlas tests
+        if: ${{ !matrix.emscripten }}
+        run: nim r tests/test_atlas_png.nim
