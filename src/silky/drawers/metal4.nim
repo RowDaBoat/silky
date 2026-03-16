@@ -2,7 +2,7 @@ when not defined(macosx):
   {.error: "The Silky Metal 4 backend requires macOS.".}
 
 import
-  pixie, vmath, windy, metal4
+  pixie, vmath, windy, pkg/metal4
 
 const
   InitialVertexCapacity = 4096

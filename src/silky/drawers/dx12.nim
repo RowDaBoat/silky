@@ -4,7 +4,7 @@ when not defined(windows):
 import
   pixie, vmath, windy,
   windy/platforms/win32/windefs,
-  dx12, dx12/context
+  pkg/dx12, pkg/dx12/context
 
 const
   InitialVertexCapacity = 4096

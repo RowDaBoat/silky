@@ -20,12 +20,12 @@ else:
     discard
 
 when defined(useDirectX):
-  import silky/dx12_drawers
+  import silky/drawers/dx12
 elif defined(useMetal4):
-  import silky/metal4_drawers
+  import silky/drawers/metal4
 else:
   import opengl
-  import silky/ogl_drawers
+  import silky/drawers/ogl
 
 const
   NormalLayer* = 0
