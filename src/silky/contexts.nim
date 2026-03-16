@@ -21,6 +21,8 @@ else:
 
 when defined(useDirectX):
   import silky/drawers/dx12
+elif defined(useVulkan):
+  import silky/drawers/vk
 elif defined(useMetal4):
   import silky/drawers/metal4
 else:
@@ -723,6 +725,7 @@ proc endUi*(sk: Silky) {.measure.} =
   sk.endUiShared()
 
 when not defined(useDirectX) and
+    not defined(useVulkan) and
     not defined(useMetal4):
   proc atlasTextureId*(sk: Silky): GLuint =
     ## Returns the OpenGL texture id of the atlas.

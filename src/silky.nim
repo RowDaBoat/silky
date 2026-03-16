@@ -6,10 +6,12 @@ when defined(silkyTesting):
 else:
   import windy
   when not defined(useDirectX) and
+      not defined(useVulkan) and
       not defined(useMetal4):
     import opengl
   import silky/[contexts, atlas, widgets, textboxes]
   when not defined(useDirectX) and
+      not defined(useVulkan) and
       not defined(useMetal4):
     export opengl
   export windy, contexts, atlas, widgets, tables, textboxes
