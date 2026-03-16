@@ -697,7 +697,7 @@ proc newDrawer*(window: Window, image: Image): Drawer =
   )
   result.layers[0] = @[]
   result.layers[1] = @[]
-  result.ctx.initDevice(hwnd, safeSize.x.int, safeSize.y.int)
+  result.ctx.initDevice(hwnd, safeSize.x.int, safeSize.y.int, window.vsync)
   result.initRenderer(image, safeSize)
 
 proc beginFrame*(drawer: Drawer, window: Window, size: IVec2) =
