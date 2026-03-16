@@ -22,9 +22,9 @@ void main() {
   fragColor = inColor;
   fragClipPos = inClipPos;
   fragClipSize = inClipSize;
-  // Recover pixel position from NDC for clip-rect testing
+  // Recover pixel position from Vulkan NDC (-1 top, +1 bottom)
   fragPos = vec2(
     (inPos.x * 0.5 + 0.5) * pc.viewportSize.x,
-    (0.5 - inPos.y * 0.5) * pc.viewportSize.y
+    (inPos.y * 0.5 + 0.5) * pc.viewportSize.y
   );
 }

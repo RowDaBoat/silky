@@ -22,7 +22,7 @@ else:
 when defined(useDirectX):
   import silky/drawers/dx12
 elif defined(useVulkan):
-  import silky/drawers/vk
+  import silky/drawers/vk14
 elif defined(useMetal4):
   import silky/drawers/metal4
 else:

@@ -61,7 +61,7 @@ proc normalizeVertices(
     let p = vertices[i].pos
     vertices[i].pos = vec2(
       (p.x / width) * 2.0'f - 1.0'f,
-      1.0'f - (p.y / height) * 2.0'f
+      (p.y / height) * 2.0'f - 1.0'f
     )
     vertices[i].uv = vertices[i].uv / atlasSize
 
