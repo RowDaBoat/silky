@@ -17,6 +17,9 @@ jobs:
           - os: windows-latest
             name: Windows DirectX 12
             build_flags: "-d:useDirectX"
+          - os: windows-latest
+            name: Windows Vulkan
+            build_flags: "-d:useVulkan"
           - os: ubuntu-latest
             name: Linux OpenGL
             build_flags: ""

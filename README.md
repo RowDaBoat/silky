@@ -53,6 +53,27 @@ while not window.closeRequested:
   pollEvents()
 ```
 
+## Supported APIs
+
+Silky supports multiple graphics backends across platforms:
+
+| | OpenGL | DirectX 12 | Vulkan 1.4 | Metal 4 | WebGL 2 |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Windows** | ✅ | ✅ | ✅ | | |
+| **macOS** | ✅ | | | ✅ | |
+| **Linux** | ✅ | | | | |
+| **Emscripten/WASM** | | | | | ✅ |
+
+Compile with the appropriate flag to select a backend:
+
+```
+nim c app.nim                  # OpenGL (default)
+nim c -d:useDirectX app.nim   # DirectX 12
+nim c -d:useVulkan app.nim    # Vulkan 1.4
+nim c -d:useMetal4 app.nim    # Metal 4
+nim c -d:emscripten app.nim   # WebGL 2 (Emscripten)
+```
+
 ## Theming
 
 Silky supports theming via the `theme` object:

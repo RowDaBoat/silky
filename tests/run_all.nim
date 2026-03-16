@@ -14,6 +14,8 @@ const Examples = [
 const BuildFlags =
   when defined(useDirectX):
     "-d:useDirectX"
+  elif defined(useVulkan):
+    "-d:useVulkan"
   elif defined(useMetal4):
     "-d:useMetal4"
   else:
