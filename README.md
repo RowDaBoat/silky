@@ -28,7 +28,7 @@ import silky
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
 builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
-builder.write("dist/atlas.png", "dist/atlas.json")
+builder.write("dist/atlas.png")
 
 # Create a window
 let window = newWindow("My App", ivec2(800, 600), vsync = false)
@@ -36,7 +36,7 @@ makeContextCurrent(window)
 loadExtensions()
 
 # Create Silky instance
-let sk = newSilky("dist/atlas.png", "dist/atlas.json")
+let sk = newSilky(window, "dist/atlas.png")
 
 window.onFrame = proc() =
   sk.beginUI(window, window.size)
@@ -52,6 +52,7 @@ window.onFrame = proc() =
 while not window.closeRequested:
   pollEvents()
 ```
+To run this example, you'll need a `data` directory with a `button.9patch.png` file and an `IBMPlexSans-Regular.ttf` font file in it — both are available in the examples.
 
 ## Supported APIs
 
