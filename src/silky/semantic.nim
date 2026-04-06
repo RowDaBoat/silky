@@ -257,6 +257,7 @@ type
   Silky* = ref object
     ## Main Silky context for testing mode without GPU.
     inFrame: bool = false
+    uiScale*: float32 = 1.0
     at*: Vec2
     atStack: seq[Vec2]
     posStack: seq[Vec2]
@@ -267,7 +268,10 @@ type
     padding*: float32 = 12
     theme*: Theme = Theme()
     inputRunes*: seq[Rune]
+    mousePos*: Vec2
+    mouseDelta*: Vec2
     showTooltip*: bool = false
+    framebufferSize*: IVec2
     lastMousePos*: Vec2
     mouseIdleTime*: float64
     hover*: bool = false
@@ -477,7 +481,10 @@ proc newSilky*(atlasPngPath: string): Silky =
 proc beginUi*(sk: Silky, window: auto, size: IVec2) =
   ## Begins a new UI frame.
   sk.showTooltip = false
-  sk.pushLayout(vec2(0, 0), size.vec2)
+  sk.framebufferSize = size
+  sk.mousePos = window.mousePos.vec2 / sk.uiScale
+  sk.mouseDelta = window.mouseDelta.vec2 / sk.uiScale
+  sk.pushLayout(vec2(0, 0), size.vec2 / sk.uiScale)
   sk.inFrame = true
   let currentTime = epochTime()
   sk.frameStartTime = currentTime

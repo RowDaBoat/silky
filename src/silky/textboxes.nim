@@ -883,7 +883,7 @@ proc textBox*(
   let alt = window.buttonDown[KeyLeftAlt] or
     window.buttonDown[KeyRightAlt]
   # Mouse state.
-  let mouseVec = vec2(window.mousePos.x.float32, window.mousePos.y.float32)
+  let mouseVec = sk.mousePos
   let mouseInside = mouseVec.overlaps(outerRect) and
     mouseVec.overlaps(sk.clipRect)
   let onScrollbar = mouseInside and not mouseVec.overlaps(innerRect)
