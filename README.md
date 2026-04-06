@@ -52,7 +52,7 @@ window.onFrame = proc() =
 while not window.closeRequested:
   pollEvents()
 ```
-To run this example, you'll need a `data` directory with a `button.9patch.png` file and an `IBMPlexSans-Regular.ttf` font file in it — both are available in thte examples.
+To run this example, you'll need a `data` directory with a `button.9patch.png` file and an `IBMPlexSans-Regular.ttf` font file in it — both are available in the examples.
 
 ## Supported APIs
 
