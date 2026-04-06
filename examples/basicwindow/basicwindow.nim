@@ -41,6 +41,12 @@ proc returnTest() =
   text("You will not see this.")
 
 window.onFrame = proc() =
+  if window.buttonPressed[KeyEqual] or
+    window.buttonPressed[NumpadAdd]:
+    sk.uiScale = min(sk.uiScale + 0.25'f, 4.0'f)
+  if window.buttonPressed[KeyMinus] or
+    window.buttonPressed[NumpadSubtract]:
+    sk.uiScale = max(sk.uiScale - 0.25'f, 0.25'f)
 
   sk.beginUI(window, window.size)
 
@@ -97,6 +103,8 @@ window.onFrame = proc() =
 
   let ms = sk.avgFrameTime * 1000
   sk.at = sk.pos + vec2(sk.size.x - 250, 20)
+  text(&"ui scale: {sk.uiScale:>4.2f}x (+/-)")
+  sk.at = sk.pos + vec2(sk.size.x - 250, 48)
   text(&"frame time: {ms:>7.3f}ms")
 
   sk.endUi()

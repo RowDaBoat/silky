@@ -76,6 +76,7 @@ type
   Silky* = ref object
     ## Main Silky context shared across rendering backends.
     inFrame: bool = false
+    uiScale*: float32 = 1.0
     at*: Vec2
     atStack: seq[Vec2]
     posStack: seq[Vec2]
@@ -87,7 +88,10 @@ type
     theme*: Theme = Theme()
     cursor*: Cursor = Cursor(kind: ArrowCursor)
     inputRunes*: seq[Rune]
+    mousePos*: Vec2
+    mouseDelta*: Vec2
     showTooltip*: bool = false
+    framebufferSize*: IVec2
     lastMousePos*: Vec2
     mouseIdleTime*: float64
     hover*: bool = false
@@ -235,14 +239,17 @@ proc beginUiShared*(sk: Silky, window: Window, size: IVec2) =
         dumpMeasures("tmp/trace.json")
 
   sk.showTooltip = false
-  sk.pushLayout(vec2(0, 0), size.vec2)
+  sk.framebufferSize = size
+  sk.pushLayout(vec2(0, 0), size.vec2 / sk.uiScale)
   sk.inFrame = true
 
   let
     currentTime = epochTime()
     deltaTime = currentTime - sk.frameStartTime
-    currentMousePos = window.mousePos.vec2
+    currentMousePos = window.mousePos.vec2 / sk.uiScale
   sk.frameStartTime = currentTime
+  sk.mousePos = currentMousePos
+  sk.mouseDelta = window.mouseDelta.vec2 / sk.uiScale
 
   if currentMousePos != sk.lastMousePos:
     sk.mouseIdleTime = 0
@@ -710,15 +717,29 @@ proc endUi*(sk: Silky) {.measure.} =
     sk.drawer.layers[NormalLayer].add(sk.drawer.layers[i])
 
   let
+    scale = sk.uiScale
     quadCount = sk.drawer.layers[NormalLayer].len
-    quadsPtr =
-      if quadCount > 0:
-        cast[pointer](unsafeAddr sk.drawer.layers[NormalLayer][0])
-      else:
-        nil
+    needsScale = not (scale ~= 1.0f)
+  var
+    quadsPtr: pointer
+    scaledVertices: seq[DrawerVertex]
+  if quadCount > 0:
+    if needsScale:
+      scaledVertices = newSeqOfCap[DrawerVertex](quadCount)
+      for i in 0 ..< quadCount:
+        var vertex = sk.drawer.layers[NormalLayer][i]
+        vertex.pos *= scale
+        vertex.clipPos *= scale
+        vertex.clipSize *= scale
+        scaledVertices.add(vertex)
+      quadsPtr = cast[pointer](unsafeAddr scaledVertices[0])
+    else:
+      quadsPtr = cast[pointer](unsafeAddr sk.drawer.layers[NormalLayer][0])
+  else:
+    quadsPtr = nil
   sk.drawer.endFrame(
     sk.image,
-    sk.size,
+    sk.framebufferSize.vec2,
     quadsPtr,
     quadCount
   )

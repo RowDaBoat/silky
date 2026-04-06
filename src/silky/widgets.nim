@@ -105,8 +105,9 @@ proc vec2[A, B](x: A, y: B): Vec2 =
 
 proc mouseInsideClip*(sk: Silky, window: Window, r: Rect): bool =
   ## Check mouse inside rect and current clip.
-  window.mousePos.vec2.overlaps(r) and
-  window.mousePos.vec2.overlaps(sk.clipRect)
+  discard window
+  sk.mousePos.overlaps(r) and
+  sk.mousePos.overlaps(sk.clipRect)
 
 proc subWindowStart*(
     sk: Silky,
@@ -150,13 +151,13 @@ proc subWindowStart*(
   if subWindowState.dragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
     subWindowState.dragging = false
   if subWindowState.dragging:
-    subWindowState.pos = window.mousePos.vec2 - subWindowState.dragOffset
+    subWindowState.pos = sk.mousePos - subWindowState.dragOffset
   if subWindowState.dragging:
     sk.draw9Patch("header.dragging.9patch", 6, sk.pos, sk.size)
   elif sk.mouseInsideClip(window, rect(sk.pos, sk.size)):
     if window.buttonPressed[MouseLeft]:
       subWindowState.dragging = true
-      subWindowState.dragOffset = window.mousePos.vec2 - subWindowState.pos
+      subWindowState.dragOffset = sk.mousePos - subWindowState.pos
     else:
       sk.draw9Patch("header.hover.9patch", 6, sk.pos, sk.size)
   else:
@@ -218,14 +219,14 @@ proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
     if subWindowState.resizing and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
       subWindowState.resizing = false
     if subWindowState.resizing:
-      subWindowState.size = window.mousePos.vec2 - subWindowState.resizeOffset
+      subWindowState.size = sk.mousePos - subWindowState.resizeOffset
       subWindowState.size.x = max(subWindowState.size.x, 200f)
       subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
     else:
       if sk.mouseInsideClip(window, resizeHandleRect):
         if window.buttonPressed[MouseLeft]:
           subWindowState.resizing = true
-          subWindowState.resizeOffset = window.mousePos.vec2 - subWindowState.size
+          subWindowState.resizeOffset = sk.mousePos - subWindowState.size
     sk.drawImage("resize", resizeHandleRect.xy)
 
   sk.popLayout()
@@ -328,7 +329,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
 
     # Handle scrollbar Y dragging.
     if frameState.scrollingY:
-      let mouseY = window.mousePos.vec2.y
+      let mouseY = sk.mousePos.y
       let relativeY = mouseY - frameState.scrollDragOffset.y - scrollbarTrackRect.y
       let availableTrackHeight = scrollbarTrackRect.h - scrollbarHandleRect.h
       if availableTrackHeight > 0:
@@ -337,7 +338,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
     elif sk.mouseInsideClip(window, scrollbarHandleRect):
       if window.buttonPressed[MouseLeft]:
         frameState.scrollingY = true
-        frameState.scrollDragOffset.y = window.mousePos.vec2.y - scrollbarHandleRect.y
+        frameState.scrollDragOffset.y = sk.mousePos.y - scrollbarHandleRect.y
 
     sk.draw9Patch("scrollbar.9patch", 4, scrollbarHandleRect.xy, scrollbarHandleRect.wh)
 
@@ -363,7 +364,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
 
     # Handle scrollbar X dragging.
     if frameState.scrollingX:
-      let mouseX = window.mousePos.vec2.x
+      let mouseX = sk.mousePos.x
       let relativeX = mouseX - frameState.scrollDragOffset.x - scrollbarTrackRect.x
       let availableTrackWidth = scrollbarTrackRect.w - scrollbarHandleRect.w
       if availableTrackWidth > 0:
@@ -372,7 +373,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
     elif sk.mouseInsideClip(window, scrollbarHandleRect):
       if window.buttonPressed[MouseLeft]:
         frameState.scrollingX = true
-        frameState.scrollDragOffset.x = window.mousePos.vec2.x - scrollbarHandleRect.x
+        frameState.scrollDragOffset.x = sk.mousePos.x - scrollbarHandleRect.x
 
     sk.draw9Patch("scrollbar.9patch", 4, scrollbarHandleRect.xy, scrollbarHandleRect.wh)
 
@@ -812,12 +813,12 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U, label: 
     scrubState.dragging = false
 
   if scrubState.dragging:
-    let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
+    let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
     value = (minF + t * range).T
   elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
     if window.buttonPressed[MouseLeft]:
       scrubState.dragging = true
-      let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
+      let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
       value = (minF + t * range).T
 
   # Recompute normalized position after potential changes.
@@ -882,7 +883,7 @@ proc menuBarEnd*(sk: Silky, window: Window) =
   ## Finish the menu bar and handle outside-click closing.
   sk.popLayout()
   if menuState.openPath.len > 0 and window.buttonPressed[MouseLeft]:
-    if not menuPointInside(menuState.activeRects, window.mousePos.vec2):
+    if not menuPointInside(menuState.activeRects, sk.mousePos):
       menuState.openPath.setLen(0)
 
 template menuBar*(body: untyped) =
@@ -912,7 +913,7 @@ proc subMenuStart*(sk: Silky, window: Window, label: string, menuWidth = 200): M
     let menuRect = rect(sk.at, size)
     menuAddActive(menuRect)
 
-    let hover = window.mousePos.vec2.overlaps(menuRect)
+    let hover = sk.mousePos.overlaps(menuRect)
     var open = menuPathOpen(path)
 
     if hover and window.buttonReleased[MouseLeft]:
@@ -944,7 +945,7 @@ proc subMenuStart*(sk: Silky, window: Window, label: string, menuWidth = 200): M
     menuAddActive(itemRect)
 
     var open = menuPathOpen(path)
-    let hover = window.mousePos.vec2.overlaps(itemRect)
+    let hover = sk.mousePos.overlaps(itemRect)
 
     if hover and menuState.openPath.len >= path.len - 1:
       menuState.openPath = path
@@ -1000,7 +1001,7 @@ proc menuItemStart*(sk: Silky, window: Window, label: string): MenuItemContext =
   let itemRect = rect(rowPos, rowSize)
   menuAddActive(itemRect)
 
-  let hover = window.mousePos.vec2.overlaps(itemRect)
+  let hover = sk.mousePos.overlaps(itemRect)
   sk.drawRect(itemRect.xy, itemRect.wh, sk.theme.menuItemBgColor)
   if hover:
     sk.drawRect(itemRect.xy, itemRect.wh, sk.theme.menuPopupHoverColor)
@@ -1044,7 +1045,7 @@ template tooltip*(text: string) =
 
   let textSize = sk.getTextSize(sk.textStyle, tooltipText)
   let tooltipSize = textSize + vec2(sk.theme.padding.float32 * 2, sk.theme.padding.float32 * 2)
-  let mousePos = window.mousePos.vec2
+  let mousePos = sk.mousePos
 
   # Position tooltip near mouse, offset slightly to avoid cursor.
   var tooltipPos = mousePos + vec2(16, 16)
