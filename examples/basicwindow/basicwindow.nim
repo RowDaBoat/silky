@@ -32,12 +32,14 @@ var
   power = "Medium"
   progress = 0.0
   howMuch = 30.0
+  earlyReturn = true # Demonstrates that early return from a group works.
 
 proc returnTest() =
   text("Return Test")
   group(vec2(8, 8), LeftToRight):
     text("Group")
-    return
+    if earlyReturn:
+      return
   text("You will not see this.")
 
 window.onFrame = proc() =

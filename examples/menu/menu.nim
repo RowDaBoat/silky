@@ -1,6 +1,6 @@
 import
   std/[strformat],
-  windy, vmath, chroma,
+  vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)

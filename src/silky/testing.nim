@@ -3,9 +3,9 @@
 import std/unicode
 import vmath, bumpy
 import silky/[semantic, atlas]
-from windy/common import Button
+from windy/common import Button, CursorKind, Cursor
 
-export Button, unicode
+export Button, CursorKind, Cursor, unicode
 
 type
   Window* = ref object
@@ -19,6 +19,7 @@ type
     buttonReleased*: array[Button, bool]
     scrollDelta*: Vec2
     closeRequested*: bool
+    cursor*: Cursor = Cursor(kind: ArrowCursor)
     runeInputEnabled*: bool
     onRune*: proc(rune: Rune)
     onFrame*: proc()
