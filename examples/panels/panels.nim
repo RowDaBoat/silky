@@ -1,6 +1,6 @@
 import
   std/[random, strformat],
-  windy, bumpy, vmath, chroma,
+  bumpy, vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)
@@ -29,16 +29,16 @@ type
     Vertical
 
   Area = ref object
-    layout: AreaLayout
-    areas: seq[Area]
-    panels: seq[Panel]
-    split: float32
-    selectedPanelNum: int
-    rect: Rect # Calculated during draw
+    layout*: AreaLayout
+    areas*: seq[Area]
+    panels*: seq[Panel]
+    split*: float32
+    selectedPanelNum*: int
+    rect*: Rect # Calculated during draw
 
   Panel = ref object
-    name: string
-    parentArea: Area
+    name*: string
+    parentArea*: Area
 
   AreaScan = enum
     Header

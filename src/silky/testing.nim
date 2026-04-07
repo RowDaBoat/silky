@@ -3,9 +3,9 @@
 import std/unicode
 import vmath, bumpy
 import silky/[semantic, atlas]
-from windy/common import Button
+from windy/common import Button, CursorKind, Cursor
 
-export Button, unicode
+export Button, CursorKind, Cursor, unicode
 
 type
   Window* = ref object
@@ -18,7 +18,9 @@ type
     buttonPressed*: array[Button, bool]
     buttonReleased*: array[Button, bool]
     scrollDelta*: Vec2
-    closeRequested*: bool
+    ## Starts true so `while not window.closeRequested` loops exit immediately in tests.
+    closeRequested*: bool = true
+    cursor*: Cursor = Cursor(kind: ArrowCursor)
     runeInputEnabled*: bool
     onRune*: proc(rune: Rune)
     onFrame*: proc()
@@ -206,7 +208,6 @@ template buttonReleased*(w: Window, btn: Button): bool =
 
 proc pumpFrame*(w: Window, sk: Silky) =
   ## Runs one frame using the window's onFrame callback.
-  sk.semantic.reset()
   if w.onFrame != nil:
     w.onFrame()
   w.resetInputState()

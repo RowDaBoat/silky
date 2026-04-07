@@ -5,6 +5,8 @@ import
   vmath, bumpy, chroma,
   silky/atlas
 
+from windy/common import Button, CursorKind, Cursor
+
 type
   WidgetState* = object
     ## Stores the interactive state of a widget.
@@ -284,6 +286,7 @@ type
     frameStartTime*: float64
     frameTime*: float64
     avgFrameTime*: float64
+    cursor*: Cursor = Cursor(kind: ArrowCursor)
     semantic*: SemanticCapture
 
 proc pushLayer*(sk: Silky, layer: int) =
