@@ -4,9 +4,10 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
-import std/unittest
-import silky
-import ../basicwindow {.all.}
+import
+  std/unittest,
+  silky,
+  ../basicwindow {.all.}
 
 proc resetState() =
   ## Resets all state to initial values.

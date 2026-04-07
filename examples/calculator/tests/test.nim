@@ -4,9 +4,10 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
-import std/unittest
-import silky
-import ../calculator {.all.}
+import
+  std/unittest,
+  silky,
+  ../calculator {.all.}
 
 proc resetCalculator() =
   ## Resets calculator state to initial values.
