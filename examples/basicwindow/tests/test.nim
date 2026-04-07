@@ -25,67 +25,145 @@ suite "Basic Window UI":
     resetState()
     window.pumpFrame(sk)
 
-  test "initial state - SubWindow present":
-    let windowNode = sk.semantic.root.findByName("A SubWindow", "SubWindow")
-    check windowNode != nil
+  test "initial state - SubWindow present with rect":
+    let node = sk.semantic.root.findByName("A SubWindow", "SubWindow")
+    check node != nil
+    check node.rect.w > 0
+    check node.rect.h > 0
 
-  test "initial state - Hello world text present":
-    let helloNode = sk.semantic.root.findByText("Hello world!")
-    check helloNode != nil
+  test "initial state - Hello world text":
+    let node = sk.semantic.root.findByText("Hello world!")
+    check node != nil
+    check node.kind == "Text"
 
-  test "initial state - Close Me button present":
-    let closeBtn = sk.semantic.root.findByText("Close Me", "Button")
-    check closeBtn != nil
+  test "initial state - Close Me button enabled":
+    let node = sk.semantic.root.findByText("Close Me", "Button")
+    check node != nil
+    check node.state.enabled == true
+    check node.state.pressed == false
 
-  test "initial state - radio buttons present":
-    check sk.semantic.root.findByText("Avg", "RadioButton") != nil
-    check sk.semantic.root.findByText("Max", "RadioButton") != nil
-    check sk.semantic.root.findByText("Min", "RadioButton") != nil
+  test "initial state - radio button Avg is checked":
+    let avg = sk.semantic.root.findByText("Avg", "RadioButton")
+    let max = sk.semantic.root.findByText("Max", "RadioButton")
+    let min = sk.semantic.root.findByText("Min", "RadioButton")
+    check avg != nil
+    check max != nil
+    check min != nil
+    check avg.state.checked == true
+    check max.state.checked == false
+    check min.state.checked == false
 
-  test "initial state - checkbox present":
-    check sk.semantic.root.findByText("Cumulative", "CheckBox") != nil
+  test "initial state - checkbox unchecked":
+    let node = sk.semantic.root.findByText("Cumulative", "CheckBox")
+    check node != nil
+    check node.state.checked == false
+
+  test "initial state - dropdowns show default values":
+    let elem = sk.semantic.root.findByText("Fire", "DropDown")
+    check elem != nil
+    check elem.rect.w > 0
+
+    let pwr = sk.semantic.root.findByText("Medium", "DropDown")
+    check pwr != nil
+    check pwr.rect.w > 0
 
   test "close button closes window":
     check showWindow == true
     window.clickButton(sk, "Close Me")
+    window.pumpFrame(sk)
     check showWindow == false
 
-  test "radio buttons cycle through options":
+    # SubWindow should have no children when closed.
+    let node = sk.semantic.root.findByName("A SubWindow", "SubWindow")
+    check node != nil
+    check node.children.len == 0
+
+  test "radio buttons update checked state":
     check option == 1
 
     window.clickText(sk, "Max", "RadioButton")
+    window.pumpFrame(sk)
     check option == 2
+    let max = sk.semantic.root.findByText("Max", "RadioButton")
+    let avg = sk.semantic.root.findByText("Avg", "RadioButton")
+    check max.state.checked == true
+    check avg.state.checked == false
 
     window.clickText(sk, "Min", "RadioButton")
+    window.pumpFrame(sk)
     check option == 3
+    let min = sk.semantic.root.findByText("Min", "RadioButton")
+    check min.state.checked == true
+    check sk.semantic.root.findByText("Max", "RadioButton").state.checked == false
 
     window.clickText(sk, "Avg", "RadioButton")
+    window.pumpFrame(sk)
     check option == 1
+    check sk.semantic.root.findByText("Avg", "RadioButton").state.checked == true
+    check sk.semantic.root.findByText("Min", "RadioButton").state.checked == false
 
-  test "checkbox toggles on and off":
+  test "checkbox toggles checked state":
     check cumulative == false
+    let node0 = sk.semantic.root.findByText("Cumulative", "CheckBox")
+    check node0.state.checked == false
 
     window.clickText(sk, "Cumulative", "CheckBox")
     check cumulative == true
+    let node1 = sk.semantic.root.findByText("Cumulative", "CheckBox")
+    check node1.state.checked == true
 
     window.clickText(sk, "Cumulative", "CheckBox")
     check cumulative == false
+    let node2 = sk.semantic.root.findByText("Cumulative", "CheckBox")
+    check node2.state.checked == false
 
-  test "dropdowns show initial values":
-    let elementDropdown = sk.semantic.root.findByText("Fire", "DropDown")
-    check elementDropdown != nil
+  test "progress bar label updates with value":
+    check sk.semantic.root.findByText("Progress Bar:") != nil
+    # After several frames, progress should advance and label stays.
+    for i in 0 ..< 10:
+      window.pumpFrame(sk)
+    check sk.semantic.root.findByText("Progress Bar:") != nil
 
-    let powerDropdown = sk.semantic.root.findByText("Medium", "DropDown")
-    check powerDropdown != nil
+  test "scrubber label reflects initial value":
+    let node = sk.semantic.root.findByText("How much: 30.00")
+    check node != nil
+    check node.kind == "Text"
 
-  test "progress bar label present":
-    let progressLabel = sk.semantic.root.findByText("Progress Bar:")
-    check progressLabel != nil
+  test "icons and group layout - both present":
+    let heart = sk.semantic.root.findByText("Heart")
+    let cloud = sk.semantic.root.findByText("Cloud")
+    check heart != nil
+    check cloud != nil
+    check heart.kind == "Text"
+    check cloud.kind == "Text"
 
-  test "scrubber label present":
-    let scrubberLabel = sk.semantic.root.findByText("How much: 30.00")
-    check scrubberLabel != nil
+  test "widgets have non-zero rects":
+    let btn = sk.semantic.root.findByText("Close Me", "Button")
+    check btn.rect.w > 0
+    check btn.rect.h > 0
 
-  test "icons and group layout":
-    check sk.semantic.root.findByText("Heart") != nil
-    check sk.semantic.root.findByText("Cloud") != nil
+    let radio = sk.semantic.root.findByText("Avg", "RadioButton")
+    check radio.rect.w > 0
+    check radio.rect.h > 0
+
+    let cb = sk.semantic.root.findByText("Cumulative", "CheckBox")
+    check cb.rect.w > 0
+    check cb.rect.h > 0
+
+    let dd = sk.semantic.root.findByText("Fire", "DropDown")
+    check dd.rect.w > 0
+    check dd.rect.h > 0
+
+  test "scrollable text content present":
+    let scrollText = sk.semantic.root.findByText("A bunch of text to test the scrolling, in any direction.")
+    check scrollText != nil
+    let doesItWork = sk.semantic.root.findByText("Does it work?")
+    check doesItWork != nil
+    # Check that repeated text lines exist.
+    let allTimeWillTell = sk.semantic.root.findAllByText("Time will tell...")
+    check allTimeWillTell.len == 10
+
+  test "return test text present, unreachable text absent":
+    check sk.semantic.root.findByText("Return Test") != nil
+    check sk.semantic.root.findByText("Group") != nil
+    check sk.semantic.root.findByText("You will not see this.") == nil
