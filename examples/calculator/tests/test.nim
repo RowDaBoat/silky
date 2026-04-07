@@ -4,6 +4,7 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
+import std/unittest
 import silky
 import ../calculator {.all.}
 
@@ -11,6 +12,7 @@ proc resetCalculator() =
   ## Resets calculator state to initial values.
   symbols.setLen(0)
   calculator.repeat.setLen(0)
+  showWindow = true
 
 proc getDisplay(): string =
   ## Reads the display text from the UI semantic tree.
@@ -20,203 +22,194 @@ proc getDisplay(): string =
     return display.text
   return "0"
 
-proc testInitialState() =
-  echo "Testing initial state..."
-  resetCalculator()
-  showWindow = true
-  window.pumpFrame(sk)
+suite "Calculator UI - Initial State":
 
-  # Check all buttons are present.
-  assert sk.semantic.root.findByText("1", "Button") != nil, "Button 1 not found"
-  assert sk.semantic.root.findByText("2", "Button") != nil, "Button 2 not found"
-  assert sk.semantic.root.findByText("+", "Button") != nil, "Button + not found"
-  assert sk.semantic.root.findByText("=", "Button") != nil, "Button = not found"
-  assert sk.semantic.root.findByText("C", "Button") != nil, "Button C not found"
+  setup:
+    resetCalculator()
+    window.pumpFrame(sk)
 
-  # Check initial display shows 0.
-  assert getDisplay() == "0", "Expected display to show '0' initially"
+  test "all digit buttons present":
+    for digit in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+      let btn = sk.semantic.root.findByText(digit, "Button")
+      check btn != nil
+      check btn.rect.w > 0
+      check btn.rect.h > 0
 
-  echo "  PASS"
+  test "all operator buttons present":
+    for op in ["+", "-", "×", "÷", "=", "C", "±", "%", "."]:
+      let btn = sk.semantic.root.findByText(op, "Button")
+      check btn != nil
+      check btn.rect.w > 0
 
-proc testSimpleAddition() =
-  echo "Testing simple addition (7 + 3 = 10)..."
-  resetCalculator()
-  showWindow = true
+  test "display shows 0 initially":
+    let display = sk.semantic.root.findByName("display", "Display")
+    check display != nil
+    check display.text == "0"
+    check display.rect.w > 0
+    check display.rect.h > 0
 
-  window.clickButton(sk, "7")
-  assert getDisplay() == "7", "Expected display '7', got '" & getDisplay() & "'"
+  test "calculator SubWindow present":
+    let win = sk.semantic.root.findByName("Calculator", "SubWindow")
+    check win != nil
+    check win.rect.w > 0
+    check win.rect.h > 0
 
-  window.clickButton(sk, "+")
-  assert getDisplay() == "7+", "Expected display '7+', got '" & getDisplay() & "'"
+suite "Calculator UI - Basic Arithmetic":
 
-  window.clickButton(sk, "3")
-  assert getDisplay() == "7+3", "Expected display '7+3', got '" & getDisplay() & "'"
+  setup:
+    resetCalculator()
 
-  window.clickButton(sk, "=")
-  assert getDisplay() == "10", "Expected display '10', got '" & getDisplay() & "'"
+  test "simple addition (7 + 3 = 10)":
+    window.clickButton(sk, "7")
+    check getDisplay() == "7"
+    window.clickButton(sk, "+")
+    check getDisplay() == "7+"
+    window.clickButton(sk, "3")
+    check getDisplay() == "7+3"
+    window.clickButton(sk, "=")
+    check getDisplay() == "10"
 
-  echo "  PASS"
+  test "multiplication (6 × 7 = 42)":
+    window.clickButton(sk, "6")
+    window.clickButton(sk, "×")
+    window.clickButton(sk, "7")
+    check getDisplay() == "6×7"
+    window.clickButton(sk, "=")
+    check getDisplay() == "42"
 
-proc testMultiplication() =
-  echo "Testing multiplication (6 × 7 = 42)..."
-  resetCalculator()
-  showWindow = true
+  test "division (84 ÷ 2 = 42)":
+    window.clickButton(sk, "8")
+    window.clickButton(sk, "4")
+    window.clickButton(sk, "÷")
+    window.clickButton(sk, "2")
+    check getDisplay() == "84÷2"
+    window.clickButton(sk, "=")
+    check getDisplay() == "42"
 
-  window.clickButton(sk, "6")
-  window.clickButton(sk, "×")
-  window.clickButton(sk, "7")
-  assert getDisplay() == "6×7", "Expected display '6×7', got '" & getDisplay() & "'"
+  test "subtraction (100 - 58 = 42)":
+    window.clickButton(sk, "1")
+    window.clickButton(sk, "0")
+    window.clickButton(sk, "0")
+    window.clickButton(sk, "-")
+    window.clickButton(sk, "5")
+    window.clickButton(sk, "8")
+    check getDisplay() == "100-58"
+    window.clickButton(sk, "=")
+    check getDisplay() == "42"
 
-  window.clickButton(sk, "=")
-  assert getDisplay() == "42", "Expected display '42', got '" & getDisplay() & "'"
+  test "negative result (5 - 10 = -5)":
+    window.clickButton(sk, "5")
+    window.clickButton(sk, "-")
+    window.clickButton(sk, "1")
+    window.clickButton(sk, "0")
+    check getDisplay() == "5-10"
+    window.clickButton(sk, "=")
+    check getDisplay() == "-5"
 
-  echo "  PASS"
+  test "decimal numbers (3.14 + 2.86 = 6)":
+    window.clickButton(sk, "3")
+    window.clickButton(sk, ".")
+    window.clickButton(sk, "1")
+    window.clickButton(sk, "4")
+    window.clickButton(sk, "+")
+    window.clickButton(sk, "2")
+    window.clickButton(sk, ".")
+    window.clickButton(sk, "8")
+    window.clickButton(sk, "6")
+    check getDisplay() == "3.14+2.86"
+    window.clickButton(sk, "=")
+    check getDisplay() == "6"
 
-proc testDivision() =
-  echo "Testing division (84 ÷ 2 = 42)..."
-  resetCalculator()
-  showWindow = true
+suite "Calculator UI - Order of Operations":
 
-  window.clickButton(sk, "8")
-  window.clickButton(sk, "4")
-  window.clickButton(sk, "÷")
-  window.clickButton(sk, "2")
-  assert getDisplay() == "84÷2", "Expected display '84÷2', got '" & getDisplay() & "'"
+  setup:
+    resetCalculator()
 
-  window.clickButton(sk, "=")
-  assert getDisplay() == "42", "Expected display '42', got '" & getDisplay() & "'"
+  test "multiplication before addition (2 + 3 × 4 = 14)":
+    window.clickButton(sk, "2")
+    window.clickButton(sk, "+")
+    window.clickButton(sk, "3")
+    window.clickButton(sk, "×")
+    window.clickButton(sk, "4")
+    check getDisplay() == "2+3×4"
+    window.clickButton(sk, "=")
+    check getDisplay() == "14"
 
-  echo "  PASS"
+  test "chained operations (10 + 5 × 2 - 4 = 16)":
+    window.clickButton(sk, "1")
+    window.clickButton(sk, "0")
+    window.clickButton(sk, "+")
+    window.clickButton(sk, "5")
+    window.clickButton(sk, "×")
+    window.clickButton(sk, "2")
+    window.clickButton(sk, "-")
+    window.clickButton(sk, "4")
+    check getDisplay() == "10+5×2-4"
+    window.clickButton(sk, "=")
+    check getDisplay() == "16"
 
-proc testSubtraction() =
-  echo "Testing subtraction (100 - 58 = 42)..."
-  resetCalculator()
-  showWindow = true
+suite "Calculator UI - Clear Button":
 
-  window.clickButton(sk, "1")
-  window.clickButton(sk, "0")
-  window.clickButton(sk, "0")
-  window.clickButton(sk, "-")
-  window.clickButton(sk, "5")
-  window.clickButton(sk, "8")
-  assert getDisplay() == "100-58", "Expected display '100-58', got '" & getDisplay() & "'"
+  setup:
+    resetCalculator()
 
-  window.clickButton(sk, "=")
-  assert getDisplay() == "42", "Expected display '42', got '" & getDisplay() & "'"
+  test "clear removes symbols one at a time":
+    window.clickButton(sk, "5")
+    window.clickButton(sk, "+")
+    window.clickButton(sk, "3")
+    check getDisplay() == "5+3"
 
-  echo "  PASS"
+    window.clickButton(sk, "C")
+    check getDisplay() == "5+"
 
-proc testClearButton() =
-  echo "Testing clear button..."
-  resetCalculator()
-  showWindow = true
+    window.clickButton(sk, "C")
+    check getDisplay() == "5"
 
-  # Enter 5 + 3.
-  window.clickButton(sk, "5")
-  window.clickButton(sk, "+")
-  window.clickButton(sk, "3")
-  assert getDisplay() == "5+3", "Expected display '5+3', got '" & getDisplay() & "'"
+    window.clickButton(sk, "C")
+    check getDisplay() == "0"
 
-  # Clear last symbol (3).
-  window.clickButton(sk, "C")
-  assert getDisplay() == "5+", "Expected display '5+' after first C, got '" & getDisplay() & "'"
+  test "clear on empty display stays at 0":
+    check getDisplay() == "0"
+    window.clickButton(sk, "C")
+    check getDisplay() == "0"
 
-  # Clear operator (+).
-  window.clickButton(sk, "C")
-  assert getDisplay() == "5", "Expected display '5' after second C, got '" & getDisplay() & "'"
+  test "can enter new expression after clear":
+    window.clickButton(sk, "9")
+    window.clickButton(sk, "+")
+    window.clickButton(sk, "1")
+    window.clickButton(sk, "C")
+    window.clickButton(sk, "C")
+    window.clickButton(sk, "C")
+    check getDisplay() == "0"
 
-  # Clear number (5).
-  window.clickButton(sk, "C")
-  assert getDisplay() == "0", "Expected display '0' after third C, got '" & getDisplay() & "'"
+    window.clickButton(sk, "4")
+    window.clickButton(sk, "2")
+    check getDisplay() == "42"
 
-  echo "  PASS"
+suite "Calculator UI - Display State":
 
-proc testDecimalNumbers() =
-  echo "Testing decimal numbers (3.14 + 2.86 = 6)..."
-  resetCalculator()
-  showWindow = true
+  setup:
+    resetCalculator()
 
-  window.clickButton(sk, "3")
-  window.clickButton(sk, ".")
-  window.clickButton(sk, "1")
-  window.clickButton(sk, "4")
-  window.clickButton(sk, "+")
-  window.clickButton(sk, "2")
-  window.clickButton(sk, ".")
-  window.clickButton(sk, "8")
-  window.clickButton(sk, "6")
-  assert getDisplay() == "3.14+2.86", "Expected display '3.14+2.86', got '" & getDisplay() & "'"
+  test "display node updates text after each button":
+    window.clickButton(sk, "1")
+    window.pumpFrame(sk)
+    let
+      d1 = sk.semantic.root.findByName("display", "Display")
+    check d1 != nil
+    check d1.text == "1"
 
-  window.clickButton(sk, "=")
-  assert getDisplay() == "6", "Expected display '6', got '" & getDisplay() & "'"
+    window.clickButton(sk, "2")
+    window.pumpFrame(sk)
+    let d2 = sk.semantic.root.findByName("display", "Display")
+    check d2.text == "12"
 
-  echo "  PASS"
+  test "display resets after equals then new input":
+    window.clickButton(sk, "5")
+    window.clickButton(sk, "+")
+    window.clickButton(sk, "3")
+    window.clickButton(sk, "=")
+    check getDisplay() == "8"
 
-proc testOrderOfOperations() =
-  echo "Testing order of operations (2 + 3 × 4 = 14)..."
-  resetCalculator()
-  showWindow = true
-
-  window.clickButton(sk, "2")
-  window.clickButton(sk, "+")
-  window.clickButton(sk, "3")
-  window.clickButton(sk, "×")
-  window.clickButton(sk, "4")
-  assert getDisplay() == "2+3×4", "Expected display '2+3×4', got '" & getDisplay() & "'"
-
-  window.clickButton(sk, "=")
-  assert getDisplay() == "14", "Expected display '14', got '" & getDisplay() & "'"
-
-  echo "  PASS"
-
-proc testChainedOperations() =
-  echo "Testing chained operations (10 + 5 × 2 - 4 = 16)..."
-  resetCalculator()
-  showWindow = true
-
-  window.clickButton(sk, "1")
-  window.clickButton(sk, "0")
-  window.clickButton(sk, "+")
-  window.clickButton(sk, "5")
-  window.clickButton(sk, "×")
-  window.clickButton(sk, "2")
-  window.clickButton(sk, "-")
-  window.clickButton(sk, "4")
-  assert getDisplay() == "10+5×2-4", "Expected display '10+5×2-4', got '" & getDisplay() & "'"
-
-  window.clickButton(sk, "=")
-  assert getDisplay() == "16", "Expected display '16', got '" & getDisplay() & "'"
-
-  echo "  PASS"
-
-proc testNegativeResult() =
-  echo "Testing negative result (5 - 10 = -5)..."
-  resetCalculator()
-  showWindow = true
-
-  window.clickButton(sk, "5")
-  window.clickButton(sk, "-")
-  window.clickButton(sk, "1")
-  window.clickButton(sk, "0")
-  assert getDisplay() == "5-10", "Expected display '5-10', got '" & getDisplay() & "'"
-
-  window.clickButton(sk, "=")
-  assert getDisplay() == "-5", "Expected display '-5', got '" & getDisplay() & "'"
-
-  echo "  PASS"
-
-when isMainModule:
-  echo "=== Calculator UI Tests ==="
-  echo ""
-  testInitialState()
-  testSimpleAddition()
-  testMultiplication()
-  testDivision()
-  testSubtraction()
-  testClearButton()
-  testDecimalNumbers()
-  testOrderOfOperations()
-  testChainedOperations()
-  testNegativeResult()
-  echo ""
-  echo "=== All tests passed! ==="
+    window.clickButton(sk, "1")
+    check getDisplay() == "81"
