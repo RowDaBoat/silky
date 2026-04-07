@@ -4,6 +4,7 @@
 when not defined(silkyTesting):
   {.error: "Must compile with -d:silkyTesting".}
 
+import std/unittest
 import silky
 import ../basicwindow {.all.}
 
@@ -18,145 +19,73 @@ proc resetState() =
   progress = 0.0
   howMuch = 30.0
 
-proc testInitialState() =
-  echo "Testing initial state..."
-  resetState()
-  window.pumpFrame(sk)
+suite "Basic Window UI":
 
-  # Check the window title is present.
-  let windowNode = sk.semantic.root.findByName("A SubWindow", "SubWindow")
-  assert windowNode != nil, "SubWindow not found"
+  setup:
+    resetState()
+    window.pumpFrame(sk)
 
-  # Check Hello world text is present.
-  let helloNode = sk.semantic.root.findByText("Hello world!")
-  assert helloNode != nil, "Hello world text not found"
+  test "initial state - SubWindow present":
+    let windowNode = sk.semantic.root.findByName("A SubWindow", "SubWindow")
+    check windowNode != nil
 
-  # Check Close Me button is present.
-  let closeBtn = sk.semantic.root.findByText("Close Me", "Button")
-  assert closeBtn != nil, "Close Me button not found"
+  test "initial state - Hello world text present":
+    let helloNode = sk.semantic.root.findByText("Hello world!")
+    check helloNode != nil
 
-  # Check radio buttons.
-  assert sk.semantic.root.findByText("Avg", "RadioButton") != nil, "Avg radio not found"
-  assert sk.semantic.root.findByText("Max", "RadioButton") != nil, "Max radio not found"
-  assert sk.semantic.root.findByText("Min", "RadioButton") != nil, "Min radio not found"
+  test "initial state - Close Me button present":
+    let closeBtn = sk.semantic.root.findByText("Close Me", "Button")
+    check closeBtn != nil
 
-  # Check checkbox.
-  assert sk.semantic.root.findByText("Cumulative", "CheckBox") != nil, "Cumulative checkbox not found"
+  test "initial state - radio buttons present":
+    check sk.semantic.root.findByText("Avg", "RadioButton") != nil
+    check sk.semantic.root.findByText("Max", "RadioButton") != nil
+    check sk.semantic.root.findByText("Min", "RadioButton") != nil
 
-  echo "  PASS"
+  test "initial state - checkbox present":
+    check sk.semantic.root.findByText("Cumulative", "CheckBox") != nil
 
-proc testCloseButton() =
-  echo "Testing close button..."
-  resetState()
-  window.pumpFrame(sk)
-  assert showWindow == true, "showWindow should start true"
+  test "close button closes window":
+    check showWindow == true
+    window.clickButton(sk, "Close Me")
+    check showWindow == false
 
-  # Click Close Me button.
-  window.clickButton(sk, "Close Me")
+  test "radio buttons cycle through options":
+    check option == 1
 
-  # Verify the window is now closed.
-  assert showWindow == false, "showWindow should be false after clicking Close Me"
+    window.clickText(sk, "Max", "RadioButton")
+    check option == 2
 
-  echo "  PASS"
+    window.clickText(sk, "Min", "RadioButton")
+    check option == 3
 
-proc testRadioButtons() =
-  echo "Testing radio buttons..."
-  resetState()
-  window.pumpFrame(sk)
-  assert option == 1, "Option should start at 1"
+    window.clickText(sk, "Avg", "RadioButton")
+    check option == 1
 
-  # Click Max radio button.
-  window.clickText(sk, "Max", "RadioButton")
-  assert option == 2, "Option should be 2 after clicking Max, got " & $option
+  test "checkbox toggles on and off":
+    check cumulative == false
 
-  # Click Min radio button.
-  window.clickText(sk, "Min", "RadioButton")
-  assert option == 3, "Option should be 3 after clicking Min, got " & $option
+    window.clickText(sk, "Cumulative", "CheckBox")
+    check cumulative == true
 
-  # Click back to Avg.
-  window.clickText(sk, "Avg", "RadioButton")
-  assert option == 1, "Option should be 1 after clicking Avg, got " & $option
+    window.clickText(sk, "Cumulative", "CheckBox")
+    check cumulative == false
 
-  echo "  PASS"
+  test "dropdowns show initial values":
+    let elementDropdown = sk.semantic.root.findByText("Fire", "DropDown")
+    check elementDropdown != nil
 
-proc testCheckBox() =
-  echo "Testing checkbox..."
-  resetState()
-  window.pumpFrame(sk)
-  assert cumulative == false, "Cumulative should start false"
+    let powerDropdown = sk.semantic.root.findByText("Medium", "DropDown")
+    check powerDropdown != nil
 
-  # Click Cumulative checkbox.
-  window.clickText(sk, "Cumulative", "CheckBox")
-  assert cumulative == true, "Cumulative should be true after click"
+  test "progress bar label present":
+    let progressLabel = sk.semantic.root.findByText("Progress Bar:")
+    check progressLabel != nil
 
-  # Click again to uncheck.
-  window.clickText(sk, "Cumulative", "CheckBox")
-  assert cumulative == false, "Cumulative should be false after second click"
+  test "scrubber label present":
+    let scrubberLabel = sk.semantic.root.findByText("How much: 30.00")
+    check scrubberLabel != nil
 
-  echo "  PASS"
-
-proc testDropDownsExist() =
-  echo "Testing dropdowns exist..."
-  resetState()
-  window.pumpFrame(sk)
-
-  # Check dropdown for element shows Fire initially.
-  let elementDropdown = sk.semantic.root.findByText("Fire", "DropDown")
-  assert elementDropdown != nil, "Element dropdown with 'Fire' not found"
-
-  # Check dropdown for power shows Medium initially.
-  let powerDropdown = sk.semantic.root.findByText("Medium", "DropDown")
-  assert powerDropdown != nil, "Power dropdown with 'Medium' not found"
-
-  echo "  PASS"
-
-proc testProgressBarExists() =
-  echo "Testing progress bar exists..."
-  resetState()
-  window.pumpFrame(sk)
-
-  # Find Progress Bar label.
-  let progressLabel = sk.semantic.root.findByText("Progress Bar:")
-  assert progressLabel != nil, "Progress Bar label not found"
-
-  echo "  PASS"
-
-proc testScrubberExists() =
-  echo "Testing scrubber exists..."
-  resetState()
-  window.pumpFrame(sk)
-
-  # Find the scrubber label text.
-  let scrubberLabel = sk.semantic.root.findByText("How much: 30.00")
-  assert scrubberLabel != nil, "Scrubber label not found"
-
-  echo "  PASS"
-
-proc testIconsAndGroupLayout() =
-  echo "Testing icons and group layout..."
-  resetState()
-  window.pumpFrame(sk)
-
-  # Check for Heart text next to icon.
-  let heartText = sk.semantic.root.findByText("Heart")
-  assert heartText != nil, "Heart text not found"
-
-  # Check for Cloud text next to icon.
-  let cloudText = sk.semantic.root.findByText("Cloud")
-  assert cloudText != nil, "Cloud text not found"
-
-  echo "  PASS"
-
-when isMainModule:
-  echo "=== Basic Window UI Tests ==="
-  echo ""
-  testInitialState()
-  testCloseButton()
-  testRadioButtons()
-  testCheckBox()
-  testDropDownsExist()
-  testProgressBarExists()
-  testScrubberExists()
-  testIconsAndGroupLayout()
-  echo ""
-  echo "=== All tests passed! ==="
+  test "icons and group layout":
+    check sk.semantic.root.findByText("Heart") != nil
+    check sk.semantic.root.findByText("Cloud") != nil

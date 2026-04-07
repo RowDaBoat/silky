@@ -206,7 +206,6 @@ template buttonReleased*(w: Window, btn: Button): bool =
 
 proc pumpFrame*(w: Window, sk: Silky) =
   ## Runs one frame using the window's onFrame callback.
-  sk.semantic.reset()
   if w.onFrame != nil:
     w.onFrame()
   w.resetInputState()
