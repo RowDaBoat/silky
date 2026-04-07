@@ -18,7 +18,8 @@ type
     buttonPressed*: array[Button, bool]
     buttonReleased*: array[Button, bool]
     scrollDelta*: Vec2
-    closeRequested*: bool
+    ## Starts true so `while not window.closeRequested` loops exit immediately in tests.
+    closeRequested*: bool = true
     cursor*: Cursor = Cursor(kind: ArrowCursor)
     runeInputEnabled*: bool
     onRune*: proc(rune: Rune)

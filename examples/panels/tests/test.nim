@@ -6,7 +6,6 @@ when not defined(silkyTesting):
 
 import
   std/unittest,
-  silky,
   ../panels {.all.}
 
 suite "Panels - Initial Layout":

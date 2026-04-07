@@ -112,6 +112,5 @@ window.onFrame = proc() =
   sk.endUi()
   window.swapBuffers()
 
-when isMainModule:
-  while not window.closeRequested:
-    pollEvents()
+while not window.closeRequested:
+  pollEvents()
