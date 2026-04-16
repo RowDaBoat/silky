@@ -243,6 +243,13 @@ proc addDir*(builder: AtlasBuilder, path: string, removePrefix: string = "") =
       key.removeSuffix(".png")
       builder.atlas.entries[key] = entry
 
+proc addDirRecursive*(builder: AtlasBuilder, path: string, removePrefix: string = "") =
+  ## Add all images in the given directory and its subdirectories to the atlas.
+  builder.addDir(path, removePrefix)
+  for entry in walkDir(path):
+    if entry.kind == pcDir:
+      builder.addDirRecursive(entry.path, removePrefix)
+
 proc addFont*(builder: AtlasBuilder, path: string, name: string, size: float32, chars: seq[string] = AsciiGlyphs, subpixelSteps: int = 0) =
   ## Add a font to the atlas.
   let fontAtlas = FontAtlas()
