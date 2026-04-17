@@ -65,22 +65,23 @@ jobs:
       - name: Compile examples (Emscripten)
         if: matrix.emscripten
         run: |
-          cd examples/basicwindow && nim c -d:emscripten basicwindow.nim && cd ../..
-          cd examples/calculator && nim c -d:emscripten calculator.nim && cd ../..
-          cd examples/gameplayer && nim c -d:emscripten gameplayer.nim && cd ../..
-          cd examples/menu && nim c -d:emscripten menu.nim && cd ../..
-          cd examples/panels && nim c -d:emscripten panels.nim && cd ../..
-          cd examples/the7gui && nim c -d:emscripten the7gui.nim && cd ../..
+          (cd examples/basicwindow && nim c -d:emscripten basicwindow.nim)
+          (cd examples/calculator && nim c -d:emscripten calculator.nim)
+          (cd examples/gameplayer && nim c -d:emscripten gameplayer.nim)
+          (cd examples/menu && nim c -d:emscripten menu.nim)
+          (cd examples/panels && nim c -d:emscripten panels.nim)
+          (cd examples/the7gui && nim c -d:emscripten the7gui.nim)
 
       - name: Run example tests
         if: ${{ !matrix.emscripten }}
+        shell: bash
         run: |
-          cd examples/calculator && nim r tests/test.nim && cd ../..
-          cd examples/basicwindow && nim r tests/test.nim && cd ../..
-          cd examples/gameplayer && nim r tests/test.nim && cd ../..
-          cd examples/menu && nim r tests/test.nim && cd ../..
-          cd examples/panels && nim r tests/test.nim && cd ../..
-          cd examples/the7gui && nim r tests/test.nim && cd ../..
+          (cd examples/calculator && nim r tests/test.nim)
+          (cd examples/basicwindow && nim r tests/test.nim)
+          (cd examples/gameplayer && nim r tests/test.nim)
+          (cd examples/menu && nim r tests/test.nim)
+          (cd examples/panels && nim r tests/test.nim)
+          (cd examples/the7gui && nim r tests/test.nim)
 
       - name: Run atlas tests
         if: ${{ !matrix.emscripten }}
