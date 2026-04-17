@@ -633,27 +633,30 @@ proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) =
 proc draw9Patch*(
   sk: Silky,
   name: string,
-  patch: int,
+  left, right, up, down: int,
   pos: Vec2,
   size: Vec2,
   color = rgbx(255, 255, 255, 255)
 ) =
-  ## Queues a 9-patch image draw.
+  ## Queues a 9-patch image draw with independent border sizes.
   if name notin sk.atlas.entries:
     echo "[Warning] Sprite not found in atlas: " & name
     return
   let uv = sk.atlas.entries[name]
 
   let
-    p = patch.float32
-    srcXOffsets = [0.int, patch, uv.width - patch]
-    srcWidths = [patch, uv.width - 2 * patch, patch]
-    srcYOffsets = [0.int, patch, uv.height - patch]
-    srcHeights = [patch, uv.height - 2 * patch, patch]
-    dstXOffsets = [0.0'f, p, size.x - p]
-    dstWidths = [p, size.x - 2 * p, p]
-    dstYOffsets = [0.0'f, p, size.y - p]
-    dstHeights = [p, size.y - 2 * p, p]
+    l = left.float32
+    r = right.float32
+    u = up.float32
+    d = down.float32
+    srcXOffsets = [0.int, left, uv.width - right]
+    srcWidths = [left, uv.width - left - right, right]
+    srcYOffsets = [0.int, up, uv.height - down]
+    srcHeights = [up, uv.height - up - down, down]
+    dstXOffsets = [0.0'f, l, size.x - r]
+    dstWidths = [l, size.x - l - r, r]
+    dstYOffsets = [0.0'f, u, size.y - d]
+    dstHeights = [u, size.y - u - d, d]
 
   let order = [
     (0, 0), (2, 0), (0, 2), (2, 2),
@@ -679,6 +682,17 @@ proc draw9Patch*(
       vec2(sw.float32, sh.float32),
       color
     )
+
+proc draw9Patch*(
+  sk: Silky,
+  name: string,
+  patch: int,
+  pos: Vec2,
+  size: Vec2,
+  color = rgbx(255, 255, 255, 255)
+) =
+  ## Queues a 9-patch image draw.
+  sk.draw9Patch(name, patch, patch, patch, patch, pos, size, color)
 
 proc contains*(sk: Silky, name: string): bool =
   ## Returns true if the atlas contains one image entry.
