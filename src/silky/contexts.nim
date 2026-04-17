@@ -95,6 +95,7 @@ type
     lastMousePos*: Vec2
     mouseIdleTime*: float64
     hover*: bool = false
+    mouseConsumed*: bool = false
     tooltipThreshold*: float64 = 0.5
     atlas*: SilkyAtlas
     image*: Image
@@ -239,6 +240,7 @@ proc beginUiShared*(sk: Silky, window: Window, size: IVec2) =
         dumpMeasures("tmp/trace.json")
 
   sk.showTooltip = false
+  sk.mouseConsumed = false
   sk.framebufferSize = size
   sk.pushLayout(vec2(0, 0), size.vec2 / sk.uiScale)
   sk.inFrame = true
