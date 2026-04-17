@@ -74,6 +74,7 @@ jobs:
 
       - name: Run example tests
         if: ${{ !matrix.emscripten }}
+        shell: bash
         run: |
           (cd examples/calculator && nim r tests/test.nim)
           (cd examples/basicwindow && nim r tests/test.nim)
