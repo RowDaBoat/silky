@@ -90,12 +90,12 @@ type
     inputRunes*: seq[Rune]
     mousePos*: Vec2
     mouseDelta*: Vec2
+    mouseIdleTime*: float64
+    mouseConsumed*: bool = false
+    hover*: bool = false
     showTooltip*: bool = false
     framebufferSize*: IVec2
     lastMousePos*: Vec2
-    mouseIdleTime*: float64
-    hover*: bool = false
-    mouseConsumed*: bool = false
     tooltipThreshold*: float64 = 0.5
     atlas*: SilkyAtlas
     image*: Image
