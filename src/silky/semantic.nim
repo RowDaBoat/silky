@@ -269,14 +269,16 @@ type
     textStyle*: string = "Default"
     padding*: float32 = 12
     theme*: Theme = Theme()
+    cursor*: Cursor = Cursor(kind: ArrowCursor)
     inputRunes*: seq[Rune]
     mousePos*: Vec2
     mouseDelta*: Vec2
+    mouseIdleTime*: float64
+    mouseConsumed*: bool = false
+    hover*: bool = false
     showTooltip*: bool = false
     framebufferSize*: IVec2
     lastMousePos*: Vec2
-    mouseIdleTime*: float64
-    hover*: bool = false
     tooltipThreshold*: float64 = 0.5
     atlas*: SilkyAtlas
     layers*: array[2, seq[SilkyVertex]]
@@ -286,7 +288,6 @@ type
     frameStartTime*: float64
     frameTime*: float64
     avgFrameTime*: float64
-    cursor*: Cursor = Cursor(kind: ArrowCursor)
     semantic*: SemanticCapture
 
 proc pushLayer*(sk: Silky, layer: int) =

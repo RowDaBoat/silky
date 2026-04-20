@@ -140,7 +140,7 @@ template calcButton(label: string, body: untyped) =
 
   sk.beginWidget("Button", text = label, rect = btnRect)
 
-  if sk.mouseInsideClip(window, btnRect):
+  if sk.mouseHover(window, btnRect):
     if window.buttonReleased[MouseLeft]:
       body
     elif window.buttonDown[MouseLeft]:
