@@ -642,9 +642,8 @@ proc draw9Patch*(
   if name notin sk.atlas.entries:
     echo "[Warning] Sprite not found in atlas: " & name
     return
-  let uv = sk.atlas.entries[name]
-
   let
+    uv = sk.atlas.entries[name]
     l = left.float32
     r = right.float32
     u = up.float32
@@ -657,12 +656,11 @@ proc draw9Patch*(
     dstWidths = [l, size.x - l - r, r]
     dstYOffsets = [0.0'f, u, size.y - d]
     dstHeights = [u, size.y - u - d, d]
-
-  let order = [
-    (0, 0), (2, 0), (0, 2), (2, 2),
-    (1, 0), (0, 1), (2, 1), (1, 2),
-    (1, 1)
-  ]
+    order = [
+      (0, 0), (2, 0), (0, 2), (2, 2),
+      (1, 0), (0, 1), (2, 1), (1, 2),
+      (1, 1)
+    ]
 
   for (x, y) in order:
     let
