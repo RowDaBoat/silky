@@ -633,7 +633,7 @@ proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) =
 proc draw9Patch*(
   sk: Silky,
   name: string,
-  left, right, up, down: int,
+  top, right, bottom, left: int,
   pos: Vec2,
   size: Vec2,
   color = rgbx(255, 255, 255, 255)
@@ -646,12 +646,12 @@ proc draw9Patch*(
     uv = sk.atlas.entries[name]
     l = left.float32
     r = right.float32
-    u = up.float32
-    d = down.float32
+    u = top.float32
+    d = bottom.float32
     srcXOffsets = [0.int, left, uv.width - right]
     srcWidths = [left, uv.width - left - right, right]
-    srcYOffsets = [0.int, up, uv.height - down]
-    srcHeights = [up, uv.height - up - down, down]
+    srcYOffsets = [0.int, top, uv.height - bottom]
+    srcHeights = [top, uv.height - top - bottom, bottom]
     dstXOffsets = [0.0'f, l, size.x - r]
     dstWidths = [l, size.x - l - r, r]
     dstYOffsets = [0.0'f, u, size.y - d]
