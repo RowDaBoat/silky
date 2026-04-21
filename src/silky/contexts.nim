@@ -1,7 +1,7 @@
 import
   std/[tables, unicode, times],
   pixie, vmath, windy, bumpy,
-  silky/atlas
+  silky/atlas, silky/interactor
 
 when defined(profile):
   import fluffy/measure, std/os
@@ -104,6 +104,7 @@ type
     frameStartTime*: float64
     frameTime*: float64
     avgFrameTime*: float64
+    interactor*: Interactor
 
 var traceActive*: bool = false
 
@@ -267,6 +268,7 @@ proc clear*(sk: Silky)
 
 proc endUiShared*(sk: Silky) =
   ## Ends a frame after the backend has finished drawing.
+  sk.interactor.endFrame()
   sk.clear()
   sk.popLayout()
   sk.popClipRect()

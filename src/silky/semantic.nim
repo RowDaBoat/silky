@@ -3,7 +3,7 @@
 import
   std/[strutils, tables, unicode, times],
   vmath, bumpy, chroma,
-  silky/atlas
+  silky/atlas, silky/interactor
 
 from windy/common import Button, CursorKind, Cursor
 
@@ -289,6 +289,7 @@ type
     frameTime*: float64
     avgFrameTime*: float64
     semantic*: SemanticCapture
+    interactor*: Interactor
 
 proc pushLayer*(sk: Silky, layer: int) =
   ## Pushes a new rendering layer onto the stack.
@@ -497,6 +498,7 @@ proc beginUi*(sk: Silky, window: auto, size: IVec2) =
 
 proc endUi*(sk: Silky) =
   ## Ends the current UI frame.
+  sk.interactor.endFrame()
   sk.clear()
   sk.popLayout()
   sk.popClipRect()

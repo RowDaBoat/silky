@@ -66,6 +66,7 @@ jobs:
         if: matrix.emscripten
         run: |
           (cd examples/basicwindow && nim c -d:emscripten basicwindow.nim)
+          (cd examples/layouts && nim c -d:emscripten layouts.nim)
           (cd examples/calculator && nim c -d:emscripten calculator.nim)
           (cd examples/gameplayer && nim c -d:emscripten gameplayer.nim)
           (cd examples/menu && nim c -d:emscripten menu.nim)
@@ -76,8 +77,9 @@ jobs:
         if: ${{ !matrix.emscripten }}
         shell: bash
         run: |
-          (cd examples/calculator && nim r tests/test.nim)
           (cd examples/basicwindow && nim r tests/test.nim)
+          (cd examples/layouts && nim r tests/test.nim)
+          (cd examples/calculator && nim r tests/test.nim)
           (cd examples/gameplayer && nim r tests/test.nim)
           (cd examples/menu && nim r tests/test.nim)
           (cd examples/panels && nim r tests/test.nim)

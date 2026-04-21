@@ -7,6 +7,8 @@ when defined(silkyTesting):
 else:
   import silky/contexts, windy
 
+import silky/interactor
+
 when defined(macos):
   const ScrollSpeed* = 10.0
 else:
@@ -104,11 +106,12 @@ proc vec2[A, B](x: A, y: B): Vec2 =
   vec2(x.float32, y.float32)
 
 proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
-  ## Check mouse inside rect and current clip.
   discard window
-  not sk.mouseConsumed and
-  sk.mousePos.overlaps(r) and
-  sk.mousePos.overlaps(sk.clipRect)
+  let hit = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, r)
+  not sk.mouseConsumed and hit
+
+proc mouseOverlap(sk: Silky, window: Window, r: Rect): bool =
+  sk.mousePos.overlaps(r) and sk.mousePos.overlaps(sk.clipRect)
 
 proc subWindowStart*(
     sk: Silky,
@@ -300,7 +303,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
     frameState.scrollPos.x = 0
 
   # Scroll wheel handling (only when mouse over frame).
-  if sk.mouseHover(window, rect(sk.pos, sk.size)):
+  if sk.mouseOverlap(window, rect(sk.pos, sk.size)):
     if not frameState.scrollingY and window.scrollDelta.y != 0:
       frameState.scrollPos.y += window.scrollDelta.y * ScrollSpeed
       frameState.scrollPos.y = clamp(frameState.scrollPos.y, 0.0, scrollMax.y)
@@ -396,18 +399,8 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
     buttonRect = rect(sk.at, buttonSize)
-  let hover = sk.mouseHover(window, buttonRect)
-  let pressed = hover and window.buttonDown[MouseLeft]
 
   sk.beginWidget("Button", text = label, rect = buttonRect)
-
-  let patch =
-    if not isEnabled:
-      "button.disabled.9patch"
-    elif isError:
-      "button.error.9patch"
-    else:
-      "button.9patch"
 
   let textColor =
     if not isEnabled:
@@ -417,26 +410,35 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
     else:
       sk.theme.defaultTextColor
 
-  if isEnabled:
-    if hover:
-      let hoverPatch = if isError: "button.error.9patch" else: "button.hover.9patch"
-      if window.buttonReleased[MouseLeft]:
-        body
-      elif window.buttonDown[MouseLeft]:
-        let downPatch = if isError: "button.error.9patch" else: "button.down.9patch"
-        sk.draw9Patch(downPatch, 8, sk.at, buttonSize)
-      else:
-        sk.draw9Patch(hoverPatch, 8, sk.at, buttonSize)
-    else:
-      sk.draw9Patch(patch, 8, sk.at, buttonSize)
-  else:
+  let interaction = sk.interactor.interact(
+    window,
+    sk.mousePos,
+    sk.clipRect,
+    buttonRect,
+    isEnabled
+  )
+  case interaction
+  of Disabled:
+    let patch = "button.disabled.9patch"
+    sk.draw9Patch(patch, 8, sk.at, buttonSize)
+  of None:
+    let patch = if isError: "button.error.9patch" else: "button.9patch"
+    sk.draw9Patch(patch, 8, sk.at, buttonSize)
+  of Pressed, Held:
+    let patch = if isError: "button.error.9patch" else: "button.down.9patch"
+    sk.draw9Patch(patch, 8, sk.at, buttonSize)
+  of Released:
+    body
+  of Hovered:
+    let patch = if isError: "button.error.9patch" else: "button.hover.9patch"
     sk.draw9Patch(patch, 8, sk.at, buttonSize)
 
+  let
+    pressed = interaction == Pressed or interaction == Held
+    hovered = pressed or interaction == Hovered
+  sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hovered)
   discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
-
-  sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hover)
   sk.endWidget()
-
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template button*(label: string, body: untyped) =
