@@ -1,8 +1,9 @@
 ## Test harness for Silky UI testing without a real window or GPU.
 
-import std/unicode
-import vmath, bumpy
-import silky/[semantic, atlas]
+import
+  std/unicode,
+  vmath, bumpy,
+  silky/[semantic, atlas]
 from windy/common import Button, CursorKind, Cursor
 export Button, CursorKind, Cursor, unicode
 

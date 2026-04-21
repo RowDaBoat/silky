@@ -1,5 +1,5 @@
 import
-  vmath, chroma,
+  vmath,
   silky
 
 let builder = newAtlasBuilder(1024, 4)

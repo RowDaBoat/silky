@@ -395,6 +395,7 @@ template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   sk.endWidget()
 
 template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
+  ## Create a button with enabled and error states.
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
@@ -402,21 +403,22 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
 
   sk.beginWidget("Button", text = label, rect = buttonRect)
 
-  let textColor =
-    if not isEnabled:
-      sk.theme.disabledTextColor
-    elif isError:
-      sk.theme.errorTextColor
-    else:
-      sk.theme.defaultTextColor
+  let
+    textColor =
+      if not isEnabled:
+        sk.theme.disabledTextColor
+      elif isError:
+        sk.theme.errorTextColor
+      else:
+        sk.theme.defaultTextColor
+    interaction = sk.interactor.interact(
+      window,
+      sk.mousePos,
+      sk.clipRect,
+      buttonRect,
+      isEnabled
+    )
 
-  let interaction = sk.interactor.interact(
-    window,
-    sk.mousePos,
-    sk.clipRect,
-    buttonRect,
-    isEnabled
-  )
   case interaction
   of Disabled:
     let patch = "button.disabled.9patch"
@@ -437,7 +439,9 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
     pressed = interaction == Pressed or interaction == Held
     hovered = pressed or interaction == Hovered
   sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hovered)
-  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
+
+  let at = sk.at + vec2(sk.theme.padding)
+  discard sk.drawText(sk.textStyle, label, at, textColor)
   sk.endWidget()
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
