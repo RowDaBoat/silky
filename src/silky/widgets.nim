@@ -203,53 +203,76 @@ proc subWindowStart*(
   )
 
   # Handle dragging the window.
-  if subWindowState.dragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+  let
+    titleBarRect = rect(sk.pos, sk.size)
+    titleBarInteraction = sk.interact(
+      sk.mousePos,
+      sk.clipRect,
+      titleBarRect,
+      true
+    )
+
+  case titleBarInteraction
+  of Disabled, None, Error:
+    sk.draw9Patch("header.9patch", 6, sk.pos, sk.size)
+  of Pressed:
+    subWindowState.dragOffset = sk.mousePos - subWindowState.pos
+    subWindowState.dragging = true
+    sk.draw9Patch("header.dragging.9patch", 6, sk.pos, sk.size)
+  of Held:
+    discard
+  of Hovered, Released:
     subWindowState.dragging = false
+    sk.draw9Patch("header.hover.9patch", 6, sk.pos, sk.size)
+
   if subWindowState.dragging:
     subWindowState.pos = sk.mousePos - subWindowState.dragOffset
-  if subWindowState.dragging:
-    sk.draw9Patch("header.dragging.9patch", 6, sk.pos, sk.size)
-  elif sk.mouseHover(window, rect(sk.pos, sk.size)):
-    if window.buttonPressed[MouseLeft]:
-      subWindowState.dragging = true
-      subWindowState.dragOffset = sk.mousePos - subWindowState.pos
-    else:
-      sk.draw9Patch("header.hover.9patch", 6, sk.pos, sk.size)
-  else:
-    sk.draw9Patch("header.9patch", 6, sk.pos, sk.size)
+
   sk.at += vec2(sk.theme.textPadding)
 
   # Handle minimizing/maximizing button for the window.
-  let minimizeSize = sk.getImageSize("maximized")
-  let minimizeRect = rect(
-    sk.at.x,
-    sk.at.y,
-    minimizeSize.x.float32,
-    minimizeSize.y.float32
-  )
-  if sk.mouseHover(window, minimizeRect):
-    if window.buttonReleased[MouseLeft]:
-      subWindowState.minimized = not subWindowState.minimized
+  let
+    minimizeSize = sk.getImageSize("maximized")
+    minimizeRect = rect(
+      sk.at.x,
+      sk.at.y,
+      minimizeSize.x.float32,
+      minimizeSize.y.float32
+    )
+    minimizeInteraction = sk.interact(
+      sk.mousePos,
+      sk.clipRect,
+      minimizeRect,
+      true
+    )
+
+  if minimizeInteraction == Pressed:
+    subWindowState.minimized = not subWindowState.minimized
+
   if subWindowState.minimized:
     sk.drawImage("minimized", minimizeRect.xy)
   else:
     sk.drawImage("maximized", minimizeRect.xy)
+
   sk.at.x += sk.getImageSize("maximized").x.float32 + sk.theme.padding.float32
 
   # Draw the title.
   discard sk.drawText(sk.textStyle, title, sk.at, sk.theme.defaultTextColor)
 
   # Handle closing button for the window.
-  let closeSize = sk.getImageSize("close")
-  let closeRect = rect(
-    sk.at.x + sk.size.x - closeSize.x.float32 - sk.theme.padding.float32 * 5,
-    sk.at.y,
-    closeSize.x.float32,
-    closeSize.y.float32
-  )
+  let
+    closeSize = sk.getImageSize("close")
+    closeRect = rect(
+      sk.at.x + sk.size.x - closeSize.x.float32 - sk.theme.padding.float32 * 5,
+      sk.at.y,
+      closeSize.x.float32,
+      closeSize.y.float32
+    )
+
   if sk.mouseHover(window, closeRect):
     if window.buttonReleased[MouseLeft]:
       show = false
+
   sk.drawImage("close", closeRect.xy)
   sk.popLayout()
 
@@ -573,8 +596,32 @@ template radioButton*[T](label: string, variable: var T, value: T) =
 
   sk.beginWidget("RadioButton", text = label, rect = hitRect)
 
-  if sk.mouseHover(window, hitRect) and window.buttonReleased[MouseLeft]:
+  let interaction = sk.interact(
+    sk.mousePos,
+    sk.clipRect,
+    hitRect,
+    true #TODO: isEnabled
+  )
+
+  case interaction:
+  of Error:
+    # TODO: display error
+    discard
+  of Disabled:
+    # TODO: display disabled
+    discard
+  of None:
+    # TODO: display none
+    discard
+  of Pressed, Held:
+    # TODO: display pressed
+    discard
+  of Released:
+    # TODO: display hover
     variable = value
+  of Hovered:
+    # TODO: display hover
+    discard
 
   let
     on = variable == value
@@ -586,7 +633,10 @@ template radioButton*[T](label: string, variable: var T, value: T) =
   sk.drawImage(if on: "radio.on" else: "radio.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
 
-  sk.setWidgetState(checked = on)
+  let
+    pressed = interaction == Pressed or interaction == Held
+    hovered = pressed or interaction == Hovered
+  sk.setWidgetState(enabled = true #[isEnabled]#, pressed = pressed, hovered = hovered, checked = on)
   sk.endWidget()
 
   sk.advance(vec2(width, height))
@@ -602,8 +652,32 @@ template checkBox*(label: string, value: var bool) =
 
   sk.beginWidget("CheckBox", text = label, rect = hitRect)
 
-  if sk.mouseHover(window, hitRect) and window.buttonReleased[MouseLeft]:
+  let interaction = sk.interact(
+    sk.mousePos,
+    sk.clipRect,
+    hitRect,
+    true #TODO: isEnabled
+  )
+
+  case interaction:
+  of Error:
+    # TODO: display error
+    discard
+  of Disabled:
+    # TODO: display disabled
+    discard
+  of None:
+    # TODO: display none
+    discard
+  of Pressed, Held:
+    discard
+    # TODO: display hover
+  of Released:
     value = not value
+    # TODO: display hover
+  of Hovered:
+    discard
+    # TODO: display hover
 
   let
     iconPos = vec2(sk.at.x, sk.at.y + (height - iconSize.y.float32) * 0.5)
@@ -614,9 +688,11 @@ template checkBox*(label: string, value: var bool) =
   sk.drawImage(if value: "check.on" else: "check.off", iconPos)
   discard sk.drawText(sk.textStyle, label, textPos, sk.theme.defaultTextColor)
 
-  sk.setWidgetState(checked = value)
+  let
+    pressed = interaction == Pressed or interaction == Held
+    hovered = pressed or interaction == Hovered
+  sk.setWidgetState(enabled = true #[isEnabled]#, pressed = pressed, hovered = hovered, checked = value)
   sk.endWidget()
-
   sk.advance(vec2(width, height))
 
 template dropDown*[T](selected: var T, options: openArray[T]) =
