@@ -17,6 +17,7 @@ type
     color*: ColorRGBX
     clipPos*: Vec2
     clipSize*: Vec2
+    maskUv*: Vec2
 
   Drawer* = ref object
     ## DirectX 12-backed drawer state.
@@ -279,6 +280,7 @@ struct VSInput {
   float4 color : COLOR0;
   float2 clipPos : TEXCOORD1;
   float2 clipSize : TEXCOORD2;
+  float2 maskUv : TEXCOORD3;
 };
 
 struct PSInput {
@@ -287,6 +289,7 @@ struct PSInput {
   float4 color : COLOR0;
   float2 clipPos : TEXCOORD1;
   float2 clipSize : TEXCOORD2;
+  float2 maskUv : TEXCOORD3;
 };
 
 PSInput VSMain(VSInput input) {
@@ -296,6 +299,7 @@ PSInput VSMain(VSInput input) {
   output.color = input.color;
   output.clipPos = input.clipPos;
   output.clipSize = input.clipSize;
+  output.maskUv = input.maskUv;
   return output;
 }
 """
@@ -310,6 +314,7 @@ struct PSInput {
   float4 color : COLOR0;
   float2 clipPos : TEXCOORD1;
   float2 clipSize : TEXCOORD2;
+  float2 maskUv : TEXCOORD3;
 };
 
 float4 PSMain(PSInput input) : SV_TARGET {
@@ -319,7 +324,12 @@ float4 PSMain(PSInput input) : SV_TARGET {
       input.pos.y > input.clipPos.y + input.clipSize.y) {
     discard;
   }
-  return tex0.Sample(samp0, input.uv) * input.color;
+  float4 base = tex0.Sample(samp0, input.uv);
+  if (input.maskUv.x >= 0.0) {
+    float maskR = tex0.Sample(samp0, input.maskUv).r;
+    return float4(base.rgb * lerp(float3(1,1,1), input.color.rgb, maskR), base.a * input.color.a);
+  }
+  return base * input.color;
 }
 """
 
@@ -424,6 +434,15 @@ float4 PSMain(PSInput input) : SV_TARGET {
       Format: DXGI_FORMAT_R32G32_FLOAT,
       InputSlot: 0,
       AlignedByteOffset: 28,
+      InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+      InstanceDataStepRate: 0
+    ),
+    D3D12_INPUT_ELEMENT_DESC(
+      SemanticName: "TEXCOORD",
+      SemanticIndex: 3,
+      Format: DXGI_FORMAT_R32G32_FLOAT,
+      InputSlot: 0,
+      AlignedByteOffset: 36,
       InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
       InstanceDataStepRate: 0
     )

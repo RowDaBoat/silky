@@ -15,6 +15,7 @@ type
     color*: ColorRGBX
     clipPos*: Vec2
     clipSize*: Vec2
+    maskUv*: Vec2
 
   VkRenderer = object
     descriptorSetLayout: VkDescriptorSetLayout
@@ -482,6 +483,9 @@ proc createGraphicsPipeline(ctx: VulkanContext, renderer: var VkRenderer) =
         VkVertexInputAttributeDescription(
           location: 4, binding: 0,
           format: VK_FORMAT_R32G32_SFLOAT, offset: 28),
+        VkVertexInputAttributeDescription(
+          location: 5, binding: 0,
+          format: VK_FORMAT_R32G32_SFLOAT, offset: 36),
       ]
       vertexInputInfo = VkPipelineVertexInputStateCreateInfo(
         sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,

@@ -5,12 +5,14 @@ layout(location = 1) in vec2 inUv;
 layout(location = 2) in vec4 inColor;
 layout(location = 3) in vec2 inClipPos;
 layout(location = 4) in vec2 inClipSize;
+layout(location = 5) in vec2 inMaskUv;
 
 layout(location = 0) out vec2 fragUv;
 layout(location = 1) out vec4 fragColor;
 layout(location = 2) out vec2 fragClipPos;
 layout(location = 3) out vec2 fragClipSize;
 layout(location = 4) out vec2 fragPos;
+layout(location = 5) out vec2 fragMaskUv;
 
 layout(push_constant) uniform PushConstants {
   vec2 viewportSize;
@@ -22,6 +24,7 @@ void main() {
   fragColor = inColor;
   fragClipPos = inClipPos;
   fragClipSize = inClipSize;
+  fragMaskUv = inMaskUv;
   // Recover pixel position from Vulkan NDC (-1 top, +1 bottom)
   fragPos = vec2(
     (inPos.x * 0.5 + 0.5) * pc.viewportSize.x,
