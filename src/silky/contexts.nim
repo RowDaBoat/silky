@@ -284,7 +284,9 @@ proc drawQuad*(
   uvSize: Vec2,
   color: ColorRGBX,
   clipPos = vec2(-1, -1),
-  clipSize = vec2(-1, -1)
+  clipSize = vec2(-1, -1),
+  maskUvPos = vec2(-1, -1),
+  maskUvSize = vec2(0, 0)
 ) =
   ## Expands one quad into six drawer vertices.
   let
@@ -302,6 +304,10 @@ proc drawQuad*(
     uv1 = uvPos + vec2(uvSize.x, 0)
     uv2 = uvPos + uvSize
     uv3 = uvPos + vec2(0, uvSize.y)
+    m0 = maskUvPos
+    m1 = maskUvPos + vec2(maskUvSize.x, 0)
+    m2 = maskUvPos + maskUvSize
+    m3 = maskUvPos + vec2(0, maskUvSize.y)
     layer = sk.drawer.currentLayer
 
   sk.drawer.layers[layer].add(DrawerVertex(
@@ -309,42 +315,48 @@ proc drawQuad*(
     uv: uv0,
     color: color,
     clipPos: cPos,
-    clipSize: cSize
+    clipSize: cSize,
+    maskUv: m0
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos1,
     uv: uv1,
     color: color,
     clipPos: cPos,
-    clipSize: cSize
+    clipSize: cSize,
+    maskUv: m1
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos2,
     uv: uv2,
     color: color,
     clipPos: cPos,
-    clipSize: cSize
+    clipSize: cSize,
+    maskUv: m2
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos0,
     uv: uv0,
     color: color,
     clipPos: cPos,
-    clipSize: cSize
+    clipSize: cSize,
+    maskUv: m0
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos2,
     uv: uv2,
     color: color,
     clipPos: cPos,
-    clipSize: cSize
+    clipSize: cSize,
+    maskUv: m2
   ))
   sk.drawer.layers[layer].add(DrawerVertex(
     pos: pos3,
     uv: uv3,
     color: color,
     clipPos: cPos,
-    clipSize: cSize
+    clipSize: cSize,
+    maskUv: m3
   ))
 
 proc drawTriangle*(
@@ -608,19 +620,29 @@ proc drawImage*(
   sk: Silky,
   name: string,
   pos: Vec2,
-  color = rgbx(255, 255, 255, 255)
+  color = rgbx(255, 255, 255, 255),
+  mask: string = ""
 ) =
   ## Queues an atlas image draw.
   if name notin sk.atlas.entries:
     echo "[Warning] Sprite not found in atlas: " & name
     return
   let uv = sk.atlas.entries[name]
+  var
+    mPos = vec2(-1, -1)
+    mSize = vec2(0, 0)
+  if mask.len > 0 and mask in sk.atlas.entries:
+    let m = sk.atlas.entries[mask]
+    mPos = vec2(m.x.float32, m.y.float32)
+    mSize = vec2(m.width.float32, m.height.float32)
   sk.drawQuad(
     pos,
     vec2(uv.width.float32, uv.height.float32),
     vec2(uv.x.float32, uv.y.float32),
     vec2(uv.width.float32, uv.height.float32),
-    color
+    color,
+    maskUvPos = mPos,
+    maskUvSize = mSize
   )
 
 proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) =
