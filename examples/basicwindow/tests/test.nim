@@ -113,8 +113,8 @@ suite "Basic Window UI":
     window.clickText(sk, "Cumulative", "CheckBox")
     check cumulative == true
     let node1 = sk.semantic.root.findByText("Cumulative", "CheckBox")
-    check node1.state.checked == true
-
+    check node1.state.checked == true 
+ 
     window.clickText(sk, "Cumulative", "CheckBox")
     check cumulative == false
     let node2 = sk.semantic.root.findByText("Cumulative", "CheckBox")
