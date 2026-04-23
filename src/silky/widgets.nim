@@ -269,10 +269,16 @@ proc subWindowStart*(
       closeSize.x.float32,
       closeSize.y.float32
     )
+    closeInteraction = sk.interactor.interact(
+      window,
+      sk.mousePos,
+      sk.clipRect,
+      closeRect,
+      true
+    )
 
-  if sk.mouseHover(window, closeRect):
-    if window.buttonReleased[MouseLeft]:
-      show = false
+  if closeInteraction == Released:
+    show = false
 
   sk.drawImage("close", closeRect.xy)
   sk.popLayout()
@@ -287,27 +293,57 @@ proc subWindowStart*(
 
 proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
   ## Finish a subwindow, handling resize and popping layout.
-  if not subWindowState.minimized:
-    let resizeHandleSize = sk.getImageSize("resize")
-    let resizeHandleRect = rect(
+  if subWindowState.minimized:
+    sk.popLayout()
+    return
+
+  let
+    resizeHandleSize = sk.getImageSize("resize")
+    resizeHandleRect = rect(
       sk.at.x + sk.size.x - resizeHandleSize.x.float32 - sk.theme.border.float32,
       sk.at.y + sk.size.y - resizeHandleSize.y.float32 - sk.theme.border.float32,
       resizeHandleSize.x.float32,
       resizeHandleSize.y.float32
     )
-    if subWindowState.resizing and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
-      subWindowState.resizing = false
-    if subWindowState.resizing:
-      subWindowState.size = sk.mousePos - subWindowState.resizeOffset
-      subWindowState.size.x = max(subWindowState.size.x, 200f)
-      subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
-    else:
-      if sk.mouseHover(window, resizeHandleRect):
-        if window.buttonPressed[MouseLeft]:
-          subWindowState.resizing = true
-          subWindowState.resizeOffset = sk.mousePos - subWindowState.size
-    sk.drawImage("resize", resizeHandleRect.xy)
+    resizeHandleInteraction = sk.interactor.interact(
+      window,
+      sk.mousePos,
+      sk.clipRect,
+      resizeHandleRect,
+      true
+    )
 
+  case resizeHandleInteraction
+  of Pressed:
+    subWindowState.resizing = true
+    subWindowState.resizeOffset = sk.mousePos - subWindowState.size
+  of Hovered, Released:
+    subWindowState.resizing = false
+  of Disabled, None, Held:
+    discard
+
+  #if resizeHandleInteraction == Pressed:
+  #  subWindowState.resizing = true
+  #  subWindowState.resizeOffset = sk.mousePos - subWindowState.size
+
+  #if resizeHandleInteraction == Released:
+  #  subWindowState.resizing = false
+
+  #if subWindowState.resizing and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+  #  subWindowState.resizing = false
+  if subWindowState.resizing:
+    subWindowState.size = sk.mousePos - subWindowState.resizeOffset
+    subWindowState.size.x = max(subWindowState.size.x, 200f)
+    subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
+  #[
+  else:
+    if sk.mouseHover(window, resizeHandleRect):
+      if window.buttonPressed[MouseLeft]:
+        subWindowState.resizing = true
+        subWindowState.resizeOffset = sk.mousePos - subWindowState.size
+  ]#
+
+  sk.drawImage("resize", resizeHandleRect.xy)
   sk.popLayout()
 
 template subWindow*(title: string, show: var bool, body: untyped) =
