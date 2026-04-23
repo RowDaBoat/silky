@@ -3,7 +3,6 @@ when not defined(windows):
 
 import
   pixie, vmath, windy,
-  windy/platforms/win32/windefs,
   pkg/dx12, pkg/dx12/context
 
 const
@@ -58,6 +57,7 @@ proc normalizeVertices(
       1.0'f - (p.y / height) * 2.0'f
     )
     vertices[i].uv = vertices[i].uv / atlasSize
+    vertices[i].maskUv = vertices[i].maskUv / atlasSize
 
 proc createVertexBuffer(state: Drawer, maxVertexCount: int) =
   ## Creates or replaces the persistently mapped upload vertex buffer.
@@ -139,7 +139,7 @@ proc uploadTexture(state: Drawer, image: Image) =
   )
 
   var footprint = D3D12_PLACED_SUBRESOURCE_FOOTPRINT()
-  var numRows: UINT
+  var numRows: uint32
   var rowSize: UINT64
   var totalBytes: UINT64
   state.ctx.device.getCopyableFootprints(
