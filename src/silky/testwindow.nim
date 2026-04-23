@@ -86,3 +86,23 @@ proc moveMouse*(w: Window, x, y: int) =
   w.mousePrevPos = w.mousePos
   w.mouseDelta = newPos - w.mousePos
   w.mousePos = newPos
+
+template mousePos*(w: Window): Vec2 =
+  ## Returns the mouse position as a Vec2.
+  w.mousePos.vec2
+
+template mouseDelta*(w: Window): Vec2 =
+  ## Returns the mouse delta as a Vec2.
+  w.mouseDelta.vec2
+
+template buttonDown*(w: Window, btn: Button): bool =
+  ## Returns true if the button is currently held down.
+  w.buttonDown[btn]
+
+template buttonPressed*(w: Window, btn: Button): bool =
+  ## Returns true if the button was just pressed this frame.
+  w.buttonPressed[btn]
+
+template buttonReleased*(w: Window, btn: Button): bool =
+  ## Returns true if the button was just released this frame.
+  w.buttonReleased[btn]

@@ -7,8 +7,6 @@ when defined(silkyTesting):
 else:
   import silky/contexts, windy
 
-import silky/interactor
-
 when defined(macos):
   const ScrollSpeed* = 10.0
 else:
@@ -74,6 +72,65 @@ var
   menuPathStack: seq[string]
 
 
+type Interaction* = enum
+  None,
+  Pressed,
+  Held,
+  Released,
+  Hovered,
+  Disabled,
+  Error
+
+proc mouseHover(
+  interactor: var Interactor,
+  mousePos: Vec2,
+  clipRect: Rect,
+  widgetRect: Rect
+): bool =
+  ## Resolve mouse hovering by taking information from the last frame.
+  inc interactor.currentId
+
+  let hovering = mousePos.overlaps(widgetRect) and mousePos.overlaps(clipRect)
+
+  if hovering:
+    interactor.warmId = interactor.currentId
+
+  return interactor.hotId == interactor.currentId and hovering
+
+proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
+  discard window
+  let hit = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, r)
+  not sk.mouseConsumed and hit
+
+proc interact*(
+  sk: Silky,
+  mousePos: Vec2,
+  clipRect: Rect,
+  widgetRect: Rect,
+  isEnabled: bool,
+  isError: bool = false
+): Interaction =
+  ## Determine the interaction given mouse and widget states.
+  let
+    hover = sk.interactor.mouseHover(mousePos, clipRect, widgetRect)
+    pressed = sk.buttonPressed[MouseLeft]
+    down = sk.buttonDown[MouseLeft]
+    released = sk.buttonReleased[MouseLeft]
+
+  if not isEnabled:
+    return Disabled
+  if isError:
+    return Error
+  if not hover:
+    return None
+  if pressed:
+    return Pressed
+  if down:
+    return Held
+  if released:
+    return Released
+  return Hovered
+
 proc menuPathOpen(path: seq[string]): bool =
   ## Check if the given menu path is currently open.
   menuState.openPath.len >= path.len and menuState.openPath[0 ..< path.len] == path
@@ -104,11 +161,6 @@ proc vec2(v: SomeNumber): Vec2 =
 proc vec2[A, B](x: A, y: B): Vec2 =
   ## Create a Vec2 from two numbers.
   vec2(x.float32, y.float32)
-
-proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
-  discard window
-  let hit = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, r)
-  not sk.mouseConsumed and hit
 
 proc mouseOverlap(sk: Silky, window: Window, r: Rect): bool =
   sk.mousePos.overlaps(r) and sk.mousePos.overlaps(sk.clipRect)
@@ -411,29 +463,30 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
         sk.theme.errorTextColor
       else:
         sk.theme.defaultTextColor
-    interaction = sk.interactor.interact(
-      window,
+    interaction = sk.interact(
       sk.mousePos,
       sk.clipRect,
       buttonRect,
-      isEnabled
+      isEnabled,
+      isError
     )
 
-  case interaction
-  of Disabled:
-    let patch = "button.disabled.9patch"
-    sk.draw9Patch(patch, 8, sk.at, buttonSize)
-  of None:
-    let patch = if isError: "button.error.9patch" else: "button.9patch"
-    sk.draw9Patch(patch, 8, sk.at, buttonSize)
-  of Pressed, Held:
-    let patch = if isError: "button.error.9patch" else: "button.down.9patch"
-    sk.draw9Patch(patch, 8, sk.at, buttonSize)
-  of Released:
+  let patch = case interaction
+    of Error:
+      "button.error.9patch"
+    of Disabled:
+      "button.disabled.9patch"
+    of None:
+      "button.9patch"
+    of Pressed, Held:
+      "button.down.9patch"
+    of Hovered, Released:
+      "button.hover.9patch"
+
+  sk.draw9Patch(patch, 8, sk.at, buttonSize)
+
+  if interaction == Released:
     body
-  of Hovered:
-    let patch = if isError: "button.error.9patch" else: "button.hover.9patch"
-    sk.draw9Patch(patch, 8, sk.at, buttonSize)
 
   let
     pressed = interaction == Pressed or interaction == Held

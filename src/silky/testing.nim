@@ -2,28 +2,18 @@
 
 import std/unicode
 import vmath, bumpy
-import silky/[semantic, atlas]
-import testwindow
+import silky/[semantic, testwindow, atlas]
 from windy/common import Button, CursorKind, Cursor
 
-export testwindow, Button, CursorKind, Cursor, unicode
+export Button, CursorKind, Cursor, unicode, testwindow
 
-type TestHarness* = object
-  ## Test harness for running Silky UI tests.
-  sk*: Silky
-  window*: Window
-  lastSnapshot*: string
-  frameCount*: int
-
-proc newSilky*(window: Window, atlas: SilkyAtlas): Silky =
-  ## Creates a test Silky context with a fake window.
-  discard window
-  semantic.newSilky(atlas)
-
-proc newSilky*(window: Window, atlasPngPath: string): Silky =
-  ## Creates a test Silky context from one atlas PNG.
-  discard window
-  semantic.newSilky(atlasPngPath)
+type
+  TestHarness* = object
+    ## Test harness for running Silky UI tests.
+    sk*: Silky
+    window*: Window
+    lastSnapshot*: string
+    frameCount*: int
 
 proc newTestHarness*(atlas: SilkyAtlas, width = 800, height = 600): TestHarness =
   ## Creates a new test harness from atlas data.
@@ -105,26 +95,6 @@ proc clickLabel*(h: var TestHarness, label: string, onFrame: proc(sk: Silky, win
   discard h.pumpFrame(onFrame)
   h.window.releaseButton(MouseLeft)
   return h.pumpFrame(onFrame)
-
-template mousePos*(w: Window): Vec2 =
-  ## Returns the mouse position as a Vec2.
-  w.mousePos.vec2
-
-template mouseDelta*(w: Window): Vec2 =
-  ## Returns the mouse delta as a Vec2.
-  w.mouseDelta.vec2
-
-template buttonDown*(w: Window, btn: Button): bool =
-  ## Returns true if the button is currently held down.
-  w.buttonDown[btn]
-
-template buttonPressed*(w: Window, btn: Button): bool =
-  ## Returns true if the button was just pressed this frame.
-  w.buttonPressed[btn]
-
-template buttonReleased*(w: Window, btn: Button): bool =
-  ## Returns true if the button was just released this frame.
-  w.buttonReleased[btn]
 
 proc pumpFrame*(w: Window, sk: Silky) =
   ## Runs one frame using the window's onFrame callback.
