@@ -65,6 +65,7 @@ proc normalizeVertices(
       (p.y / height) * 2.0'f - 1.0'f
     )
     vertices[i].uv = vertices[i].uv / atlasSize
+    vertices[i].maskUv = vertices[i].maskUv / atlasSize
 
 proc requiresSwapChainRecreate(vkResult: VkResult): bool =
   let code = vkResult.int32
