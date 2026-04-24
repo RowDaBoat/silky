@@ -33,6 +33,9 @@ var
   progress = 0.0
   howMuch = 30.0
   earlyReturn = true # Demonstrates that early return from a group works.
+  words = @["Alpha", "Bravo", "Charlie", "Delta"]
+  wordsIdx = 0
+  clickableEnabled = true
 
 proc returnTest() =
   text("Return Test")
@@ -88,6 +91,22 @@ window.onFrame = proc() =
       text("Heart")
       icon("cloud")
       text("Cloud")
+
+    group(vec2(8, 8), LeftToRight):
+      clickableIcon("heart", true):
+        discard
+      text("on")
+      clickableIcon("heart", false):
+        discard
+      text("off")
+      clickableIcon("heart", clickableEnabled):
+        clickableEnabled = not clickableEnabled
+      text("switch")
+
+    group(vec2(8, 8), LeftToRight):
+      iconButton("cloud"):
+        wordsIdx = (wordsIdx + 1) mod words.len
+      text(words[wordsIdx])
 
     text("A bunch of text to test the scrolling, in any direction.")
     text("Does it work?")
