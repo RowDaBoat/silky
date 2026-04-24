@@ -206,12 +206,7 @@ proc subWindowStart*(
   # Handle dragging the window.
   let
     titleBarRect = rect(sk.pos, sk.size)
-    titleBarInteraction = sk.interact(
-      sk.mousePos,
-      sk.clipRect,
-      titleBarRect,
-      true
-    )
+    titleBarInteraction = sk.interact(sk.mousePos, sk.clipRect, titleBarRect, true)
 
   case titleBarInteraction
   of Disabled, None, Error:
@@ -240,12 +235,7 @@ proc subWindowStart*(
       minimizeSize.x.float32,
       minimizeSize.y.float32
     )
-    minimizeInteraction = sk.interact(
-      sk.mousePos,
-      sk.clipRect,
-      minimizeRect,
-      true
-    )
+    minimizeInteraction = sk.interact(sk.mousePos, sk.clipRect, minimizeRect, true)
 
   if minimizeInteraction == Pressed:
     subWindowState.minimized = not subWindowState.minimized
@@ -269,13 +259,7 @@ proc subWindowStart*(
       closeSize.x.float32,
       closeSize.y.float32
     )
-    closeInteraction = sk.interactor.interact(
-      window,
-      sk.mousePos,
-      sk.clipRect,
-      closeRect,
-      true
-    )
+    closeInteraction = sk.interact(sk.mousePos, sk.clipRect, closeRect, true)
 
   if closeInteraction == Released:
     show = false
@@ -305,13 +289,7 @@ proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
       resizeHandleSize.x.float32,
       resizeHandleSize.y.float32
     )
-    resizeHandleInteraction = sk.interactor.interact(
-      window,
-      sk.mousePos,
-      sk.clipRect,
-      resizeHandleRect,
-      true
-    )
+    resizeHandleInteraction = sk.interact(sk.mousePos, sk.clipRect, resizeHandleRect, true)
 
   case resizeHandleInteraction
   of Pressed:
@@ -319,29 +297,13 @@ proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
     subWindowState.resizeOffset = sk.mousePos - subWindowState.size
   of Hovered, Released:
     subWindowState.resizing = false
-  of Disabled, None, Held:
+  else:
     discard
 
-  #if resizeHandleInteraction == Pressed:
-  #  subWindowState.resizing = true
-  #  subWindowState.resizeOffset = sk.mousePos - subWindowState.size
-
-  #if resizeHandleInteraction == Released:
-  #  subWindowState.resizing = false
-
-  #if subWindowState.resizing and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
-  #  subWindowState.resizing = false
   if subWindowState.resizing:
     subWindowState.size = sk.mousePos - subWindowState.resizeOffset
     subWindowState.size.x = max(subWindowState.size.x, 200f)
     subWindowState.size.y = max(subWindowState.size.y, float32(sk.theme.headerHeight * 2 + sk.theme.border * 2))
-  #[
-  else:
-    if sk.mouseHover(window, resizeHandleRect):
-      if window.buttonPressed[MouseLeft]:
-        subWindowState.resizing = true
-        subWindowState.resizeOffset = sk.mousePos - subWindowState.size
-  ]#
 
   sk.drawImage("resize", resizeHandleRect.xy)
   sk.popLayout()
@@ -424,71 +386,75 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
 
   # Draw Y scrollbar.
   if contentSize.y > sk.size.y:
-    let scrollSize = contentSize.y
-    let scrollbarTrackRect = rect(
-      sk.pos.x + sk.size.x - 10,
-      sk.pos.y + 2,
-      8,
-      sk.size.y - 4 - 10
-    )
+    let
+      scrollSize = contentSize.y
+      scrollbarTrackRect = rect(
+        sk.pos.x + sk.size.x - 10,
+        sk.pos.y + 2,
+        8,
+        sk.size.y - 4 - 10
+      )
     sk.draw9Patch("scrollbar.track.9patch", 4, scrollbarTrackRect.xy, scrollbarTrackRect.wh)
 
-    let scrollPosPercent = if scrollMax.y > 0: frameState.scrollPos.y / scrollMax.y else: 0.0
-    let scrollSizePercent = sk.size.y / scrollSize
-    let scrollbarHandleRect = rect(
-      scrollbarTrackRect.x,
-      scrollbarTrackRect.y + (scrollbarTrackRect.h - (scrollbarTrackRect.h * scrollSizePercent)) * scrollPosPercent,
-      8,
-      scrollbarTrackRect.h * scrollSizePercent
-    )
+    let
+      scrollPosPercent = if scrollMax.y > 0: frameState.scrollPos.y / scrollMax.y else: 0.0
+      scrollSizePercent = sk.size.y / scrollSize
+      scrollbarHandleRect = rect(
+        scrollbarTrackRect.x,
+        scrollbarTrackRect.y + (scrollbarTrackRect.h - (scrollbarTrackRect.h * scrollSizePercent)) * scrollPosPercent,
+        8,
+        scrollbarTrackRect.h * scrollSizePercent
+      )
+      scrollbarHandleInteraction = sk.interact(sk.mousePos, sk.clipRect, scrollbarHandleRect, true)
 
     # Handle scrollbar Y dragging.
     if frameState.scrollingY:
-      let mouseY = sk.mousePos.y
-      let relativeY = mouseY - frameState.scrollDragOffset.y - scrollbarTrackRect.y
-      let availableTrackHeight = scrollbarTrackRect.h - scrollbarHandleRect.h
+      let
+        relativeY = sk.mousePos.y - frameState.scrollDragOffset.y - scrollbarTrackRect.y
+        availableTrackHeight = scrollbarTrackRect.h - scrollbarHandleRect.h
       if availableTrackHeight > 0:
         let newScrollPosPercent = clamp(relativeY / availableTrackHeight, 0.0, 1.0)
         frameState.scrollPos.y = newScrollPosPercent * scrollMax.y
-    elif sk.mouseHover(window, scrollbarHandleRect):
-      if window.buttonPressed[MouseLeft]:
-        frameState.scrollingY = true
-        frameState.scrollDragOffset.y = sk.mousePos.y - scrollbarHandleRect.y
+    elif scrollbarHandleInteraction == Pressed:
+      frameState.scrollingY = true
+      frameState.scrollDragOffset.y = sk.mousePos.y - scrollbarHandleRect.y
 
     sk.draw9Patch("scrollbar.9patch", 4, scrollbarHandleRect.xy, scrollbarHandleRect.wh)
 
   # Draw X scrollbar.
   if contentSize.x > sk.size.x:
-    let scrollSize = contentSize.x
-    let scrollbarTrackRect = rect(
-      sk.pos.x + 2,
-      sk.pos.y + sk.size.y - 10,
-      sk.size.x - 4 - 10,
-      8
-    )
+    let
+      scrollSize = contentSize.x
+      scrollbarTrackRect = rect(
+        sk.pos.x + 2,
+        sk.pos.y + sk.size.y - 10,
+        sk.size.x - 4 - 10,
+        8
+      )
     sk.draw9Patch("scrollbar.track.9patch", 4, scrollbarTrackRect.xy, scrollbarTrackRect.wh)
 
-    let scrollPosPercent = if scrollMax.x > 0: frameState.scrollPos.x / scrollMax.x else: 0.0
-    let scrollSizePercent = sk.size.x / scrollSize
-    let scrollbarHandleRect = rect(
-      scrollbarTrackRect.x + (scrollbarTrackRect.w - (scrollbarTrackRect.w * scrollSizePercent)) * scrollPosPercent,
-      scrollbarTrackRect.y,
-      scrollbarTrackRect.w * scrollSizePercent,
-      8
-    )
+    let
+      scrollPosPercent = if scrollMax.x > 0: frameState.scrollPos.x / scrollMax.x else: 0.0
+      scrollSizePercent = sk.size.x / scrollSize
+      scrollbarHandleRect = rect(
+        scrollbarTrackRect.x + (scrollbarTrackRect.w - (scrollbarTrackRect.w * scrollSizePercent)) * scrollPosPercent,
+        scrollbarTrackRect.y,
+        scrollbarTrackRect.w * scrollSizePercent,
+        8
+      )
+      scrollbarHandleInteraction = sk.interact(sk.mousePos, sk.clipRect, scrollbarHandleRect, true)
 
     # Handle scrollbar X dragging.
     if frameState.scrollingX:
-      let mouseX = sk.mousePos.x
-      let relativeX = mouseX - frameState.scrollDragOffset.x - scrollbarTrackRect.x
-      let availableTrackWidth = scrollbarTrackRect.w - scrollbarHandleRect.w
+      let
+        relativeX = sk.mousePos.x - frameState.scrollDragOffset.x - scrollbarTrackRect.x
+        availableTrackWidth = scrollbarTrackRect.w - scrollbarHandleRect.w
       if availableTrackWidth > 0:
         let newScrollPosPercent = clamp(relativeX / availableTrackWidth, 0.0, 1.0)
         frameState.scrollPos.x = newScrollPosPercent * scrollMax.x
-    elif sk.mouseHover(window, scrollbarHandleRect):
-      if window.buttonPressed[MouseLeft]:
-        frameState.scrollingX = true
-        frameState.scrollDragOffset.x = sk.mousePos.x - scrollbarHandleRect.x
+    elif scrollbarHandleInteraction == Pressed:
+      frameState.scrollingX = true
+      frameState.scrollDragOffset.x = sk.mousePos.x - scrollbarHandleRect.x
 
     sk.draw9Patch("scrollbar.9patch", 4, scrollbarHandleRect.xy, scrollbarHandleRect.wh)
 
@@ -522,13 +488,7 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
         sk.theme.errorTextColor
       else:
         sk.theme.defaultTextColor
-    interaction = sk.interact(
-      sk.mousePos,
-      sk.clipRect,
-      buttonRect,
-      isEnabled,
-      isError
-    )
+    interaction = sk.interact(sk.mousePos, sk.clipRect, buttonRect, isEnabled, isError)
 
   let patch = case interaction
     of Error:
@@ -577,17 +537,24 @@ template iconButton*(image: string, body) =
     m2 = vec2(8, 8)
     s2 = sk.getImageSize(image) + vec2(8, 8) * 2
     buttonRect = rect(sk.at - m2, s2)
-  if sk.mouseHover(window, buttonRect):
+    interaction = sk.interact(sk.mousePos, sk.clipRect, buttonRect, true, false)
+
+  var patch = "button.9patch"
+
+  case interaction
+  of Hovered:
     sk.hover = true
-    if window.buttonReleased[MouseLeft]:
-      body
-    elif window.buttonDown[MouseLeft]:
-      sk.draw9Patch("button.down.9patch", 8, sk.at - m2, s2, sk.theme.iconButtonDownColor)
-    else:
-      sk.draw9Patch("button.hover.9patch", 8, sk.at - m2, s2, sk.theme.iconButtonHoverColor)
+    patch = "button.hover.9patch"
+  of Pressed, Held:
+    sk.hover = true
+    patch = "button.down.9patch"
+  of Released:
+    sk.hover = false
+    body
   else:
     sk.hover = false
-    sk.draw9Patch("button.9patch", 8, sk.at - m2, s2)
+
+  sk.draw9Patch(patch, 8, sk.at - m2, s2, sk.theme.iconButtonDownColor)
   sk.drawImage(image, sk.at)
   sk.stretchAt = max(sk.stretchAt, sk.at + s2)
   sk.at += vec2(32 + sk.padding, 0)
@@ -597,27 +564,25 @@ template clickableIcon*(image: string, on: bool, body) =
   let
     imageSize = sk.getImageSize(image)
     s2 = imageSize
+    hoverColor = sk.theme.iconClickableHoverColor
     upColor = sk.theme.iconClickableUpColor
     onColor = sk.theme.iconClickableOnColor
     offColor = sk.theme.iconClickableOffColor
-  var color = upColor
-  if sk.mouseHover(window, rect(sk.at, s2)):
-    sk.hover = true
-    if window.buttonReleased[MouseLeft]:
-      body
-    elif window.buttonDown[MouseLeft]:
-      color = upColor
+    iconRect = rect(sk.at, s2)
+    interaction = sk.interact(sk.mousePos, sk.clipRect, iconRect, true, false)
+
+  var color =
+    if interaction in [Pressed, Held]:
+      upColor
+    elif on:
+      onColor
     else:
-      if on:
-        color = onColor
-      else:
-        color = upColor
-  else:
-    sk.hover = false
-    if on:
-      color = onColor
-    else:
-      color = offColor
+      offColor
+
+  sk.hover = interaction in [Hovered, Pressed, Held]
+
+  if interaction == Pressed:
+    body
 
   sk.drawImage(image, sk.at, color)
   sk.at += vec2(imageSize.x, 0)
@@ -633,32 +598,10 @@ template radioButton*[T](label: string, variable: var T, value: T) =
 
   sk.beginWidget("RadioButton", text = label, rect = hitRect)
 
-  let interaction = sk.interact(
-    sk.mousePos,
-    sk.clipRect,
-    hitRect,
-    true #TODO: isEnabled
-  )
+  let interaction = sk.interact(sk.mousePos, sk.clipRect, hitRect, true)
 
-  case interaction:
-  of Error:
-    # TODO: display error
-    discard
-  of Disabled:
-    # TODO: display disabled
-    discard
-  of None:
-    # TODO: display none
-    discard
-  of Pressed, Held:
-    # TODO: display pressed
-    discard
-  of Released:
-    # TODO: display hover
+  if interaction == Released:
     variable = value
-  of Hovered:
-    # TODO: display hover
-    discard
 
   let
     on = variable == value
@@ -689,32 +632,10 @@ template checkBox*(label: string, value: var bool) =
 
   sk.beginWidget("CheckBox", text = label, rect = hitRect)
 
-  let interaction = sk.interact(
-    sk.mousePos,
-    sk.clipRect,
-    hitRect,
-    true #TODO: isEnabled
-  )
+  let interaction = sk.interact(sk.mousePos, sk.clipRect, hitRect, true)
 
-  case interaction:
-  of Error:
-    # TODO: display error
-    discard
-  of Disabled:
-    # TODO: display disabled
-    discard
-  of None:
-    # TODO: display none
-    discard
-  of Pressed, Held:
-    discard
-    # TODO: display hover
-  of Released:
+  if interaction == Released:
     value = not value
-    # TODO: display hover
-  of Hovered:
-    discard
-    # TODO: display hover
 
   let
     iconPos = vec2(sk.at.x, sk.at.y + (height - iconSize.y.float32) * 0.5)
