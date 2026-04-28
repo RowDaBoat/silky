@@ -38,6 +38,7 @@ type
     color*: ColorRGBX
     clipPos*: Vec2
     clipSize*: Vec2
+    maskUv*: Vec2
 
   Drawer* = ref object
     ## OpenGL-backed drawer state.
@@ -472,11 +473,13 @@ proc silkyVert(
   color: ColorRGBX,
   clipPos: Vec2,
   clipSize: Vec2,
+  maskUv: Vec2,
   fragmentUv: var Vec2,
   fragmentColor: var Vec4,
   fragmentClipPos: var Vec2,
   fragmentClipSize: var Vec2,
-  fragmentPos: var Vec2
+  fragmentPos: var Vec2,
+  fragmentMaskUv: var Vec2
 ) =
   ## Vertex shader for Silky's OpenGL drawer.
   gl_Position = mvp * vec4(pos.x, pos.y, 0.0, 1.0)
@@ -485,6 +488,7 @@ proc silkyVert(
   fragmentClipPos = clipPos
   fragmentClipSize = clipSize
   fragmentPos = pos
+  fragmentMaskUv = maskUv / atlasSize
 
 proc silkyFrag(
   fragmentUv: Vec2,
@@ -492,6 +496,7 @@ proc silkyFrag(
   fragmentClipPos: Vec2,
   fragmentClipSize: Vec2,
   fragmentPos: Vec2,
+  fragmentMaskUv: Vec2,
   fragColor: var Vec4
 ) =
   ## Fragment shader for Silky's OpenGL drawer.
@@ -500,6 +505,13 @@ proc silkyFrag(
     fragmentPos.x > fragmentClipPos.x + fragmentClipSize.x or
     fragmentPos.y > fragmentClipPos.y + fragmentClipSize.y:
     discardFragment()
+  elif fragmentMaskUv.x >= 0.0:
+    let base = texture(atlasSampler, fragmentUv)
+    let maskR = texture(atlasSampler, fragmentMaskUv).r
+    fragColor = vec4(
+      base.rgb * mix(vec3(1.0), fragmentColor.rgb, maskR),
+      base.a * fragmentColor.a
+    )
   else:
     fragColor = texture(atlasSampler, fragmentUv) * fragmentColor
 
@@ -612,6 +624,13 @@ proc newDrawer*(window: Window, image: Image): Drawer =
     cGL_FLOAT,
     GL_FALSE,
     offsetof(DrawerVertex, clipSize)
+  )
+  setAttr(
+    "maskUv",
+    2,
+    cGL_FLOAT,
+    GL_FALSE,
+    offsetof(DrawerVertex, maskUv)
   )
 
   glBindBuffer(GL_ARRAY_BUFFER, 0)

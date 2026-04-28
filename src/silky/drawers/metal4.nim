@@ -15,6 +15,7 @@ type
     color*: ColorRGBX
     clipPos*: Vec2
     clipSize*: Vec2
+    maskUv*: Vec2
 
   Drawer* = ref object
     ## Metal 4-backed drawer state.
@@ -101,6 +102,7 @@ struct DrawerVertex {
   uchar4 color;
   packed_float2 clipPos;
   packed_float2 clipSize;
+  packed_float2 maskUv;
 };
 
 struct VertexOut {
@@ -109,6 +111,7 @@ struct VertexOut {
   float4 color;
   float2 clipPos;
   float2 clipSize;
+  float2 maskUv;
 };
 
 vertex VertexOut vertexMain(
@@ -122,6 +125,7 @@ vertex VertexOut vertexMain(
   out.color = float4(inVertex.color) / 255.0;
   out.clipPos = float2(inVertex.clipPos);
   out.clipSize = float2(inVertex.clipSize);
+  out.maskUv = float2(inVertex.maskUv);
   return out;
 }
 
@@ -146,7 +150,12 @@ fragment float4 texturedFragmentMain(
       in.position.y > in.clipPos.y + in.clipSize.y) {
     discard_fragment();
   }
-  return tex.sample(texSampler, in.uv) * in.color;
+  float4 base = tex.sample(texSampler, in.uv);
+  if (in.maskUv.x >= 0.0) {
+    float maskR = tex.sample(texSampler, in.maskUv).r;
+    return float4(base.rgb * mix(float3(1.0), in.color.rgb, maskR), base.a * in.color.a);
+  }
+  return base * in.color;
 }
 """
 
