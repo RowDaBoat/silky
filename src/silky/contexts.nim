@@ -77,6 +77,7 @@ type
     ## Solve which widget the mouse is interacting with.
     currentId*: int = -1
     warmId*: int = -1
+    warmLayer*: int = -1
     hotId*: int = -1
 
   Silky* = ref object
@@ -114,6 +115,9 @@ type
     window: Window
 
 var traceActive*: bool = false
+
+proc currentDrawLayer*(sk: Silky): int =
+  sk.drawer.currentLayer
 
 proc pushLayer*(sk: Silky, layer: int) =
   ## Pushes a new rendering layer onto the stack.
@@ -277,6 +281,7 @@ proc endInteractions(interactor: var Interactor) =
   ## Commit warm state and resets per-frame counters.
   interactor.hotId = interactor.warmId
   interactor.warmId = -1
+  interactor.warmLayer = -1
   interactor.currentId = -1
 
 proc resetInteractions*(sk: Silky) =
