@@ -59,6 +59,15 @@ type
     rowH*: float32
     clicked*: bool
 
+  Interaction* = enum
+    None,
+    Pressed,
+    Held,
+    Released,
+    Hovered,
+    Disabled,
+    Error
+
 var
   subWindowStates*: Table[string, SubWindowState]
   frameStates*: Table[string, FrameState]
@@ -70,17 +79,6 @@ var
   )
   menuLayouts: seq[MenuLayout]
   menuPathStack: seq[string]
-
-
-type Interaction* = enum
-  None,
-  Pressed,
-  Held,
-  Released,
-  ReleasedOutside,
-  Hovered,
-  Disabled,
-  Error
 
 proc mouseHover(
   interactor: var Interactor,
