@@ -64,6 +64,7 @@ type
     Pressed,
     Held,
     Released,
+    ReleasedOutside,
     Hovered,
     Disabled,
     Error
@@ -105,15 +106,13 @@ proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
 
 proc interact*(
   sk: Silky,
-  mousePos: Vec2,
-  clipRect: Rect,
   widgetRect: Rect,
   isEnabled: bool,
   isError: bool = false
 ): Interaction =
   ## Determine the interaction given mouse and widget states.
   let
-    hover = sk.interactor.mouseHover(mousePos, clipRect, sk.currentDrawLayer, widgetRect)
+    hover = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, sk.currentDrawLayer, widgetRect)
     pressed = sk.buttonPressed[MouseLeft]
     down = sk.buttonDown[MouseLeft]
     released = sk.buttonReleased[MouseLeft]
@@ -122,6 +121,8 @@ proc interact*(
     return Disabled
   if isError:
     return Error
+  if not hover and released:
+    return ReleasedOutside
   if not hover:
     return None
   if pressed:
@@ -207,10 +208,10 @@ proc subWindowStart*(
   # Handle dragging the window.
   let
     titleBarRect = rect(sk.pos, sk.size)
-    titleBarInteraction = sk.interact(sk.mousePos, sk.clipRect, titleBarRect, true)
+    titleBarInteraction = sk.interact(titleBarRect, true)
 
   case titleBarInteraction
-  of Disabled, None, Error:
+  of Disabled, None, Error, ReleasedOutside:
     sk.draw9Patch("header.9patch", 6, sk.pos, sk.size)
   of Pressed:
     subWindowState.dragOffset = sk.mousePos - subWindowState.pos
@@ -236,7 +237,7 @@ proc subWindowStart*(
       minimizeSize.x.float32,
       minimizeSize.y.float32
     )
-    minimizeInteraction = sk.interact(sk.mousePos, sk.clipRect, minimizeRect, true)
+    minimizeInteraction = sk.interact(minimizeRect, true)
 
   if minimizeInteraction == Pressed:
     subWindowState.minimized = not subWindowState.minimized
@@ -260,7 +261,7 @@ proc subWindowStart*(
       closeSize.x.float32,
       closeSize.y.float32
     )
-    closeInteraction = sk.interact(sk.mousePos, sk.clipRect, closeRect, true)
+    closeInteraction = sk.interact(closeRect, true)
 
   if closeInteraction == Released:
     show = false
@@ -290,13 +291,13 @@ proc subWindowEnd*(sk: Silky, window: Window, subWindowState: SubWindowState) =
       resizeHandleSize.x.float32,
       resizeHandleSize.y.float32
     )
-    resizeHandleInteraction = sk.interact(sk.mousePos, sk.clipRect, resizeHandleRect, true)
+    resizeHandleInteraction = sk.interact(resizeHandleRect, true)
 
   case resizeHandleInteraction
   of Pressed:
     subWindowState.resizing = true
     subWindowState.resizeOffset = sk.mousePos - subWindowState.size
-  of Hovered, Released:
+  of Hovered, Released, ReleasedOutside:
     subWindowState.resizing = false
   else:
     discard
@@ -406,7 +407,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
         8,
         scrollbarTrackRect.h * scrollSizePercent
       )
-      scrollbarHandleInteraction = sk.interact(sk.mousePos, sk.clipRect, scrollbarHandleRect, true)
+      scrollbarHandleInteraction = sk.interact(scrollbarHandleRect, true)
 
     # Handle scrollbar Y dragging.
     if frameState.scrollingY:
@@ -443,7 +444,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
         scrollbarTrackRect.w * scrollSizePercent,
         8
       )
-      scrollbarHandleInteraction = sk.interact(sk.mousePos, sk.clipRect, scrollbarHandleRect, true)
+      scrollbarHandleInteraction = sk.interact(scrollbarHandleRect, true)
 
     # Handle scrollbar X dragging.
     if frameState.scrollingX:
@@ -489,14 +490,14 @@ template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
         sk.theme.errorTextColor
       else:
         sk.theme.defaultTextColor
-    interaction = sk.interact(sk.mousePos, sk.clipRect, buttonRect, isEnabled, isError)
+    interaction = sk.interact(buttonRect, isEnabled, isError)
 
   let patch = case interaction
     of Error:
       "button.error.9patch"
     of Disabled:
       "button.disabled.9patch"
-    of None:
+    of None, ReleasedOutside:
       "button.9patch"
     of Pressed, Held:
       "button.down.9patch"
@@ -538,7 +539,7 @@ template iconButton*(image: string, body) =
     m2 = vec2(8, 8)
     s2 = sk.getImageSize(image) + vec2(8, 8) * 2
     buttonRect = rect(sk.at - m2, s2)
-    interaction = sk.interact(sk.mousePos, sk.clipRect, buttonRect, true, false)
+    interaction = sk.interact(buttonRect, true, false)
 
   var patch = "button.9patch"
 
@@ -570,7 +571,7 @@ template clickableIcon*(image: string, on: bool, body) =
     onColor = sk.theme.iconClickableOnColor
     offColor = sk.theme.iconClickableOffColor
     iconRect = rect(sk.at, s2)
-    interaction = sk.interact(sk.mousePos, sk.clipRect, iconRect, true, false)
+    interaction = sk.interact(iconRect, true, false)
 
   var color =
     if interaction in [Pressed, Held]:
@@ -599,7 +600,7 @@ template radioButton*[T](label: string, variable: var T, value: T) =
 
   sk.beginWidget("RadioButton", text = label, rect = hitRect)
 
-  let interaction = sk.interact(sk.mousePos, sk.clipRect, hitRect, true)
+  let interaction = sk.interact(hitRect, true)
 
   if interaction == Released:
     variable = value
@@ -633,7 +634,7 @@ template checkBox*(label: string, value: var bool) =
 
   sk.beginWidget("CheckBox", text = label, rect = hitRect)
 
-  let interaction = sk.interact(sk.mousePos, sk.clipRect, hitRect, true)
+  let interaction = sk.interact(hitRect, true)
 
   if interaction == Released:
     value = not value
@@ -673,7 +674,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
   # Toggle open/close on click.
   sk.beginWidget("DropDown", text = displayText, rect = dropRect)
 
-  let interaction = sk.interact(sk.mousePos, sk.clipRect, dropRect, true)
+  let interaction = sk.interact(dropRect, true)
 
   if interaction == Released:
     state.open = not state.open
@@ -713,7 +714,7 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
         rowRect = rect(rowPos, vec2(width, rowHeight))
         textPos = rowPos + vec2(sk.theme.padding)
         isSelected = selected == opt
-        interaction = sk.interact(sk.mousePos, sk.clipRect, rowRect, true)
+        interaction = sk.interact(rowRect, true)
 
       let rowHover = interaction in [Pressed, Held, Hovered]
 
@@ -753,6 +754,7 @@ template listBox*[T](id: string, items: seq[T], selectedIndex: var int) =
         rowRect = rect(sk.at, vec2(itemWidth, rowHeight))
         textPos = sk.at + vec2(sk.theme.padding.float32, sk.theme.padding.float32 * 0.5)
         isSelected = selectedIndex == i
+        interaction = sk.interact(rowRect, true)
         rowHover = interaction in [Pressed, Held, Hovered]
 
       if interaction == Released:
@@ -900,26 +902,30 @@ template scrubber*[T, U](id: string, value: var T, minVal: T, maxVal: U, label: 
   # Draw track.
   sk.draw9Patch("scrubber.body.9patch", 4, controlRect.xy, controlRect.wh)
 
-  # Normalize current value.
-  let norm = if range == 0: 0f else: clamp((v - minF) / range, 0f, 1f)
-
-  # Handle geometry.
   let
+    # Normalize current value.
+    norm = if range == 0: 0f else: clamp((v - minF) / range, 0f, 1f)
+    # Handle geometry.
     handlePos = vec2(trackStart + norm * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
     handleRect = rect(handlePos, handleSize)
+    handleInteraction = sk.interact(handleRect, true)
+    controlInteraction = sk.interact(controlRect, true)
+    handleReleased = handleInteraction in [Released, ReleasedOutside]
+    controlReleased = controlInteraction in [Released, ReleasedOutside]
+    released = handleReleased or controlReleased
+    pressed = handleInteraction == Pressed or controlInteraction == Pressed
 
   # Dragging logic.
-  if scrubState.dragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+  if scrubState.dragging and released:
     scrubState.dragging = false
 
   if scrubState.dragging:
     let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
     value = (minF + t * range).T
-  elif sk.mouseHover(window, handleRect) or sk.mouseHover(window, controlRect):
-    if window.buttonPressed[MouseLeft]:
-      scrubState.dragging = true
-      let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
-      value = (minF + t * range).T
+  elif pressed:
+    scrubState.dragging = true
+    let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
+    value = (minF + t * range).T
 
   # Recompute normalized position after potential changes.
   let norm2 = if range == 0: 0f else: clamp((value.float32 - minF) / range, 0f, 1f)
