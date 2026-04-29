@@ -73,6 +73,12 @@ type
     menuPopupHoverColor*: ColorRGBX = rgbx(80, 80, 100, 180)
     menuPopupSelectedColor*: ColorRGBX = rgbx(60, 60, 80, 120)
 
+  Interactor* = object
+    ## Solve which widget the mouse is interacting with.
+    currentId*: int = -1
+    warmId*: int = -1
+    hotId*: int = -1
+
   Silky* = ref object
     ## Main Silky context shared across rendering backends.
     inFrame: bool = false
@@ -104,6 +110,8 @@ type
     frameStartTime*: float64
     frameTime*: float64
     avgFrameTime*: float64
+    interactor*: Interactor
+    window: Window
 
 var traceActive*: bool = false
 
@@ -265,8 +273,19 @@ proc beginUiShared*(sk: Silky, window: Window, size: IVec2) =
 
 proc clear*(sk: Silky)
 
+proc endInteractions(interactor: var Interactor) =
+  ## Commit warm state and resets per-frame counters.
+  interactor.hotId = interactor.warmId
+  interactor.warmId = -1
+  interactor.currentId = -1
+
+proc resetInteractions*(sk: Silky) =
+  ## Clear all interaction state.
+  sk.interactor.hotId = -1
+
 proc endUiShared*(sk: Silky) =
   ## Ends a frame after the backend has finished drawing.
+  sk.interactor.endInteractions()
   sk.clear()
   sk.popLayout()
   sk.popClipRect()
@@ -609,6 +628,7 @@ proc newSilky*(
   result = Silky()
   result.image = image
   result.atlas = atlas
+  result.window = window
   result.drawer = newDrawer(window, image)
 
 proc newSilky*(window: Window, atlasPngPath: string): Silky {.measure.} =
@@ -780,6 +800,18 @@ proc endUi*(sk: Silky) {.measure.} =
     quadCount
   )
   sk.endUiShared()
+
+proc buttonDown*(sk: Silky): ButtonView =
+  ## Returns a view that returns true if the selected button is down
+  sk.window.buttonDown
+
+proc buttonPressed*(sk: Silky): ButtonView =
+  ## Returns a view that returns true the frame the selected button is pressed
+  sk.window.buttonPressed
+
+proc buttonReleased*(sk: Silky): ButtonView =
+  ## Returns a view that returns true the frame the selected button is released
+  sk.window.buttonReleased
 
 when not defined(useDirectX) and
     not defined(useVulkan) and

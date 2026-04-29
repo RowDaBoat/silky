@@ -59,6 +59,15 @@ type
     rowH*: float32
     clicked*: bool
 
+  Interaction* = enum
+    None,
+    Pressed,
+    Held,
+    Released,
+    Hovered,
+    Disabled,
+    Error
+
 var
   subWindowStates*: Table[string, SubWindowState]
   frameStates*: Table[string, FrameState]
@@ -71,6 +80,55 @@ var
   menuLayouts: seq[MenuLayout]
   menuPathStack: seq[string]
 
+proc mouseHover(
+  interactor: var Interactor,
+  mousePos: Vec2,
+  clipRect: Rect,
+  widgetRect: Rect
+): bool =
+  ## Resolve mouse hovering by taking information from the last frame.
+  inc interactor.currentId
+
+  let hovering = mousePos.overlaps(widgetRect) and mousePos.overlaps(clipRect)
+
+  if hovering:
+    interactor.warmId = interactor.currentId
+
+  return interactor.hotId == interactor.currentId and hovering
+
+proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
+  discard window
+  let hit = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, r)
+  not sk.mouseConsumed and hit
+
+proc interact*(
+  sk: Silky,
+  mousePos: Vec2,
+  clipRect: Rect,
+  widgetRect: Rect,
+  isEnabled: bool,
+  isError: bool = false
+): Interaction =
+  ## Determine the interaction given mouse and widget states.
+  let
+    hover = sk.interactor.mouseHover(mousePos, clipRect, widgetRect)
+    pressed = sk.buttonPressed[MouseLeft]
+    down = sk.buttonDown[MouseLeft]
+    released = sk.buttonReleased[MouseLeft]
+
+  if not isEnabled:
+    return Disabled
+  if isError:
+    return Error
+  if not hover:
+    return None
+  if pressed:
+    return Pressed
+  if down:
+    return Held
+  if released:
+    return Released
+  return Hovered
 
 proc menuPathOpen(path: seq[string]): bool =
   ## Check if the given menu path is currently open.
@@ -103,12 +161,8 @@ proc vec2[A, B](x: A, y: B): Vec2 =
   ## Create a Vec2 from two numbers.
   vec2(x.float32, y.float32)
 
-proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
-  ## Check mouse inside rect and current clip.
-  discard window
-  not sk.mouseConsumed and
-  sk.mousePos.overlaps(r) and
-  sk.mousePos.overlaps(sk.clipRect)
+proc mouseOverlap(sk: Silky, window: Window, r: Rect): bool =
+  sk.mousePos.overlaps(r) and sk.mousePos.overlaps(sk.clipRect)
 
 proc subWindowStart*(
     sk: Silky,
@@ -300,7 +354,7 @@ proc frameEnd*(sk: Silky, window: Window, frameState: FrameState, originPos: Vec
     frameState.scrollPos.x = 0
 
   # Scroll wheel handling (only when mouse over frame).
-  if sk.mouseHover(window, rect(sk.pos, sk.size)):
+  if sk.mouseOverlap(window, rect(sk.pos, sk.size)):
     if not frameState.scrollingY and window.scrollDelta.y != 0:
       frameState.scrollPos.y += window.scrollDelta.y * ScrollSpeed
       frameState.scrollPos.y = clamp(frameState.scrollPos.y, 0.0, scrollMax.y)
@@ -392,51 +446,55 @@ template frame*(id: string, framePos, frameSize: Vec2, body: untyped) =
   sk.endWidget()
 
 template button*(label: string, isEnabled: bool, isError: bool, body: untyped) =
+  ## Create a button with enabled and error states.
   let
     textSize = sk.getTextSize(sk.textStyle, label)
     buttonSize = textSize + vec2(sk.theme.padding) * 2
     buttonRect = rect(sk.at, buttonSize)
-  let hover = sk.mouseHover(window, buttonRect)
-  let pressed = hover and window.buttonDown[MouseLeft]
 
   sk.beginWidget("Button", text = label, rect = buttonRect)
 
-  let patch =
-    if not isEnabled:
-      "button.disabled.9patch"
-    elif isError:
-      "button.error.9patch"
-    else:
-      "button.9patch"
-
-  let textColor =
-    if not isEnabled:
-      sk.theme.disabledTextColor
-    elif isError:
-      sk.theme.errorTextColor
-    else:
-      sk.theme.defaultTextColor
-
-  if isEnabled:
-    if hover:
-      let hoverPatch = if isError: "button.error.9patch" else: "button.hover.9patch"
-      if window.buttonReleased[MouseLeft]:
-        body
-      elif window.buttonDown[MouseLeft]:
-        let downPatch = if isError: "button.error.9patch" else: "button.down.9patch"
-        sk.draw9Patch(downPatch, 8, sk.at, buttonSize)
+  let
+    textColor =
+      if not isEnabled:
+        sk.theme.disabledTextColor
+      elif isError:
+        sk.theme.errorTextColor
       else:
-        sk.draw9Patch(hoverPatch, 8, sk.at, buttonSize)
-    else:
-      sk.draw9Patch(patch, 8, sk.at, buttonSize)
-  else:
-    sk.draw9Patch(patch, 8, sk.at, buttonSize)
+        sk.theme.defaultTextColor
+    interaction = sk.interact(
+      sk.mousePos,
+      sk.clipRect,
+      buttonRect,
+      isEnabled,
+      isError
+    )
 
-  discard sk.drawText(sk.textStyle, label, sk.at + vec2(sk.theme.padding), textColor)
+  let patch = case interaction
+    of Error:
+      "button.error.9patch"
+    of Disabled:
+      "button.disabled.9patch"
+    of None:
+      "button.9patch"
+    of Pressed, Held:
+      "button.down.9patch"
+    of Hovered, Released:
+      "button.hover.9patch"
 
-  sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hover)
+  sk.draw9Patch(patch, 8, sk.at, buttonSize)
+
+  if interaction == Released:
+    body
+
+  let
+    pressed = interaction == Pressed or interaction == Held
+    hovered = pressed or interaction == Hovered
+  sk.setWidgetState(enabled = isEnabled, pressed = pressed, hovered = hovered)
+
+  let at = sk.at + vec2(sk.theme.padding)
+  discard sk.drawText(sk.textStyle, label, at, textColor)
   sk.endWidget()
-
   sk.advance(buttonSize + vec2(sk.theme.padding))
 
 template button*(label: string, body: untyped) =
