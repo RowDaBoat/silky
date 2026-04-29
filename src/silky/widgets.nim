@@ -82,16 +82,6 @@ var
   menuLayouts: seq[MenuLayout]
   menuPathStack: seq[string]
 
-type Interaction* = enum
-  None,
-  Pressed,
-  Held,
-  Released,
-  ReleasedOutside,
-  Hovered,
-  Disabled,
-  Error
-
 proc mouseHover(
   interactor: var Interactor,
   mousePos: Vec2,
