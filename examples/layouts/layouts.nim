@@ -1,5 +1,5 @@
 import
-  vmath,
+  vmath, chroma,
   silky
 
 let builder = newAtlasBuilder(1024, 4)
@@ -9,7 +9,7 @@ builder.addFont("data/IBMPlexSans-Regular.ttf", "Default", 18.0)
 builder.write("dist/atlas.png")
 
 let window = newWindow(
-  "Basic Window",
+  "Layouts",
   ivec2(800, 600),
   vsync = false
 )
@@ -28,6 +28,12 @@ var
 window.onFrame = proc() =
   sk.beginUI(window, window.size)
 
+  # Draw tiled test texture as the background.
+  for x in 0 ..< 16:
+    for y in 0 ..< 10:
+      sk.at = vec2(x.float32 * 256, y.float32 * 256)
+      image("testTexture", rgbx(30, 30, 30, 255))
+
   subWindow("Layouts", showOverlapWindow, vec2(520, 100), vec2(250, 200)):
     text("Two overlapping buttons:")
 
@@ -43,6 +49,12 @@ window.onFrame = proc() =
       clicked = true
 
     inFrontClicked = clicked
+
+  if not showOverlapWindow:
+    if window.buttonPressed[MouseLeft]:
+      showOverlapWindow = true
+    sk.at = vec2(100, 100)
+    text("Click anywhere to show the window")
 
   sk.endUi()
   window.swapBuffers()
