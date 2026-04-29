@@ -34,6 +34,7 @@ type
 
   ScrubberState* = ref object
     dragging*: bool
+
   DropDownState* = ref object
     open*: bool
 
