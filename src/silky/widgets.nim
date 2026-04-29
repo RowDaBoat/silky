@@ -84,6 +84,7 @@ proc mouseHover(
   interactor: var Interactor,
   mousePos: Vec2,
   clipRect: Rect,
+  layer: int,
   widgetRect: Rect
 ): bool =
   ## Resolve mouse hovering by taking information from the last frame.
@@ -91,14 +92,15 @@ proc mouseHover(
 
   let hovering = mousePos.overlaps(widgetRect) and mousePos.overlaps(clipRect)
 
-  if hovering:
+  if hovering and layer >= interactor.warmLayer:
+    interactor.warmLayer = layer
     interactor.warmId = interactor.currentId
 
   return interactor.hotId == interactor.currentId and hovering
 
 proc mouseHover*(sk: Silky, window: Window, r: Rect): bool =
   discard window
-  let hit = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, r)
+  let hit = sk.interactor.mouseHover(sk.mousePos, sk.clipRect, sk.currentDrawLayer, r)
   not sk.mouseConsumed and hit
 
 proc interact*(
@@ -111,7 +113,7 @@ proc interact*(
 ): Interaction =
   ## Determine the interaction given mouse and widget states.
   let
-    hover = sk.interactor.mouseHover(mousePos, clipRect, widgetRect)
+    hover = sk.interactor.mouseHover(mousePos, clipRect, sk.currentDrawLayer, widgetRect)
     pressed = sk.buttonPressed[MouseLeft]
     down = sk.buttonDown[MouseLeft]
     released = sk.buttonReleased[MouseLeft]
@@ -655,38 +657,31 @@ template checkBox*(label: string, value: var bool) =
 template dropDown*[T](selected: var T, options: openArray[T]) =
   ## Dropdown styled like input text; options render in a new layer.
   let id = "dropdown_" & $cast[uint](addr selected)
+
   if id notin dropDownStates:
     dropDownStates[id] = DropDownState()
-  let state = dropDownStates[id]
 
   let
+    state = dropDownStates[id]
     font = sk.atlas.fonts[sk.textStyle]
     height = font.lineHeight + sk.theme.padding.float32 * 2
     width = sk.size.x - sk.theme.padding.float32 * 3
     arrowSize = sk.getImageSize("droparrow")
     dropRect = rect(sk.at, vec2(width, height))
-
-  let displayText = $selected
-
-  # Consume mouse for widgets rendered below the open popup.
-  if state.open and options.len > 0:
-    let popupRect = rect(
-      vec2(dropRect.x, dropRect.y + dropRect.h),
-      vec2(width, height * options.len.float32)
-    )
-    if window.mousePos.vec2.overlaps(popupRect):
-      sk.mouseConsumed = true
-
-  sk.beginWidget("DropDown", text = displayText, rect = dropRect)
+    displayText = $selected
 
   # Toggle open/close on click.
-  let hover = sk.mouseHover(window, dropRect)
-  if hover and window.buttonReleased[MouseLeft]:
+  sk.beginWidget("DropDown", text = displayText, rect = dropRect)
+
+  let interaction = sk.interact(sk.mousePos, sk.clipRect, dropRect, true)
+
+  if interaction == Released:
     state.open = not state.open
 
   # Draw control body.
   sk.pushLayout(sk.at, vec2(width, height))
-  let bgColor = if state.open or hover: sk.theme.dropdownHoverBgColor else: sk.theme.dropdownBgColor
+  let hovered = interaction in [Pressed, Held, Hovered]
+  let bgColor = if state.open or hovered: sk.theme.dropdownHoverBgColor else: sk.theme.dropdownBgColor
   sk.draw9Patch("dropdown.9patch", 6, sk.pos, sk.size, bgColor)
   discard sk.drawText(sk.textStyle, displayText, sk.at + vec2(sk.theme.padding), sk.theme.defaultTextColor)
   let arrowPos = vec2(
@@ -717,15 +712,19 @@ template dropDown*[T](selected: var T, options: openArray[T]) =
         rowPos = vec2(sk.pos.x, sk.pos.y + i.float32 * rowHeight)
         rowRect = rect(rowPos, vec2(width, rowHeight))
         textPos = rowPos + vec2(sk.theme.padding)
-      let
         isSelected = selected == opt
-        rowHover = window.mousePos.vec2.overlaps(rowRect)
-      if rowHover or isSelected:
-        let tint = if rowHover: sk.theme.menuPopupHoverColor else: sk.theme.menuPopupSelectedColor
-        sk.drawRect(rowRect.xy, rowRect.wh, tint)
-        if rowHover and window.buttonReleased[MouseLeft]:
-          selected = opt
-          state.open = false
+        interaction = sk.interact(sk.mousePos, sk.clipRect, rowRect, true)
+
+      let rowHover = interaction in [Pressed, Held, Hovered]
+
+      if interaction == Released:
+        selected = opt
+        state.open = false
+
+      if rowHover:
+        sk.drawRect(rowRect.xy, rowRect.wh, sk.theme.menuPopupHoverColor)
+      elif isSelected:
+        sk.drawRect(rowRect.xy, rowRect.wh, sk.theme.menuPopupSelectedColor)
       discard sk.drawText(sk.textStyle, $opt, textPos, sk.theme.defaultTextColor)
 
     sk.popLayout()
@@ -753,16 +752,16 @@ template listBox*[T](id: string, items: seq[T], selectedIndex: var int) =
       let
         rowRect = rect(sk.at, vec2(itemWidth, rowHeight))
         textPos = sk.at + vec2(sk.theme.padding.float32, sk.theme.padding.float32 * 0.5)
+        isSelected = selectedIndex == i
+        rowHover = interaction in [Pressed, Held, Hovered]
 
-      let isSelected = selectedIndex == i
-      let rowHover = sk.mouseHover(window, rowRect)
+      if interaction == Released:
+        selectedIndex = i
 
-      if rowHover or isSelected:
-        let tint = if rowHover: sk.theme.menuPopupHoverColor else: sk.theme.menuPopupSelectedColor
-        sk.drawRect(rowRect.xy, rowRect.wh, tint)
-        if rowHover and window.buttonReleased[MouseLeft]:
-          selectedIndex = i
-
+      if rowHover:
+        sk.drawRect(rowRect.xy, rowRect.wh, sk.theme.menuPopupHoverColor)
+      elif isSelected:
+        sk.drawRect(rowRect.xy, rowRect.wh, sk.theme.menuPopupSelectedColor)
       discard sk.drawText(sk.textStyle, $item, textPos, sk.theme.defaultTextColor)
       sk.advance(vec2(itemWidth, rowHeight - sk.theme.spacing.float32))
   sk.advance(vec2(outerWidth, listHeight))
