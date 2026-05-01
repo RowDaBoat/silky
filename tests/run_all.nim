@@ -6,6 +6,7 @@ const Examples = [
   "basicwindow",
   "calculator",
   "gameplayer",
+  "layouts",
   "menu",
   "panels",
   "the7gui",
